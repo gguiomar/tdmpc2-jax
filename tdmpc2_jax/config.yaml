@@ -5,8 +5,8 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 seed: 0
-max_steps: 500_000
-buffer_size: 500_000
+max_steps: 1_000_000
+buffer_size: 1_000_000
 save_interval_steps: 100000
 log_interval_steps: 10000
 
@@ -46,8 +46,6 @@ tdmpc2:
   population_size: 512
   policy_prior_samples: 24
   num_elites: 64
-  normalize_elite_values: False
-  normalized_elite_scale: 100
   min_plan_std: 0.05
   max_plan_std: 2
   temperature: 0.5

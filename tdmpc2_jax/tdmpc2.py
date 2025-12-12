@@ -25,8 +25,6 @@ class TDMPC2(struct.PyTreeNode):
   population_size: int = struct.field(pytree_node=False)
   policy_prior_samples: int = struct.field(pytree_node=False)
   num_elites: int = struct.field(pytree_node=False)
-  normalize_elite_values: bool = struct.field(pytree_node=False)
-  normalized_elite_scale: float
   min_plan_std: float
   max_plan_std: float
   temperature: float
@@ -50,8 +48,6 @@ class TDMPC2(struct.PyTreeNode):
              population_size: int,
              policy_prior_samples: int,
              num_elites: int,
-             normalize_elite_values: bool,
-             normalized_elite_scale: float,
              min_plan_std: float,
              max_plan_std: float,
              temperature: float,
@@ -73,8 +69,6 @@ class TDMPC2(struct.PyTreeNode):
                population_size=population_size,
                policy_prior_samples=policy_prior_samples,
                num_elites=num_elites,
-               normalize_elite_values=normalize_elite_values,
-               normalized_elite_scale=normalized_elite_scale,
                min_plan_std=min_plan_std,
                max_plan_std=max_plan_std,
                temperature=temperature,
@@ -218,12 +212,6 @@ class TDMPC2(struct.PyTreeNode):
       elite_actions = jnp.take_along_axis(
           actions, elite_inds[..., None, None], axis=-3
       )
-
-      if self.normalize_elite_values:
-        # Normalize elites to make softmax invariant to value scale as in [1]
-        # [1] Williams2016 - Aggressive driving with model predictive integral control
-        value_scale = abs(values).mean(axis=-1, keepdims=True).clip(1, None)
-        elite_values = elite_values / value_scale * self.normalized_elite_scale
 
       # Update population distribution
       score = jax.nn.softmax(self.temperature * elite_values)

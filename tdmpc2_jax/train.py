@@ -82,17 +82,20 @@ def train(cfg: dict):
   ##############################
   # Agent setup
   ##############################
-  dtype = jnp.dtype(model_config.dtype)
   rng, model_key, encoder_key = jax.random.split(rng, 3)
   encoder_module = nn.Sequential(
       [
           NormedLinear(
-              encoder_config.encoder_dim, activation=mish, dtype=dtype
+              encoder_config.encoder_dim, 
+              activation=mish, 
+              dtype=model_config.dtype
           )
           for _ in range(encoder_config.num_encoder_layers-1)
       ] + [
-          NormedLinear(
-              model_config.latent_dim, activation=None, dtype=dtype
+          nn.Dense(
+              model_config.latent_dim, 
+              kernel_init=nn.initializers.truncated_normal(0.02),
+              dtype=model_config.dtype
           )
       ]
   )
