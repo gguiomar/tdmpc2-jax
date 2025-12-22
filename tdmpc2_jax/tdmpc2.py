@@ -8,11 +8,10 @@ import optax
 
 from tdmpc2_jax.world_model import WorldModel
 import jax.numpy as jnp
-from tdmpc2_jax.common.loss import soft_crossentropy
 import numpy as np
 from typing import Any, Dict, Optional, Tuple
 from tdmpc2_jax.common.scale import percentile_normalization
-from tdmpc2_jax.common.util import sg
+from tdmpc2_jax.common.util import sg, two_hot, symlog, cross_entropy
 
 
 class TDMPC2(struct.PyTreeNode):
@@ -306,12 +305,15 @@ class TDMPC2(struct.PyTreeNode):
           z=latent_zs[:-1], a=actions, params=reward_params,
       )
       reward_loss = jnp.sum(
-          lam[:, None] * soft_crossentropy(
+          lam[:, None] * cross_entropy(
               pred_logits=reward_logits,
-              target=rewards,
-              low=self.model.symlog_min,
-              high=self.model.symlog_max,
-              num_bins=self.model.num_bins,
+              target=two_hot(
+                  x=symlog(rewards),
+                  low=self.model.symlog_min,
+                  high=self.model.symlog_max,
+                  num_bins=self.model.num_bins,
+              ),
+
           ), axis=0, where=~finished[:-1]
       ).mean()
 
@@ -359,12 +361,16 @@ class TDMPC2(struct.PyTreeNode):
           key=value_key
       )
       value_loss = jnp.sum(
-          lam[:, None] * soft_crossentropy(
+          lam[:, None] * cross_entropy(
               pred_logits=value_logits,
-              target=sg(td_targets),
-              low=self.model.symlog_min,
-              high=self.model.symlog_max,
-              num_bins=self.model.num_bins
+              target=sg(
+                  two_hot(
+                      x=symlog(td_targets),
+                      low=self.model.symlog_min,
+                      high=self.model.symlog_max,
+                      num_bins=self.model.num_bins
+                  )
+              ),
           ), axis=1, where=~finished[:-1]
       ).mean()
 

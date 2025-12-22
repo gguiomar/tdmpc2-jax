@@ -33,7 +33,7 @@ def two_hot(x: jax.Array, low: float, high: float, num_bins: int) -> jax.Array:
   """
   bin_size = (high - low) / (num_bins - 1)
 
-  x = jnp.clip(symlog(x), low, high)
+  x = jnp.clip(x, low, high)
   bin_index = jnp.floor((x - low) / bin_size).astype(int)
   bin_offset = ((x - low) / bin_size - bin_index.astype(float))
 
@@ -44,17 +44,21 @@ def two_hot(x: jax.Array, low: float, high: float, num_bins: int) -> jax.Array:
   return two_hot
 
 
-def two_hot_inv(x: jax.Array,
-                low: float, high: float, num_bins: int,
-                apply_softmax: bool = True) -> jax.Array:
+def two_hot_inv(
+    probs: jax.Array,
+    low: float,
+    high: float,
+    num_bins: int,
+) -> jax.Array:
 
   bins = jnp.linspace(low, high, num_bins)
 
-  if apply_softmax:
-    x = jax.nn.softmax(x, axis=-1)
-
-  x = jnp.sum(x * bins, axis=-1)
-  return symexp(x)
+  probs = jnp.sum(probs * bins, axis=-1)
+  return probs
 
 
 def sg(x): return jax.tree.map(jax.lax.stop_gradient, x)
+
+
+def cross_entropy(pred_logits: jax.Array, target: jax.Array) -> jax.Array:
+  return -(jax.nn.log_softmax(pred_logits, axis=-1) * target).sum(axis=-1)

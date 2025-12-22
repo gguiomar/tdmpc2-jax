@@ -12,8 +12,8 @@ from flax.training.train_state import TrainState
 from jaxtyping import PRNGKeyArray, PyTree
 
 from tdmpc2_jax.common.activations import mish, simnorm
-from tdmpc2_jax.common.util import two_hot_inv
-from tdmpc2_jax.networks import Ensemble, NormedLinear
+from tdmpc2_jax.common.util import symexp, two_hot_inv
+from tdmpc2_jax.networks import NormedLinear
 
 
 class WorldModel(struct.PyTreeNode):
@@ -123,13 +123,26 @@ class WorldModel(struct.PyTreeNode):
 
     # Return/value model (ensemble)
     value_param_key, value_dropout_key = jax.random.split(value_key)
-    value_base = partial(nn.Sequential, [
-        NormedLinear(latent_dim, activation=mish,
-                     dropout_rate=value_dropout, dtype=dtype),
-        NormedLinear(latent_dim, activation=mish, dtype=dtype),
-        nn.Dense(num_bins, kernel_init=nn.initializers.zeros, dtype=dtype)
-    ])
-    value_ensemble = Ensemble(value_base, num=num_value_nets)
+    value_ensemble = nn.vmap(
+        partial(nn.Sequential, [
+            NormedLinear(
+                latent_dim,
+                activation=mish,
+                dropout_rate=value_dropout,
+                dtype=dtype
+            ),
+            NormedLinear(latent_dim, activation=mish, dtype=dtype),
+            nn.Dense(num_bins, kernel_init=nn.initializers.zeros, dtype=dtype)
+        ]),
+        variable_axes={'params': 0},
+        split_rngs={
+            'params': True,
+            'dropout': True
+        },
+        in_axes=None,
+        out_axes=0,
+        axis_size=num_value_nets
+    )()
     value_model = TrainState.create(
         apply_fn=value_ensemble.apply,
         params=value_ensemble.init(
@@ -263,10 +276,40 @@ class WorldModel(struct.PyTreeNode):
     logits = self.reward_model.apply_fn(
         {'params': params}, z
     ).astype(jnp.float32)
-    reward = two_hot_inv(
-        logits, self.symlog_min, self.symlog_max, self.num_bins
+
+    reward = symexp(
+        two_hot_inv(
+            probs=jax.nn.softmax(logits, axis=-1),
+            low=self.symlog_min,
+            high=self.symlog_max,
+            num_bins=self.num_bins
+        )
     )
     return reward, logits
+
+  @partial(jax.jit, static_argnames=('train',))
+  def Q(
+      self,
+      z: jax.Array,
+      a: jax.Array,
+      train: bool,
+      params: Dict[str, Any],
+      key: PRNGKeyArray
+  ) -> Tuple[jax.Array, jax.Array]:
+    z = jnp.concatenate([z, a], axis=-1)
+    logits = self.value_model.apply_fn(
+        {'params': params}, z, train, rngs={'dropout': key}
+    ).astype(jnp.float32)
+
+    Q = symexp(
+        two_hot_inv(
+            probs=jax.nn.softmax(logits, axis=-1),
+            low=self.symlog_min,
+            high=self.symlog_max,
+            num_bins=self.num_bins
+        )
+    )
+    return Q, logits
 
   @partial(jax.jit, static_argnames=('deterministic',))
   def sample_actions(
@@ -302,20 +345,3 @@ class WorldModel(struct.PyTreeNode):
     mean = jnp.tanh(mean)
     action = jnp.tanh(action)
     return action, mean, log_std, log_probs
-
-  @partial(jax.jit, static_argnames=('train',))
-  def Q(
-      self,
-      z: jax.Array,
-      a: jax.Array,
-      train: bool,
-      params: Dict[str, Any],
-      key: PRNGKeyArray
-  ) -> Tuple[jax.Array, jax.Array]:
-    z = jnp.concatenate([z, a], axis=-1)
-    logits = self.value_model.apply_fn(
-        {'params': params}, z, train, rngs={'dropout': key}
-    ).astype(jnp.float32)
-
-    Q = two_hot_inv(logits, self.symlog_min, self.symlog_max, self.num_bins)
-    return Q, logits
