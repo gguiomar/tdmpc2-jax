@@ -6,6 +6,7 @@ import jax
 from jaxtyping import PRNGKeyArray, PyTree
 import optax
 
+from tdmpc2_jax.networks.temperature import update_temperature
 from tdmpc2_jax.world_model import WorldModel
 import jax.numpy as jnp
 import numpy as np
@@ -35,7 +36,6 @@ class TDMPC2(struct.PyTreeNode):
   reward_loss_scale: float
   value_loss_scale: float
   continue_loss_scale: float
-  entropy_coef: float
   tau: float
 
   @classmethod
@@ -58,7 +58,6 @@ class TDMPC2(struct.PyTreeNode):
              reward_loss_scale: float,
              value_loss_scale: float,
              continue_loss_scale: float,
-             entropy_coef: float,
              tau: float
              ) -> TDMPC2:
 
@@ -78,7 +77,6 @@ class TDMPC2(struct.PyTreeNode):
                reward_loss_scale=reward_loss_scale,
                value_loss_scale=value_loss_scale,
                continue_loss_scale=continue_loss_scale,
-               entropy_coef=entropy_coef,
                tau=tau,
                value_scale=jnp.array([1.0]),
                )
@@ -469,20 +467,30 @@ class TDMPC2(struct.PyTreeNode):
       )
       Q = Qs.mean(axis=0)
       Q_scale = percentile_normalization(Q[0], self.value_scale).clip(1, None)
+      alpha = self.model.temperature_model.apply_fn(
+          {'params': self.model.temperature_model.params}
+      )
       policy_loss = jnp.sum(
-          lam[:, None] * (self.entropy_coef * log_probs - Q / sg(Q_scale)),
+          lam[:, None] * (alpha * log_probs - Q / sg(Q_scale)),
           axis=0, where=~finished
       ).mean()
       return policy_loss, {
           'policy_loss': policy_loss,
-          'policy_log_std': log_std,
-          'value_scale': Q_scale
+          'policy_std': jnp.exp(log_std).mean(),
+          'policy_entropy': -log_probs.mean(),
+          'value_scale': Q_scale,
       }
 
     policy_grads, policy_info = jax.grad(policy_loss_fn, has_aux=True)(
         self.model.policy_model.params
     )
     new_policy = self.model.policy_model.apply_gradients(grads=policy_grads)
+
+    new_temperature, temperature_info = update_temperature(
+        model=self.model.temperature_model,
+        entropy=policy_info['policy_entropy'],
+        target_entropy=-self.model.action_dim/2,
+    )
 
     # Update model
     new_agent = self.replace(
@@ -492,12 +500,13 @@ class TDMPC2(struct.PyTreeNode):
             reward_model=new_reward_model,
             value_model=new_value_model,
             policy_model=new_policy,
+            temperature_model=new_temperature,
             target_value_model=new_target_value_model,
             continue_model=new_continue_model
         ),
         value_scale=policy_info['value_scale']
     )
-    info = {**model_info, **policy_info}
+    info = {**model_info, **policy_info, **temperature_info}
 
     return new_agent, info
 

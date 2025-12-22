@@ -14,6 +14,8 @@ from jaxtyping import PRNGKeyArray, PyTree
 from tdmpc2_jax.common.activations import mish, simnorm
 from tdmpc2_jax.common.util import symexp, two_hot_inv
 from tdmpc2_jax.networks import NormedLinear
+from tdmpc2_jax.networks.bronet import BroNet
+from tdmpc2_jax.networks.temperature import Temperature
 
 
 class WorldModel(struct.PyTreeNode):
@@ -22,6 +24,7 @@ class WorldModel(struct.PyTreeNode):
   dynamics_model: TrainState
   reward_model: TrainState
   policy_model: TrainState
+  temperature_model: TrainState
   value_model: TrainState
   target_value_model: TrainState
   continue_model: TrainState
@@ -65,8 +68,12 @@ class WorldModel(struct.PyTreeNode):
 
     # Latent forward dynamics model
     dynamics_module = nn.Sequential([
-        NormedLinear(latent_dim, activation=mish, dtype=dtype),
-        NormedLinear(latent_dim, activation=mish, dtype=dtype),
+        BroNet(
+            embed_dim=latent_dim,
+            num_blocks=2,
+            kernel_init=nn.initializers.truncated_normal(0.02),
+            dtype=dtype
+        ),
         nn.Dense(
             latent_dim,
             kernel_init=nn.initializers.truncated_normal(0.02),
@@ -119,6 +126,14 @@ class WorldModel(struct.PyTreeNode):
             optax.clip_by_global_norm(max_grad_norm),
             optax.adamw(learning_rate),
         )
+    )
+
+    # Temperature model
+    temperature_module = Temperature(initial_temperature=1e-2)
+    temperature_model = TrainState.create(
+        apply_fn=temperature_module.apply,
+        params=temperature_module.init(jax.random.key(0))['params'],
+        tx=optax.adam(learning_rate)
     )
 
     # Return/value model (ensemble)
@@ -235,6 +250,7 @@ class WorldModel(struct.PyTreeNode):
         dynamics_model=dynamics_model,
         reward_model=reward_model,
         policy_model=policy_model,
+        temperature_model=temperature_model,
         value_model=value_model,
         target_value_model=target_value_model,
         continue_model=continue_model,

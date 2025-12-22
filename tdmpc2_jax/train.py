@@ -21,6 +21,7 @@ from tdmpc2_jax.common.activations import mish, simnorm
 from tdmpc2_jax.data import SequentialReplayBuffer
 from tdmpc2_jax.envs.dmcontrol import make_dmc_env
 from tdmpc2_jax.networks import NormedLinear
+from tdmpc2_jax.networks.bronet import BroNet
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -85,15 +86,14 @@ def train(cfg: dict):
   rng, model_key, encoder_key = jax.random.split(rng, 3)
   encoder_module = nn.Sequential(
       [
-          NormedLinear(
-              encoder_config.encoder_dim, 
-              activation=mish, 
-              dtype=model_config.dtype
-          )
-          for _ in range(encoder_config.num_encoder_layers-1)
-      ] + [
+          BroNet(
+              embed_dim=encoder_config.embed_dim,
+              num_blocks=encoder_config.num_blocks,
+              kernel_init=nn.initializers.truncated_normal(0.02),
+              dtype=model_config.dtype,
+          ),
           nn.Dense(
-              model_config.latent_dim, 
+              model_config.latent_dim,
               kernel_init=nn.initializers.truncated_normal(0.02),
               dtype=model_config.dtype
           )
@@ -140,7 +140,7 @@ def train(cfg: dict):
       tx=optax.chain(
           optax.zero_nans(),
           optax.clip_by_global_norm(model_config.max_grad_norm),
-          optax.adam(encoder_config.learning_rate),
+          optax.adamw(encoder_config.learning_rate),
       )
   )
 
