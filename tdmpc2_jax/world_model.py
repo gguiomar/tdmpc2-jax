@@ -101,26 +101,6 @@ class WorldModel(struct.PyTreeNode):
         )
     )
 
-    # Policy model
-    policy_module = nn.Sequential([
-        NormedLinear(latent_dim, activation=mish, dtype=dtype),
-        NormedLinear(latent_dim, activation=mish, dtype=dtype),
-        nn.Dense(
-            2*action_dim,
-            kernel_init=nn.initializers.truncated_normal(0.02),
-            dtype=dtype
-        )
-    ])
-    policy_model = TrainState.create(
-        apply_fn=policy_module.apply,
-        params=policy_module.init(policy_key, jnp.zeros(latent_dim))['params'],
-        tx=optax.chain(
-            optax.zero_nans(),
-            optax.clip_by_global_norm(max_grad_norm),
-            optax.adamw(learning_rate),
-        )
-    )
-
     # Return/value model (ensemble)
     value_param_key, value_dropout_key = jax.random.split(value_key)
     value_ensemble = nn.vmap(
@@ -157,7 +137,28 @@ class WorldModel(struct.PyTreeNode):
     target_value_model = TrainState.create(
         apply_fn=value_ensemble.apply,
         params=copy.deepcopy(value_model.params),
-        tx=optax.GradientTransformation(lambda _: None, lambda _: None))
+        tx=optax.GradientTransformation(lambda _: None, lambda _: None)
+        )
+    
+    # Policy model
+    policy_module = nn.Sequential([
+        NormedLinear(latent_dim, activation=mish, dtype=dtype),
+        NormedLinear(latent_dim, activation=mish, dtype=dtype),
+        nn.Dense(
+            2*action_dim,
+            kernel_init=nn.initializers.truncated_normal(0.02),
+            dtype=dtype
+        )
+    ])
+    policy_model = TrainState.create(
+        apply_fn=policy_module.apply,
+        params=policy_module.init(policy_key, jnp.zeros(latent_dim))['params'],
+        tx=optax.chain(
+            optax.zero_nans(),
+            optax.clip_by_global_norm(max_grad_norm),
+            optax.adamw(learning_rate),
+        )
+    )
 
     if predict_continues:
       continue_module = nn.Sequential([
