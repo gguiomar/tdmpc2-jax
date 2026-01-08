@@ -138,8 +138,8 @@ class WorldModel(struct.PyTreeNode):
         apply_fn=value_ensemble.apply,
         params=copy.deepcopy(value_model.params),
         tx=optax.GradientTransformation(lambda _: None, lambda _: None)
-        )
-    
+    )
+
     # Policy model
     policy_module = nn.Sequential([
         NormedLinear(latent_dim, activation=mish, dtype=dtype),

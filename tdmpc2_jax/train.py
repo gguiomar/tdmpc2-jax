@@ -80,13 +80,36 @@ def train(cfg: dict):
   rng = jax.random.PRNGKey(cfg.seed)
 
   ##############################
+  # Replay buffer setup
+  ##############################
+  dummy_obs, _ = env.reset()
+  dummy_action = env.action_space.sample()
+  dummy_next_obs, dummy_reward, dummy_term, dummy_trunc, _ = env.step(
+      dummy_action
+  )
+  replay_buffer = SequentialReplayBuffer(
+      capacity=cfg.buffer_size,
+      vectorized=True,
+      num_envs=env_config.num_envs,
+      seed=cfg.seed,
+      dummy_input=dict(
+          observation=dummy_obs,
+          action=dummy_action,
+          reward=dummy_reward,
+          next_observation=dummy_next_obs,
+          terminated=dummy_term,
+          truncated=dummy_trunc
+      )
+  )
+  
+  ##############################
   # Agent setup
   ##############################
   rng, model_key, encoder_key = jax.random.split(rng, 3)
   encoder_module = nn.Sequential(
       [
           NormedLinear(
-              encoder_config.encoder_dim, 
+              encoder_config.embed_dim, 
               activation=mish, 
               dtype=model_config.dtype
           )
@@ -111,28 +134,6 @@ def train(cfg: dict):
         )
     )
 
-  ##############################
-  # Replay buffer setup
-  ##############################
-  dummy_obs, _ = env.reset()
-  dummy_action = env.action_space.sample()
-  dummy_next_obs, dummy_reward, dummy_term, dummy_trunc, _ = env.step(
-      dummy_action
-  )
-  replay_buffer = SequentialReplayBuffer(
-      capacity=cfg.buffer_size,
-      vectorized=True,
-      num_envs=env_config.num_envs,
-      seed=cfg.seed,
-      dummy_input=dict(
-          observation=dummy_obs,
-          action=dummy_action,
-          reward=dummy_reward,
-          next_observation=dummy_next_obs,
-          terminated=dummy_term,
-          truncated=dummy_trunc
-      )
-  )
 
   encoder = TrainState.create(
       apply_fn=encoder_module.apply,

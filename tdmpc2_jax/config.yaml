@@ -36,7 +36,7 @@ world_model:
   simnorm_dim: 8
   learning_rate: 3e-4
   predict_continues: False
-  dtype: float32
+  dtype: bfloat16
   max_grad_norm: 20
   tabulate: False
 
