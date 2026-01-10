@@ -8,10 +8,11 @@ import optax
 
 from tdmpc2_jax.world_model import WorldModel
 import jax.numpy as jnp
+from tdmpc2_jax.common.loss import cross_entropy
 import numpy as np
 from typing import Any, Dict, Optional, Tuple
 from tdmpc2_jax.common.scale import percentile_normalization
-from tdmpc2_jax.common.util import sg, two_hot, symlog, cross_entropy
+from tdmpc2_jax.common.util import sg, symlog, two_hot
 
 
 class TDMPC2(struct.PyTreeNode):
@@ -306,14 +307,13 @@ class TDMPC2(struct.PyTreeNode):
       )
       reward_loss = jnp.sum(
           lam[:, None] * cross_entropy(
-              pred_logits=reward_logits,
+              logits=reward_logits,
               target=two_hot(
                   x=symlog(rewards),
                   low=self.model.symlog_min,
                   high=self.model.symlog_max,
                   num_bins=self.model.num_bins,
-              ),
-
+              )
           ), axis=0, where=~finished[:-1]
       ).mean()
 
@@ -362,7 +362,7 @@ class TDMPC2(struct.PyTreeNode):
       )
       value_loss = jnp.sum(
           lam[:, None] * cross_entropy(
-              pred_logits=value_logits,
+              logits=value_logits,
               target=sg(
                   two_hot(
                       x=symlog(td_targets),

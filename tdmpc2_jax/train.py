@@ -80,6 +80,38 @@ def train(cfg: dict):
   rng = jax.random.PRNGKey(cfg.seed)
 
   ##############################
+  # Agent setup
+  ##############################
+  rng, model_key, encoder_key = jax.random.split(rng, 3)
+  encoder_module = nn.Sequential(
+      [
+          NormedLinear(
+              encoder_config.encoder_dim, 
+              activation=mish, 
+              dtype=model_config.dtype
+          )
+          for _ in range(encoder_config.num_encoder_layers-1)
+      ] + [
+          nn.Dense(
+              model_config.latent_dim, 
+              kernel_init=nn.initializers.truncated_normal(0.02),
+              dtype=model_config.dtype
+          )
+      ]
+  )
+
+  if encoder_config.tabulate:
+    print("Encoder")
+    print("--------------")
+    print(
+        encoder_module.tabulate(
+            jax.random.key(0),
+            env.observation_space.sample(),
+            compute_flops=True
+        )
+    )
+
+  ##############################
   # Replay buffer setup
   ##############################
   dummy_obs, _ = env.reset()
@@ -101,39 +133,6 @@ def train(cfg: dict):
           truncated=dummy_trunc
       )
   )
-  
-  ##############################
-  # Agent setup
-  ##############################
-  rng, model_key, encoder_key = jax.random.split(rng, 3)
-  encoder_module = nn.Sequential(
-      [
-          NormedLinear(
-              encoder_config.embed_dim, 
-              activation=mish, 
-              dtype=model_config.dtype
-          )
-          for _ in range(encoder_config.num_layers-1)
-      ] + [
-          nn.Dense(
-              model_config.latent_dim, 
-              kernel_init=nn.initializers.truncated_normal(0.02),
-              dtype=model_config.dtype
-          )
-      ]
-  )
-
-  if encoder_config.tabulate:
-    print("Encoder")
-    print("--------------")
-    print(
-        encoder_module.tabulate(
-            jax.random.key(0),
-            env.observation_space.sample(),
-            compute_flops=True
-        )
-    )
-
 
   encoder = TrainState.create(
       apply_fn=encoder_module.apply,
@@ -201,10 +200,14 @@ def train(cfg: dict):
     plan = None
     observation, _ = env.reset(seed=cfg.seed)
 
+    T = 500
+    seed_steps = int(
+        max(5*T, 1000) * env_config.num_envs * env_config.utd_ratio
+    )
     pbar = tqdm.tqdm(initial=global_step, total=cfg.max_steps)
     done = np.zeros(env_config.num_envs, dtype=bool)
     for global_step in range(global_step, cfg.max_steps, env_config.num_envs):
-      if global_step <= cfg.seed_steps:
+      if global_step <= seed_steps:
         action = env.action_space.sample()
       else:
         rng, action_key = jax.random.split(rng)
@@ -252,10 +255,10 @@ def train(cfg: dict):
             writer.scalar(f'episode/length', l, global_step + ienv)
             ep_count[ienv] += 1
 
-      if global_step >= cfg.seed_steps:
-        if global_step == cfg.seed_steps:
+      if global_step >= seed_steps:
+        if global_step == seed_steps:
           print('Pre-training on seed data...')
-          num_updates = cfg.seed_steps
+          num_updates = seed_steps
         else:
           num_updates = max(1, int(env_config.num_envs * env_config.utd_ratio))
 

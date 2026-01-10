@@ -48,17 +48,9 @@ def two_hot_inv(
     probs: jax.Array,
     low: float,
     high: float,
-    num_bins: int,
+    num_bins: int
 ) -> jax.Array:
-
-  bins = jnp.linspace(low, high, num_bins)
-
-  probs = jnp.sum(probs * bins, axis=-1)
-  return probs
-
+  support = jnp.linspace(low, high, num_bins)
+  return jnp.sum(probs * support, axis=-1)
 
 def sg(x): return jax.tree.map(jax.lax.stop_gradient, x)
-
-
-def cross_entropy(pred_logits: jax.Array, target: jax.Array) -> jax.Array:
-  return -(jax.nn.log_softmax(pred_logits, axis=-1) * target).sum(axis=-1)
