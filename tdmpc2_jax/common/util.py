@@ -54,3 +54,6 @@ def two_hot_inv(
   return jnp.sum(probs * support, axis=-1)
 
 def sg(x): return jax.tree.map(jax.lax.stop_gradient, x)
+
+def cross_entropy(logits: jax.Array, target: jax.Array) -> jax.Array:
+  return -(jax.nn.log_softmax(logits, axis=-1) * target).sum(axis=-1)

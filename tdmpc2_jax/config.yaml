@@ -6,6 +6,7 @@ hydra:
 
 seed: 0
 max_steps: 1_000_000
+seed_steps: 10_000
 buffer_size: 1_000_000
 save_interval_steps: 100000
 log_interval_steps: 10000
@@ -20,8 +21,8 @@ env:
   dmc: { obs_type: state }
 
 encoder:
-  encoder_dim: 256
-  num_encoder_layers: 2
+  embed_dim: 256
+  num_layers: 2
   learning_rate: 1e-4
   tabulate: False
 

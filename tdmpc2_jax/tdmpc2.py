@@ -8,11 +8,10 @@ import optax
 
 from tdmpc2_jax.world_model import WorldModel
 import jax.numpy as jnp
-from tdmpc2_jax.common.loss import cross_entropy
 import numpy as np
 from typing import Any, Dict, Optional, Tuple
 from tdmpc2_jax.common.scale import percentile_normalization
-from tdmpc2_jax.common.util import sg, symlog, two_hot
+from tdmpc2_jax.common.util import sg, symlog, two_hot, cross_entropy
 
 
 class TDMPC2(struct.PyTreeNode):
