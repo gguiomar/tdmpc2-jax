@@ -91,6 +91,16 @@ _PANEL_SPECS = (
         'color': '#98df8a',
     },
     {
+        'title': 'Query Total Time (s)',
+        'tag': 'timing/query_total_s',
+        'color': '#393b79',
+    },
+    {
+        'title': 'Query Env Eval Time (s)',
+        'tag': 'timing/query_env_eval_s',
+        'color': '#637939',
+    },
+    {
         'title': 'Active Horizons',
         'tag_candidates': (
             'query/num_active_horizons',
@@ -121,6 +131,16 @@ _PANEL_SPECS = (
             'dense_rhs/norm_entropy',
         ),
         'color': '#f7b6d2',
+    },
+    {
+        'title': 'Robust Return (Best H)',
+        'tag': 'dense_rhs/robust_return_best',
+        'color': '#9edae5',
+    },
+    {
+        'title': 'Dense-RHS Fitness (Best H)',
+        'tag': 'dense_rhs/best_fitness',
+        'color': '#dbdb8d',
     },
 )
 
@@ -232,7 +252,7 @@ def generate_run_summary(
   artifacts_dir = run_path / 'artifacts'
   artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-  fig, axes = plt.subplots(4, 4, figsize=(22, 16), constrained_layout=True)
+  fig, axes = plt.subplots(5, 4, figsize=(22, 19), constrained_layout=True)
   axes_flat = axes.ravel()
 
   max_step = 0

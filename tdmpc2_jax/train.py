@@ -237,6 +237,11 @@ def _reset_plan_for_done(plan, done_mask, max_plan_std: float):
   )
 
 
+def _make_training_horizon_agent(agent: TDMPC2, horizon: int) -> TDMPC2:
+  horizon = int(horizon)
+  return agent.replace(horizon=horizon, planning_hmax=horizon)
+
+
 @partial(jax.jit, static_argnames=('num_updates', 'batch_size', 'sequence_length'))
 def _run_train_chunk(agent,
                      buffer_state,
@@ -495,20 +500,24 @@ def build_mjx_collect_chunk_fn(env, *, chunk_steps: int):
   return _run_chunk
 
 
-def _run_mjx_no_rhs_training_loop(cfg,
-                                  env_config,
-                                  eval_config,
-                                  env,
-                                  periodic_eval_env,
-                                  agent,
-                                  buffer_state,
-                                  writer,
-                                  mngr,
-                                  global_step: int,
-                                  last_saved_step: int,
-                                  *,
-                                  seed_steps: int,
-                                  update_chunk_size: int):
+def _run_mjx_training_loop(cfg,
+                           env_config,
+                           eval_config,
+                           dense_rhs_config,
+                           env,
+                           periodic_eval_env,
+                           dense_query_eval_state,
+                           agent,
+                           buffer_state,
+                           writer,
+                           mngr,
+                           global_step: int,
+                           last_saved_step: int,
+                           *,
+                           seed_steps: int,
+                           update_chunk_size: int,
+                           horizon_state=None,
+                           dense_query_kernels=None):
   num_envs = int(env_config.num_envs)
   collect_chunk_steps = int(cfg.get('collect_chunk_steps', 100))
   chunk_global_steps = collect_chunk_steps * num_envs
@@ -536,6 +545,7 @@ def _run_mjx_no_rhs_training_loop(cfg,
   rng = jax.random.PRNGKey(cfg.seed + int(global_step))
   observation, _ = env.reset(seed=cfg.seed)
   pbar = tqdm.tqdm(initial=global_step, total=cfg.max_steps)
+  dense_rhs_enabled = horizon_state is not None
 
   def run_update_batches(total_updates: int, *, step_for_logs: int):
     nonlocal agent, buffer_state, rng, train_time_since_log, train_info_accumulator
@@ -567,11 +577,82 @@ def _run_mjx_no_rhs_training_loop(cfg,
         writer.scalar('system/heartbeat', 1.0, step_for_logs)
         writer.flush()
 
+  def run_dense_query(step_for_query: int):
+    nonlocal agent, buffer_state, rng, plan, horizon_state
+
+    if horizon_state is None:
+      return
+    rng, query_key = jax.random.split(rng)
+    buffer_state, query_batch = sample_from_state(
+        buffer_state,
+        batch_size=int(agent.batch_size),
+        sequence_length=int(horizon_state.hmax),
+    )
+    query_start = time.perf_counter()
+    dense_query_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
+    horizon_state, selected_horizon, dense_metrics = dense_checkpoint_eval(
+        agent=dense_query_agent,
+        replay_batch=query_batch,
+        eval_state=dense_query_eval_state,
+        horizon_state=horizon_state,
+        rng=query_key,
+        env_eval_steps=int(dense_rhs_config.env_eval_steps),
+        query_step=int(step_for_query),
+        dense_query_kernels=dense_query_kernels,
+    )
+    agent = _make_training_horizon_agent(agent, selected_horizon)
+    plan = None
+    dense_metrics['timing/query_total_s'] = max(
+        float(dense_metrics.get('timing/query_total_s', 0.0)),
+        time.perf_counter() - query_start,
+    )
+    for metric_name, metric_value in dense_metrics.items():
+      if isinstance(metric_value, str):
+        continue
+      writer.scalar(metric_name, float(metric_value), step_for_query)
+    best_h = int(np.asarray(horizon_state.best_h))
+    horizons_np = np.asarray(horizon_state.horizons)
+    best_idx = int(np.where(horizons_np == best_h)[0][0])
+    query_row = {
+        'step': int(step_for_query),
+        'selected_horizon': int(selected_horizon),
+        'best_h': int(best_h),
+        'phase_id': int(np.asarray(horizon_state.phase_id)),
+        'phase_name': horizon_state.phase_name(),
+        'num_active_horizons': int(np.sum(np.asarray(horizon_state.active_mask))),
+        'num_candidate_horizons': int(dense_metrics['dense_rhs/num_candidate_horizons']),
+        'entropy': float(np.asarray(horizon_state.entropy)),
+        'norm_entropy': float(np.asarray(horizon_state.norm_entropy)),
+        'prob_best_h': float(np.asarray(horizon_state.prob)[best_idx]),
+        'gauss_mean_best_h': float(np.asarray(horizon_state.gauss_mean)[best_idx]),
+        'gauss_post_std_best_h': float(np.asarray(horizon_state.gauss_post_std)[best_idx]),
+    }
+    writer.horizon_query(**query_row)
+    writer.scalar('dense_rhs/best_h', query_row['best_h'], step_for_query)
+    writer.scalar('dense_rhs/prob_best_h', query_row['prob_best_h'], step_for_query)
+    writer.scalar('dense_rhs/gauss_mean_best_h', query_row['gauss_mean_best_h'], step_for_query)
+    writer.scalar(
+        'dense_rhs/gauss_post_std_best_h',
+        query_row['gauss_post_std_best_h'],
+        step_for_query,
+    )
+    writer.scalar('system/heartbeat', 1.0, step_for_query)
+    writer.flush()
+
   while global_step < cfg.max_steps:
     if global_step >= seed_steps and not seed_pretraining_done:
       print('Pre-training on seed data...')
       run_update_batches(seed_steps, step_for_logs=global_step)
       seed_pretraining_done = True
+      continue
+
+    if (
+        dense_rhs_enabled and
+        global_step >= seed_steps and
+        horizon_state is not None and
+        horizon_state.should_query(global_step)
+    ):
+      run_dense_query(global_step)
       continue
 
     next_log_step = prev_logged_step + int(cfg['log_interval_steps'])
@@ -580,7 +661,16 @@ def _run_mjx_no_rhs_training_loop(cfg,
     if periodic_eval_env is not None and eval_config is not None and bool(eval_config.enabled):
       eval_interval = int(eval_config.interval_steps)
       next_eval_step = ((int(global_step) // eval_interval) + 1) * eval_interval
-    next_boundary_step = min(next_log_step, next_save_step, next_eval_step, int(cfg.max_steps))
+    next_query_step = cfg.max_steps + chunk_global_steps
+    if dense_rhs_enabled and horizon_state is not None:
+      next_query_step = max(int(np.asarray(horizon_state.next_query_step)), int(seed_steps))
+    next_boundary_step = min(
+        next_log_step,
+        next_save_step,
+        next_eval_step,
+        next_query_step,
+        int(cfg.max_steps),
+    )
 
     can_run_seed_chunk = (
         global_step < seed_steps and
@@ -752,6 +842,8 @@ def _run_mjx_no_rhs_training_loop(cfg,
       }
       if bool(cfg.get('checkpoint_buffer', True)):
         save_args['buffer_state'] = ocp.args.StandardSave(buffer_state)
+      if horizon_state is not None:
+        save_args['horizon_state'] = ocp.args.StandardSave(horizon_state)
       mngr.save(global_step, args=ocp.args.Composite(**save_args))
       mngr.wait_until_finished()
       writer.scalar(
@@ -821,6 +913,7 @@ def _make_dense_rhs_query_agent(agent: TDMPC2, dense_rhs_config) -> TDMPC2:
       num_elites=query_num_elites,
       mppi_iterations=query_mppi_iterations,
       temperature=query_temperature,
+      planning_hmax=int(dense_rhs_config.hmax),
   )
 
 
@@ -1049,7 +1142,10 @@ def train(cfg: dict):
       **model_config,
       key=model_key
   )
-  planning_hmax = int(dense_rhs_config.hmax) if dense_rhs_config.enabled else int(tdmpc_config.horizon)
+  initial_horizon = int(tdmpc_config.horizon)
+  if dense_rhs_config.enabled:
+    initial_horizon = int(dense_rhs_config.get('initial_horizon', initial_horizon))
+  planning_hmax = int(initial_horizon)
   agent = TDMPC2.create(
       world_model=model,
       planning_hmax=planning_hmax,
@@ -1066,13 +1162,14 @@ def train(cfg: dict):
         horizons=dense_rhs_config.horizons,
         hmax=int(dense_rhs_config.hmax),
         query_interval_steps=int(dense_rhs_config.query_interval_steps),
+        initial_horizon=initial_horizon,
         roughness_probe=str(dense_rhs_config.roughness_probe),
         robust_return=str(dense_rhs_config.robust_return),
         phase_min_samples_to_drop=int(dense_rhs_config.phase_min_samples_to_drop),
         candidate_budget=dense_rhs_config.candidate_budget,
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
-    agent = agent.replace(horizon=selected_horizon)
+    agent = _make_training_horizon_agent(agent, selected_horizon)
     dense_query_kernels = build_dense_query_kernels(
         eval_state=dense_query_eval_state,
         env_eval_steps=int(dense_rhs_config.env_eval_steps),
@@ -1119,7 +1216,7 @@ def train(cfg: dict):
       if horizon_state is not None:
         horizon_state = restored.horizon_state
         selected_horizon = int(np.asarray(horizon_state.best_h))
-        agent = agent.replace(horizon=selected_horizon)
+        agent = _make_training_horizon_agent(agent, selected_horizon)
     else:
       print('No checkpoint folder found, starting from scratch')
       save_args = {
@@ -1201,13 +1298,15 @@ def train(cfg: dict):
       writer.scalar('system/heartbeat', 1.0, global_step)
       writer.flush()
       print('Finished periodic eval prewarm.', flush=True)
-    if env_config.backend == "mjx_dmc" and not dense_rhs_config.enabled:
-      _run_mjx_no_rhs_training_loop(
+    if env_config.backend == "mjx_dmc":
+      _run_mjx_training_loop(
           cfg,
           env_config,
           eval_config,
+          dense_rhs_config,
           env,
           periodic_eval_env,
+          dense_query_eval_state,
           agent,
           buffer_state,
           writer,
@@ -1216,6 +1315,8 @@ def train(cfg: dict):
           last_saved_step,
           seed_steps=seed_steps,
           update_chunk_size=update_chunk_size,
+          horizon_state=horizon_state,
+          dense_query_kernels=dense_query_kernels,
       )
       writer.close()
       return

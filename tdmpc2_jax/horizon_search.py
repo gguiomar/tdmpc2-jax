@@ -94,11 +94,14 @@ class HorizonSearchState:
              horizons: Sequence[int],
              hmax: int,
              query_interval_steps: int,
+             initial_horizon: Optional[int] = None,
              roughness_probe: str = 'projected_jvp',
              robust_return: str = 'mean_minus_std',
              phase_min_samples_to_drop: int = 3,
              candidate_budget: Optional[Mapping[str, int]] = None) -> 'HorizonSearchState':
     horizons_arr = np.asarray(tuple(horizons), dtype=np.int32)
+    if initial_horizon is None or int(initial_horizon) not in set(horizons_arr.tolist()):
+      initial_horizon = int(horizons_arr[0])
     if candidate_budget is None:
       phase_budget = PHASE_TARGET_SIZES
     else:
@@ -112,7 +115,7 @@ class HorizonSearchState:
     return cls(
         horizons=jnp.asarray(horizons_arr),
         active_mask=jnp.ones(nh, dtype=bool),
-        best_h=jnp.asarray(horizons_arr[0], dtype=jnp.int32),
+        best_h=jnp.asarray(initial_horizon, dtype=jnp.int32),
         score_sum=jnp.asarray(zeros),
         score_sum_sq=jnp.asarray(zeros),
         score_count=jnp.asarray(zeros, dtype=jnp.int32),
