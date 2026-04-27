@@ -92,6 +92,9 @@ class HorizonSearchState:
   selection_return_power: float = struct.field(pytree_node=False)
   roughness_weight: float = struct.field(pytree_node=False)
   return_std_weight: float = struct.field(pytree_node=False)
+  local_window_radius: int = struct.field(pytree_node=False)
+  max_transition_delta: int = struct.field(pytree_node=False)
+  incumbent_switch_margin: float = struct.field(pytree_node=False)
 
   @classmethod
   def create(cls,
@@ -106,7 +109,10 @@ class HorizonSearchState:
              candidate_budget: Optional[Mapping[str, int]] = None,
              selection_return_power: float = 1.0,
              roughness_weight: float = 1.0,
-             return_std_weight: float = 1.0) -> 'HorizonSearchState':
+             return_std_weight: float = 1.0,
+             local_window_radius: int = 0,
+             max_transition_delta: int = 0,
+             incumbent_switch_margin: float = 0.0) -> 'HorizonSearchState':
     horizons_arr = np.asarray(tuple(horizons), dtype=np.int32)
     if initial_horizon is None or int(initial_horizon) not in set(horizons_arr.tolist()):
       initial_horizon = int(horizons_arr[0])
@@ -154,6 +160,9 @@ class HorizonSearchState:
         selection_return_power=float(selection_return_power),
         roughness_weight=float(roughness_weight),
         return_std_weight=float(return_std_weight),
+        local_window_radius=int(local_window_radius),
+        max_transition_delta=int(max_transition_delta),
+        incumbent_switch_margin=float(incumbent_switch_margin),
     )
 
   def active_horizons(self) -> np.ndarray:
@@ -170,6 +179,7 @@ class HorizonSearchState:
 class DenseQueryResult:
   horizon_state: HorizonSearchState
   selected_horizon: jax.Array
+  proposed_horizon: jax.Array
   candidate_horizons: jax.Array
   candidate_mask: jax.Array
   fitness: jax.Array
@@ -177,6 +187,8 @@ class DenseQueryResult:
   return_term: jax.Array
   roughness_term: jax.Array
   sigma_r_term: jax.Array
+  incumbent_deployment_score: jax.Array
+  proposed_deployment_score: jax.Array
   robust_return: jax.Array
   prefix_objectives: jax.Array
   probe_prefixes: jax.Array
@@ -274,12 +286,19 @@ def _rank_scores(state: HorizonSearchState) -> jax.Array:
 def _candidate_scores(state: HorizonSearchState) -> jax.Array:
   counts = _phase_counts_matrix(state)[state.phase_id].astype(jnp.float32)
   incumbent_mask = state.horizons == state.best_h
+  if state.local_window_radius > 0:
+    candidate_scope = jnp.logical_and(
+        state.active_mask,
+        jnp.abs(state.horizons - state.best_h) <= state.local_window_radius,
+    )
+  else:
+    candidate_scope = state.active_mask
   under_sampled_mask = jnp.logical_and(
-      state.active_mask,
+      candidate_scope,
       counts < float(state.phase_min_samples_to_drop),
   )
   return jnp.where(
-      state.active_mask,
+      candidate_scope,
       incumbent_mask.astype(jnp.float32) * 1e6 +
       under_sampled_mask.astype(jnp.float32) * 1e5 +
       state.prob * 1e3 +
@@ -766,9 +785,29 @@ def _build_dense_query_kernel(eval_state: Any,
         jnp.power(jnp.clip(roughness_term, EPS, 1.0), horizon_state.roughness_weight) *
         jnp.power(jnp.clip(sigma_r_term, EPS, 1.0), horizon_state.return_std_weight)
     )
-    selected_idx = jnp.argmax(
-        jnp.where(horizon_state.active_mask, deployment_score, -jnp.inf)
+    candidate_eval_mask = jnp.zeros_like(horizon_state.active_mask).at[
+        model_stage.candidate_indices
+    ].set(model_stage.candidate_mask)
+    deploy_mask = jnp.logical_and(horizon_state.active_mask, candidate_eval_mask)
+    proposed_idx = jnp.argmax(
+        jnp.where(deploy_mask, deployment_score, -jnp.inf)
     )
+    proposed_horizon = horizon_state.horizons[proposed_idx]
+    incumbent_idx = jnp.argmin(jnp.abs(horizon_state.horizons - horizon_state.best_h))
+    incumbent_score = deployment_score[incumbent_idx]
+    proposed_score = deployment_score[proposed_idx]
+    switch = proposed_score > incumbent_score + horizon_state.incumbent_switch_margin
+    raw_selected_horizon = jnp.where(switch, proposed_horizon, horizon_state.best_h)
+    if horizon_state.max_transition_delta > 0:
+      delta = jnp.clip(
+          raw_selected_horizon - horizon_state.best_h,
+          -horizon_state.max_transition_delta,
+          horizon_state.max_transition_delta,
+      )
+      target_horizon = horizon_state.best_h + delta
+      selected_idx = jnp.argmin(jnp.abs(horizon_state.horizons - target_horizon))
+    else:
+      selected_idx = jnp.argmin(jnp.abs(horizon_state.horizons - raw_selected_horizon))
     selected_horizon = horizon_state.horizons[selected_idx]
     candidate_scores = jnp.where(
         model_stage.candidate_mask,
@@ -787,6 +826,7 @@ def _build_dense_query_kernel(eval_state: Any,
     return DenseQueryResult(
         horizon_state=new_state,
         selected_horizon=selected_horizon,
+        proposed_horizon=proposed_horizon,
         candidate_horizons=model_stage.candidate_horizons,
         candidate_mask=model_stage.candidate_mask,
         fitness=fitness,
@@ -794,6 +834,8 @@ def _build_dense_query_kernel(eval_state: Any,
         return_term=return_term,
         roughness_term=roughness_term,
         sigma_r_term=sigma_r_term,
+        incumbent_deployment_score=incumbent_score,
+        proposed_deployment_score=proposed_score,
         robust_return=robust_return,
         prefix_objectives=model_stage.prefix_objectives,
         probe_prefixes=model_stage.probe_prefixes,
@@ -945,6 +987,7 @@ def dense_checkpoint_eval(agent,
   finalize_stage_s = time.perf_counter() - finalize_stage_start
   new_state = result.horizon_state
   selected_horizon = int(np.asarray(result.selected_horizon))
+  proposed_horizon = int(np.asarray(result.proposed_horizon))
   horizons = np.asarray(horizon_state.horizons, dtype=np.int32)
   fitness = np.asarray(result.fitness, dtype=np.float32)
   deployment_score = np.asarray(result.deployment_score, dtype=np.float32)
@@ -961,6 +1004,7 @@ def dense_checkpoint_eval(agent,
   selected_idx = int(np.where(horizons == selected_horizon)[0][0])
   metrics = {
       'dense_rhs/selected_horizon': float(selected_horizon),
+      'dense_rhs/proposed_horizon': float(proposed_horizon),
       'dense_rhs/phase_id': float(np.asarray(new_state.phase_id)),
       'dense_rhs/phase_name': PHASE_NAMES[int(np.asarray(new_state.phase_id))],
       'dense_rhs/num_active_horizons': float(np.sum(np.asarray(new_state.active_mask))),
@@ -969,6 +1013,12 @@ def dense_checkpoint_eval(agent,
       'dense_rhs/norm_entropy': float(np.asarray(new_state.norm_entropy)),
       'dense_rhs/best_fitness': float(fitness[selected_idx]),
       'dense_rhs/deployment_score_best': float(deployment_score[selected_idx]),
+      'dense_rhs/incumbent_deployment_score': float(
+          np.asarray(result.incumbent_deployment_score)
+      ),
+      'dense_rhs/proposed_deployment_score': float(
+          np.asarray(result.proposed_deployment_score)
+      ),
       'dense_rhs/return_term_best': float(return_term[selected_idx]),
       'dense_rhs/roughness_term_best': float(roughness_term[selected_idx]),
       'dense_rhs/return_std_term_best': float(sigma_r_term[selected_idx]),

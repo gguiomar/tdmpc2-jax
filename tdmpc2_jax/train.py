@@ -103,6 +103,7 @@ class _ArtifactWriter:
             'step',
             'previous_horizon',
             'selected_horizon',
+            'proposed_horizon',
             'best_h',
             'phase_id',
             'phase_name',
@@ -115,6 +116,8 @@ class _ArtifactWriter:
             'gauss_post_std_best_h',
             'best_fitness',
             'deployment_score_best',
+            'incumbent_deployment_score',
+            'proposed_deployment_score',
             'return_term_best',
             'roughness_term_best',
             'return_std_term_best',
@@ -628,6 +631,7 @@ def _run_mjx_training_loop(cfg,
         'step': int(step_for_query),
         'previous_horizon': int(previous_horizon),
         'selected_horizon': int(selected_horizon),
+        'proposed_horizon': int(dense_metrics['dense_rhs/proposed_horizon']),
         'best_h': int(best_h),
         'phase_id': int(np.asarray(horizon_state.phase_id)),
         'phase_name': horizon_state.phase_name(),
@@ -641,6 +645,12 @@ def _run_mjx_training_loop(cfg,
         'best_fitness': float(dense_metrics['dense_rhs/best_fitness']),
         'deployment_score_best': float(
             dense_metrics['dense_rhs/deployment_score_best']
+        ),
+        'incumbent_deployment_score': float(
+            dense_metrics['dense_rhs/incumbent_deployment_score']
+        ),
+        'proposed_deployment_score': float(
+            dense_metrics['dense_rhs/proposed_deployment_score']
         ),
         'return_term_best': float(dense_metrics['dense_rhs/return_term_best']),
         'roughness_term_best': float(
@@ -1199,6 +1209,9 @@ def train(cfg: dict):
         selection_return_power=float(dense_rhs_config.selection_return_power),
         roughness_weight=float(dense_rhs_config.roughness_weight),
         return_std_weight=float(dense_rhs_config.return_std_weight),
+        local_window_radius=int(dense_rhs_config.local_window_radius),
+        max_transition_delta=int(dense_rhs_config.max_transition_delta),
+        incumbent_switch_margin=float(dense_rhs_config.incumbent_switch_margin),
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
     agent = _make_training_horizon_agent(agent, selected_horizon)
