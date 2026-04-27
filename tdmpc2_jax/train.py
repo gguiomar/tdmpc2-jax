@@ -250,9 +250,27 @@ def _reset_plan_for_done(plan, done_mask, max_plan_std: float):
   )
 
 
-def _make_training_horizon_agent(agent: TDMPC2, horizon: int) -> TDMPC2:
+def _horizon_buckets_from_config(dense_rhs_config) -> tuple[int, ...]:
+  buckets = dense_rhs_config.get('horizon_buckets', None)
+  if buckets is None:
+    return ()
+  return tuple(sorted({int(bucket) for bucket in buckets if int(bucket) > 0}))
+
+
+def _bucket_for_horizon(horizon: int, horizon_buckets: tuple[int, ...]) -> int:
   horizon = int(horizon)
-  return agent.replace(horizon=horizon, planning_hmax=horizon)
+  for bucket in horizon_buckets:
+    if horizon <= bucket:
+      return int(bucket)
+  return int(horizon_buckets[-1]) if horizon_buckets else horizon
+
+
+def _make_training_horizon_agent(agent: TDMPC2,
+                                 horizon: int,
+                                 horizon_buckets: tuple[int, ...] = ()) -> TDMPC2:
+  horizon = int(horizon)
+  bucket_horizon = _bucket_for_horizon(horizon, horizon_buckets)
+  return agent.replace(horizon=bucket_horizon, planning_hmax=bucket_horizon)
 
 
 @partial(jax.jit, static_argnames=('num_updates', 'batch_size', 'sequence_length'))
@@ -262,7 +280,8 @@ def _run_train_chunk(agent,
                      *,
                      num_updates: int,
                      batch_size: int,
-                     sequence_length: int):
+                     sequence_length: int,
+                     train_horizon: int):
   buffer_state, batch = sample_many_from_state(
       buffer_state,
       num_updates=num_updates,
@@ -278,6 +297,7 @@ def _run_train_chunk(agent,
       terminated=batch['terminated'],
       truncated=batch['truncated'],
       keys=update_keys,
+      train_horizon=jnp.asarray(train_horizon, dtype=jnp.int32),
   )
   return agent, buffer_state, train_info
 
@@ -384,7 +404,7 @@ def build_mjx_seed_chunk_fn(env, *, chunk_steps: int):
 
 
 def build_mjx_collect_step_fn(env):
-  @partial(jax.jit, static_argnames=('horizon',))
+  @jax.jit
   def _run_step(agent,
                 env_state,
                 observation,
@@ -445,7 +465,7 @@ def build_mjx_collect_step_fn(env):
 
 
 def build_mjx_collect_chunk_fn(env, *, chunk_steps: int):
-  @partial(jax.jit, static_argnames=('horizon',))
+  @jax.jit
   def _run_chunk(agent,
                  env_state,
                  observation,
@@ -559,6 +579,15 @@ def _run_mjx_training_loop(cfg,
   observation, _ = env.reset(seed=cfg.seed)
   pbar = tqdm.tqdm(initial=global_step, total=cfg.max_steps)
   dense_rhs_enabled = horizon_state is not None
+  horizon_buckets = (
+      _horizon_buckets_from_config(dense_rhs_config)
+      if dense_rhs_enabled else ()
+  )
+  selected_horizon = (
+      int(np.asarray(horizon_state.best_h))
+      if horizon_state is not None else int(agent.horizon)
+  )
+  agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
 
   def run_update_batches(total_updates: int, *, step_for_logs: int):
     nonlocal agent, buffer_state, rng, train_time_since_log, train_info_accumulator
@@ -575,6 +604,7 @@ def _run_mjx_training_loop(cfg,
           num_updates=chunk_updates,
           batch_size=int(agent.batch_size),
           sequence_length=int(agent.horizon),
+          train_horizon=int(selected_horizon),
       )
       train_time_since_log += time.perf_counter() - train_start
       updates_completed += chunk_updates
@@ -591,11 +621,11 @@ def _run_mjx_training_loop(cfg,
         writer.flush()
 
   def run_dense_query(step_for_query: int):
-    nonlocal agent, buffer_state, rng, plan, horizon_state
+    nonlocal agent, buffer_state, rng, plan, horizon_state, selected_horizon
 
     if horizon_state is None:
       return
-    previous_horizon = int(agent.horizon)
+    previous_horizon = int(selected_horizon)
     rng, query_key = jax.random.split(rng)
     buffer_state, query_batch = sample_from_state(
         buffer_state,
@@ -614,7 +644,11 @@ def _run_mjx_training_loop(cfg,
         query_step=int(step_for_query),
         dense_query_kernels=dense_query_kernels,
     )
-    agent = _make_training_horizon_agent(agent, selected_horizon)
+    agent = _make_training_horizon_agent(
+        agent,
+        selected_horizon,
+        horizon_buckets,
+    )
     plan = None
     dense_metrics['timing/query_total_s'] = max(
         float(dense_metrics.get('timing/query_total_s', 0.0)),
@@ -666,6 +700,7 @@ def _run_mjx_training_loop(cfg,
     }
     writer.horizon_query(**query_row)
     writer.scalar('dense_rhs/previous_horizon', query_row['previous_horizon'], step_for_query)
+    writer.scalar('dense_rhs/training_bucket_horizon', float(agent.horizon), step_for_query)
     writer.scalar('dense_rhs/best_h', query_row['best_h'], step_for_query)
     writer.scalar('dense_rhs/prob_best_h', query_row['prob_best_h'], step_for_query)
     writer.scalar('dense_rhs/gauss_mean_best_h', query_row['gauss_mean_best_h'], step_for_query)
@@ -741,7 +776,7 @@ def _run_mjx_training_loop(cfg,
           num_envs=num_envs,
           ep_count=ep_count,
           chunk_logs=chunk_logs,
-          selected_horizon=int(agent.horizon),
+          selected_horizon=int(selected_horizon),
       )
       global_step += chunk_global_steps
       pbar.update(chunk_global_steps)
@@ -764,7 +799,7 @@ def _run_mjx_training_loop(cfg,
           buffer_state,
           plan,
           rng,
-          horizon=int(agent.horizon),
+          horizon=int(selected_horizon),
       )
       collect_time_since_log += time.perf_counter() - collect_start
       _log_chunk_episodes(
@@ -773,7 +808,7 @@ def _run_mjx_training_loop(cfg,
           num_envs=num_envs,
           ep_count=ep_count,
           chunk_logs=chunk_logs,
-          selected_horizon=int(agent.horizon),
+          selected_horizon=int(selected_horizon),
       )
       run_update_batches(
           collect_chunk_steps * num_updates_per_step,
@@ -794,7 +829,7 @@ def _run_mjx_training_loop(cfg,
             prev_plan=plan,
             deterministic=False,
             train=True,
-            horizon=int(agent.horizon),
+            horizon=int(selected_horizon),
             key=action_key,
         )
 
@@ -838,7 +873,7 @@ def _run_mjx_training_loop(cfg,
             num_envs=num_envs,
             ep_count=ep_count,
             chunk_logs=fallback_logs,
-            selected_horizon=int(agent.horizon),
+            selected_horizon=int(selected_horizon),
         )
 
       if global_step >= seed_steps:
@@ -858,6 +893,7 @@ def _run_mjx_training_loop(cfg,
         writer.scalar(f'train/{k}_std', np.sqrt(var), global_step)
       writer.scalar('timing/collect_chunk_s', collect_time_since_log, global_step)
       writer.scalar('timing/train_chunk_s', train_time_since_log, global_step)
+      writer.scalar('dense_rhs/training_bucket_horizon', float(agent.horizon), global_step)
       writer.scalar('system/heartbeat', 1.0, global_step)
       writer.flush()
       prev_logged_step = int(global_step)
@@ -907,7 +943,7 @@ def _run_mjx_training_loop(cfg,
       eval_metrics = _run_periodic_eval(
           periodic_eval_env,
           agent,
-          horizon=int(agent.horizon),
+          horizon=int(selected_horizon),
           num_episodes=int(eval_config.num_episodes),
           steps_per_episode=int(periodic_eval_env._metadata.episode_length),
           key=jax.random.PRNGKey(global_step + 20_000 + cfg.seed),
@@ -915,7 +951,8 @@ def _run_mjx_training_loop(cfg,
       for metric_name, metric_value in eval_metrics.items():
         writer.scalar(metric_name, metric_value, global_step)
       writer.scalar('timing/eval_s', time.perf_counter() - eval_start, global_step)
-      writer.scalar('eval/selected_horizon', float(agent.horizon), global_step)
+      writer.scalar('eval/selected_horizon', float(selected_horizon), global_step)
+      writer.scalar('eval/training_bucket_horizon', float(agent.horizon), global_step)
       writer.scalar('system/heartbeat', 1.0, global_step)
       writer.flush()
       last_eval_step = int(global_step)
@@ -1183,7 +1220,11 @@ def train(cfg: dict):
   initial_horizon = int(tdmpc_config.horizon)
   if dense_rhs_config.enabled:
     initial_horizon = int(dense_rhs_config.get('initial_horizon', initial_horizon))
-  planning_hmax = int(initial_horizon)
+  horizon_buckets = (
+      _horizon_buckets_from_config(dense_rhs_config)
+      if dense_rhs_config.enabled else ()
+  )
+  planning_hmax = _bucket_for_horizon(initial_horizon, horizon_buckets)
   agent = TDMPC2.create(
       world_model=model,
       planning_hmax=planning_hmax,
@@ -1214,7 +1255,7 @@ def train(cfg: dict):
         incumbent_switch_margin=float(dense_rhs_config.incumbent_switch_margin),
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
-    agent = _make_training_horizon_agent(agent, selected_horizon)
+    agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
     dense_query_kernels = build_dense_query_kernels(
         eval_state=dense_query_eval_state,
         env_eval_steps=int(dense_rhs_config.env_eval_steps),
@@ -1261,7 +1302,7 @@ def train(cfg: dict):
       if horizon_state is not None:
         horizon_state = restored.horizon_state
         selected_horizon = int(np.asarray(horizon_state.best_h))
-        agent = _make_training_horizon_agent(agent, selected_horizon)
+        agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
     else:
       print('No checkpoint folder found, starting from scratch')
       save_args = {
@@ -1509,6 +1550,7 @@ def train(cfg: dict):
               num_updates=chunk_updates,
               batch_size=int(agent.batch_size),
               sequence_length=int(selected_horizon),
+              train_horizon=int(selected_horizon),
           )
           accumulated_train_time += time.perf_counter() - train_start
           updates_completed += chunk_updates

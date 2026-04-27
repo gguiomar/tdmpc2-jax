@@ -294,10 +294,16 @@ class TDMPC2(struct.PyTreeNode):
              terminated: jax.Array,
              truncated: jax.Array,
              *,
-             key: PRNGKeyArray
+             key: PRNGKeyArray,
+             train_horizon: Optional[int] = None,
              ) -> Tuple[TDMPC2, Dict[str, Any]]:
 
     world_model_key, policy_key = jax.random.split(key, 2)
+    train_horizon = jnp.asarray(
+        self.horizon if train_horizon is None else train_horizon,
+        dtype=jnp.int32,
+    )
+    train_horizon_f = jnp.maximum(train_horizon.astype(jnp.float32), 1.0)
 
     def world_model_loss_fn(encoder_params: flax.core.FrozenDict,
                             dynamics_params: flax.core.FrozenDict,
@@ -306,7 +312,10 @@ class TDMPC2(struct.PyTreeNode):
                             continue_params: flax.core.FrozenDict,
                             ) -> Tuple[jax.Array, Dict[str, Any]]:
       encoder_key, value_key = jax.random.split(world_model_key, 2)
-      lam = (self.rho**jnp.arange(self.horizon)) / self.horizon
+      time_index = jnp.arange(self.horizon, dtype=jnp.int32)
+      horizon_mask = time_index < train_horizon
+      lam = (self.rho**time_index) / train_horizon_f
+      lam = jnp.where(horizon_mask, lam, 0.0)
 
       ###########################################################
       # Encoder forward pass
@@ -526,7 +535,13 @@ class TDMPC2(struct.PyTreeNode):
       )
 
       # Compute policy objective (equation 4)
-      lam = (self.rho**jnp.arange(self.horizon+1)) / (self.horizon + 1)
+      policy_time_index = jnp.arange(self.horizon + 1, dtype=jnp.int32)
+      policy_horizon = train_horizon + 1
+      policy_lam = (self.rho**policy_time_index) / jnp.maximum(
+          policy_horizon.astype(jnp.float32),
+          1.0,
+      )
+      policy_lam = jnp.where(policy_time_index < policy_horizon, policy_lam, 0.0)
       Qs, _ = self.model.Q(
           z=latent_zs, a=actions, params=new_value_model.params, key=Q_key,
           train=True,
@@ -535,7 +550,9 @@ class TDMPC2(struct.PyTreeNode):
       Q_scale = percentile_normalization(Q[0], self.value_scale).clip(1, None)
       scaled_log_probs = log_probs * self.model.action_dim
       policy_loss = jnp.sum(
-          lam[:, None] * (self.entropy_coef * scaled_log_probs - Q / sg(Q_scale)),
+          policy_lam[:, None] * (
+              self.entropy_coef * scaled_log_probs - Q / sg(Q_scale)
+          ),
           axis=0, where=~finished
       ).mean()
       return policy_loss, {
@@ -638,7 +655,8 @@ class TDMPC2(struct.PyTreeNode):
                   terminated: jax.Array,
                   truncated: jax.Array,
                   *,
-                  keys: PRNGKeyArray
+                  keys: PRNGKeyArray,
+                  train_horizon: Optional[int] = None,
                   ) -> Tuple['TDMPC2', Dict[str, Any]]:
     def update_scan(agent, inputs):
       key, obs, act, rew, next_obs, term, trunc = inputs
@@ -650,6 +668,7 @@ class TDMPC2(struct.PyTreeNode):
           terminated=term,
           truncated=trunc,
           key=key,
+          train_horizon=train_horizon,
       )
       return agent, info
 

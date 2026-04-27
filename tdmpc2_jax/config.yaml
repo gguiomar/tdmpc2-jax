@@ -63,6 +63,7 @@ dense_rhs:
   local_window_radius: 0
   max_transition_delta: 0
   incumbent_switch_margin: 0.0
+  horizon_buckets: []
   phase_min_samples_to_drop: 3
   num_env_eval_replicas: 16
   env_eval_enabled: true
