@@ -142,6 +142,35 @@ _PANEL_SPECS = (
         'tag': 'dense_rhs/best_fitness',
         'color': '#dbdb8d',
     },
+    {
+        'title': 'Dense-RHS Deploy Score vs Fitness',
+        'multi_tags': (
+            'dense_rhs/deployment_score_best',
+            'dense_rhs/best_fitness',
+        ),
+    },
+    {
+        'title': 'Dense-RHS Score Terms',
+        'multi_tags': (
+            'dense_rhs/return_term_best',
+            'dense_rhs/roughness_term_best',
+            'dense_rhs/return_std_term_best',
+        ),
+    },
+    {
+        'title': 'Candidate Robust Returns',
+        'tag_prefix': 'dense_rhs/candidate_',
+        'tag_suffix': '_return',
+    },
+    {
+        'title': 'Query Timing Split',
+        'multi_tags': (
+            'timing/query_total_s',
+            'timing/query_model_diag_s',
+            'timing/query_env_eval_s',
+            'timing/query_finalize_s',
+        ),
+    },
 )
 
 
@@ -252,7 +281,7 @@ def generate_run_summary(
   artifacts_dir = run_path / 'artifacts'
   artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-  fig, axes = plt.subplots(5, 4, figsize=(22, 19), constrained_layout=True)
+  fig, axes = plt.subplots(6, 4, figsize=(22, 22), constrained_layout=True)
   axes_flat = axes.ravel()
 
   max_step = 0
@@ -279,6 +308,13 @@ def generate_run_summary(
 
 
 def _plot_panel(axis, spec: Mapping[str, object], series_by_tag: Mapping[str, Series]):
+  if 'multi_tags' in spec:
+    _plot_multi_panel(axis, spec, series_by_tag)
+    return
+  if 'tag_prefix' in spec:
+    _plot_prefix_panel(axis, spec, series_by_tag)
+    return
+
   tag = _resolve_tag(spec, series_by_tag)
   title = str(spec['title'])
   color = str(spec.get('color', '#1f77b4'))
@@ -346,6 +382,95 @@ def _plot_panel(axis, spec: Mapping[str, object], series_by_tag: Mapping[str, Se
 
   axis.set_xlabel('Step (×10³)')
   axis.tick_params(axis='both', labelsize=9)
+
+
+def _plot_multi_panel(axis,
+                      spec: Mapping[str, object],
+                      series_by_tag: Mapping[str, Series]):
+  title = str(spec['title'])
+  axis.set_title(title, fontsize=11, fontweight='bold')
+  axis.grid(alpha=0.2, linestyle='--', linewidth=0.7)
+  colors = (
+      '#1f77b4', '#d62728', '#2ca02c', '#9467bd',
+      '#ff7f0e', '#8c564b',
+  )
+  plotted = False
+  for idx, tag in enumerate(spec.get('multi_tags', ())):
+    tag = str(tag)
+    series = series_by_tag.get(tag)
+    if series is None or series.steps.size == 0:
+      continue
+    x = series.steps.astype(np.float32) / 1000.0
+    y = series.values.astype(np.float32)
+    label = tag.split('/')[-1].replace('_', ' ')
+    axis.plot(
+        x,
+        y,
+        color=colors[idx % len(colors)],
+        linewidth=2.0,
+        alpha=0.9,
+        label=label,
+    )
+    plotted = True
+  if not plotted:
+    _mark_unavailable(axis)
+    return
+  axis.set_xlabel('Step (×10³)')
+  axis.tick_params(axis='both', labelsize=9)
+  axis.legend(fontsize=7, frameon=False)
+
+
+def _plot_prefix_panel(axis,
+                       spec: Mapping[str, object],
+                       series_by_tag: Mapping[str, Series]):
+  title = str(spec['title'])
+  axis.set_title(title, fontsize=11, fontweight='bold')
+  axis.grid(alpha=0.2, linestyle='--', linewidth=0.7)
+  prefix = str(spec['tag_prefix'])
+  suffix = str(spec.get('tag_suffix', ''))
+  matching_tags = [
+      tag for tag in sorted(series_by_tag)
+      if tag.startswith(prefix) and tag.endswith(suffix)
+  ]
+  if not matching_tags:
+    _mark_unavailable(axis)
+    return
+  cmap = None
+  try:
+    import matplotlib.pyplot as plt
+    cmap = plt.get_cmap('viridis')
+  except Exception:  # pragma: no cover - plotting fallback
+    cmap = None
+  for idx, tag in enumerate(matching_tags):
+    series = series_by_tag[tag]
+    if series.steps.size == 0:
+      continue
+    x = series.steps.astype(np.float32) / 1000.0
+    y = series.values.astype(np.float32)
+    color = cmap(idx / max(len(matching_tags) - 1, 1)) if cmap is not None else None
+    label = tag[len(prefix):]
+    if suffix and label.endswith(suffix):
+      label = label[:-len(suffix)]
+    axis.plot(x, y, linewidth=1.2, alpha=0.75, color=color, label=label)
+  axis.set_xlabel('Step (×10³)')
+  axis.tick_params(axis='both', labelsize=9)
+  if len(matching_tags) <= 12:
+    axis.legend(fontsize=7, frameon=False, ncol=2)
+
+
+def _mark_unavailable(axis):
+  axis.text(
+      0.5,
+      0.5,
+      'Unavailable',
+      ha='center',
+      va='center',
+      fontsize=11,
+      color='#666666',
+      transform=axis.transAxes,
+  )
+  axis.set_xticks([])
+  axis.set_yticks([])
 
 
 def _resolve_tag(spec: Mapping[str, object], series_by_tag: Mapping[str, Series]) -> str | None:

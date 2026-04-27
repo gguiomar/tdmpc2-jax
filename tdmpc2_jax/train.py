@@ -101,6 +101,7 @@ class _ArtifactWriter:
         self._query_file,
         fieldnames=[
             'step',
+            'previous_horizon',
             'selected_horizon',
             'best_h',
             'phase_id',
@@ -112,6 +113,15 @@ class _ArtifactWriter:
             'prob_best_h',
             'gauss_mean_best_h',
             'gauss_post_std_best_h',
+            'best_fitness',
+            'deployment_score_best',
+            'return_term_best',
+            'roughness_term_best',
+            'return_std_term_best',
+            'robust_return_best',
+            'query_total_s',
+            'query_model_diag_s',
+            'query_env_eval_s',
         ],
     )
     self._query_writer.writeheader()
@@ -582,6 +592,7 @@ def _run_mjx_training_loop(cfg,
 
     if horizon_state is None:
       return
+    previous_horizon = int(agent.horizon)
     rng, query_key = jax.random.split(rng)
     buffer_state, query_batch = sample_from_state(
         buffer_state,
@@ -615,6 +626,7 @@ def _run_mjx_training_loop(cfg,
     best_idx = int(np.where(horizons_np == best_h)[0][0])
     query_row = {
         'step': int(step_for_query),
+        'previous_horizon': int(previous_horizon),
         'selected_horizon': int(selected_horizon),
         'best_h': int(best_h),
         'phase_id': int(np.asarray(horizon_state.phase_id)),
@@ -626,8 +638,24 @@ def _run_mjx_training_loop(cfg,
         'prob_best_h': float(np.asarray(horizon_state.prob)[best_idx]),
         'gauss_mean_best_h': float(np.asarray(horizon_state.gauss_mean)[best_idx]),
         'gauss_post_std_best_h': float(np.asarray(horizon_state.gauss_post_std)[best_idx]),
+        'best_fitness': float(dense_metrics['dense_rhs/best_fitness']),
+        'deployment_score_best': float(
+            dense_metrics['dense_rhs/deployment_score_best']
+        ),
+        'return_term_best': float(dense_metrics['dense_rhs/return_term_best']),
+        'roughness_term_best': float(
+            dense_metrics['dense_rhs/roughness_term_best']
+        ),
+        'return_std_term_best': float(
+            dense_metrics['dense_rhs/return_std_term_best']
+        ),
+        'robust_return_best': float(dense_metrics['dense_rhs/robust_return_best']),
+        'query_total_s': float(dense_metrics['timing/query_total_s']),
+        'query_model_diag_s': float(dense_metrics['timing/query_model_diag_s']),
+        'query_env_eval_s': float(dense_metrics['timing/query_env_eval_s']),
     }
     writer.horizon_query(**query_row)
+    writer.scalar('dense_rhs/previous_horizon', query_row['previous_horizon'], step_for_query)
     writer.scalar('dense_rhs/best_h', query_row['best_h'], step_for_query)
     writer.scalar('dense_rhs/prob_best_h', query_row['prob_best_h'], step_for_query)
     writer.scalar('dense_rhs/gauss_mean_best_h', query_row['gauss_mean_best_h'], step_for_query)
@@ -1162,11 +1190,15 @@ def train(cfg: dict):
         horizons=dense_rhs_config.horizons,
         hmax=int(dense_rhs_config.hmax),
         query_interval_steps=int(dense_rhs_config.query_interval_steps),
+        start_query_step=dense_rhs_config.get('start_query_step', None),
         initial_horizon=initial_horizon,
         roughness_probe=str(dense_rhs_config.roughness_probe),
         robust_return=str(dense_rhs_config.robust_return),
         phase_min_samples_to_drop=int(dense_rhs_config.phase_min_samples_to_drop),
         candidate_budget=dense_rhs_config.candidate_budget,
+        selection_return_power=float(dense_rhs_config.selection_return_power),
+        roughness_weight=float(dense_rhs_config.roughness_weight),
+        return_std_weight=float(dense_rhs_config.return_std_weight),
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
     agent = _make_training_horizon_agent(agent, selected_horizon)
