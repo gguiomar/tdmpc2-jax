@@ -256,3 +256,27 @@ Update the campaign cap from `2` to `3` active GPUs and run three clean evidence
 - `dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15`: early start-20 with ultra-HiFi evidence to test whether early adaptation failed because evidence was too noisy.
 
 The clean +2% target remains unchanged at `943.143`; chaos remains postponed until this gate is passed.
+
+## 2026-05-01T21:34:54+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_start70_returndom_r2b5_300k_vec8_s15` job `1672`: `failed`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:44:33`
+- Final eval: `97.265380859375` ± `141.6887664794922`
+- Best eval: `97.265380859375` at step `50000`
+- Horizon path: `4`
+- Reason: SLURM state `CANCELLED by 1002`.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T21:34:56+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_start20_r2b5_margin05_300k_vec8_s15` job `1673`: `failed`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:44:08`
+- Final eval: `262.2226867675781` ± `118.21903228759766`
+- Best eval: `262.2226867675781` at step `50000`
+- Horizon path: `3->4`
+- Reason: SLURM state `CANCELLED by 1002`.
+- Follow-up: No automatic follow-up rule fired.
