@@ -95,6 +95,18 @@ class HorizonSearchState:
   local_window_radius: int = struct.field(pytree_node=False)
   max_transition_delta: int = struct.field(pytree_node=False)
   incumbent_switch_margin: float = struct.field(pytree_node=False)
+  credible_transition_enabled: bool = struct.field(pytree_node=False)
+  credible_transition_rule: str = struct.field(pytree_node=False)
+  credible_transition_min_prob: float = struct.field(pytree_node=False)
+  transition_cost_scale: float = struct.field(pytree_node=False)
+  transition_risk_weight: float = struct.field(pytree_node=False)
+  transition_min_expected_net: float = struct.field(pytree_node=False)
+  transition_model_weight: float = struct.field(pytree_node=False)
+  transition_probe_weight: float = struct.field(pytree_node=False)
+  transition_planner_weight: float = struct.field(pytree_node=False)
+  transition_roughness_weight: float = struct.field(pytree_node=False)
+  transition_return_std_weight: float = struct.field(pytree_node=False)
+  transition_uncertainty_floor: float = struct.field(pytree_node=False)
 
   @classmethod
   def create(cls,
@@ -112,7 +124,19 @@ class HorizonSearchState:
              return_std_weight: float = 1.0,
              local_window_radius: int = 0,
              max_transition_delta: int = 0,
-             incumbent_switch_margin: float = 0.0) -> 'HorizonSearchState':
+             incumbent_switch_margin: float = 0.0,
+             credible_transition_enabled: bool = False,
+             credible_transition_rule: str = 'probability',
+             credible_transition_min_prob: float = 0.0,
+             transition_cost_scale: float = 0.0,
+             transition_risk_weight: float = 1.0,
+             transition_min_expected_net: float = 0.0,
+             transition_model_weight: float = 1.0,
+             transition_probe_weight: float = 1.0,
+             transition_planner_weight: float = 1.0,
+             transition_roughness_weight: float = 1.0,
+             transition_return_std_weight: float = 1.0,
+             transition_uncertainty_floor: float = 0.05) -> 'HorizonSearchState':
     horizons_arr = np.asarray(tuple(horizons), dtype=np.int32)
     if initial_horizon is None or int(initial_horizon) not in set(horizons_arr.tolist()):
       initial_horizon = int(horizons_arr[0])
@@ -163,6 +187,18 @@ class HorizonSearchState:
         local_window_radius=int(local_window_radius),
         max_transition_delta=int(max_transition_delta),
         incumbent_switch_margin=float(incumbent_switch_margin),
+        credible_transition_enabled=bool(credible_transition_enabled),
+        credible_transition_rule=str(credible_transition_rule),
+        credible_transition_min_prob=float(credible_transition_min_prob),
+        transition_cost_scale=float(transition_cost_scale),
+        transition_risk_weight=float(transition_risk_weight),
+        transition_min_expected_net=float(transition_min_expected_net),
+        transition_model_weight=float(transition_model_weight),
+        transition_probe_weight=float(transition_probe_weight),
+        transition_planner_weight=float(transition_planner_weight),
+        transition_roughness_weight=float(transition_roughness_weight),
+        transition_return_std_weight=float(transition_return_std_weight),
+        transition_uncertainty_floor=float(transition_uncertainty_floor),
     )
 
   def active_horizons(self) -> np.ndarray:
@@ -187,8 +223,17 @@ class DenseQueryResult:
   return_term: jax.Array
   roughness_term: jax.Array
   sigma_r_term: jax.Array
+  transition_cost: jax.Array
+  transition_adjusted_score: jax.Array
+  switch_probability: jax.Array
+  expected_improvement: jax.Array
+  expected_loss: jax.Array
+  expected_net_benefit: jax.Array
   incumbent_deployment_score: jax.Array
   proposed_deployment_score: jax.Array
+  proposed_transition_cost: jax.Array
+  proposed_switch_probability: jax.Array
+  proposed_expected_net_benefit: jax.Array
   robust_return: jax.Array
   prefix_objectives: jax.Array
   probe_prefixes: jax.Array
@@ -233,6 +278,51 @@ def _normalise_jax(values: jax.Array, inverse: bool = False) -> jax.Array:
   if inverse:
     out = 1.0 - out
   return jnp.clip(out, 0.0, 1.0)
+
+
+def _standard_normal_cdf(x: jax.Array) -> jax.Array:
+  return 0.5 * (1.0 + jax.lax.erf(x / jnp.sqrt(2.0)))
+
+
+def _standard_normal_pdf(x: jax.Array) -> jax.Array:
+  return jnp.exp(-0.5 * jnp.square(x)) / jnp.sqrt(2.0 * jnp.pi)
+
+
+def _normalised_shift(values: jax.Array, incumbent_idx: jax.Array) -> jax.Array:
+  values = jnp.asarray(values, dtype=jnp.float32)
+  shift = jnp.abs(values - values[incumbent_idx])
+  scale = jnp.maximum(jnp.max(shift), EPS)
+  return jnp.clip(shift / scale, 0.0, 1.0)
+
+
+def _transition_cost(state: HorizonSearchState,
+                     model_stage: DenseQueryModelStage,
+                     env_std: jax.Array,
+                     incumbent_idx: jax.Array) -> jax.Array:
+  weights = jnp.asarray(
+      [
+          state.transition_model_weight,
+          state.transition_probe_weight,
+          state.transition_planner_weight,
+          state.transition_roughness_weight,
+          state.transition_return_std_weight,
+      ],
+      dtype=jnp.float32,
+  )
+  components = jnp.stack(
+      [
+          _normalised_shift(model_stage.prefix_objectives, incumbent_idx),
+          _normalised_shift(model_stage.probe_prefixes, incumbent_idx),
+          _normalised_shift(model_stage.planner_prefix_returns, incumbent_idx),
+          _normalise_jax(model_stage.roughness),
+          _normalise_jax(env_std),
+      ],
+      axis=0,
+  )
+  weight_sum = jnp.maximum(jnp.sum(weights), EPS)
+  cost = state.transition_cost_scale * jnp.sum(components * weights[:, None], axis=0) / weight_sum
+  cost = cost.at[incumbent_idx].set(0.0)
+  return jnp.clip(cost, 0.0, 1.0)
 
 
 def _phase_counts_matrix(state: HorizonSearchState) -> jax.Array:
@@ -789,14 +879,66 @@ def _build_dense_query_kernel(eval_state: Any,
         model_stage.candidate_indices
     ].set(model_stage.candidate_mask)
     deploy_mask = jnp.logical_and(horizon_state.active_mask, candidate_eval_mask)
-    proposed_idx = jnp.argmax(
-        jnp.where(deploy_mask, deployment_score, -jnp.inf)
-    )
-    proposed_horizon = horizon_state.horizons[proposed_idx]
     incumbent_idx = jnp.argmin(jnp.abs(horizon_state.horizons - horizon_state.best_h))
+    transition_cost = _transition_cost(
+        horizon_state,
+        model_stage,
+        env_std,
+        incumbent_idx,
+    )
+    transition_adjusted_score = deployment_score - transition_cost
+    proposal_score = (
+        transition_adjusted_score
+        if horizon_state.credible_transition_enabled
+        else deployment_score
+    )
+    proposed_idx = jnp.argmax(jnp.where(deploy_mask, proposal_score, -jnp.inf))
+    proposed_horizon = horizon_state.horizons[proposed_idx]
     incumbent_score = deployment_score[incumbent_idx]
     proposed_score = deployment_score[proposed_idx]
-    switch = proposed_score > incumbent_score + horizon_state.incumbent_switch_margin
+    delta_mean = deployment_score - incumbent_score - transition_cost
+    posterior_std = jnp.maximum(
+        horizon_state.gauss_post_std,
+        horizon_state.transition_uncertainty_floor,
+    )
+    incumbent_std = jnp.maximum(
+        horizon_state.gauss_post_std[incumbent_idx],
+        horizon_state.transition_uncertainty_floor,
+    )
+    delta_std = jnp.sqrt(jnp.square(posterior_std) + jnp.square(incumbent_std))
+    z_score = delta_mean / jnp.maximum(delta_std, EPS)
+    switch_probability = _standard_normal_cdf(z_score)
+    # Expected-improvement transition rule:
+    #   X_h = score(h) - score(h_current) - transition_cost(h)
+    #   EI_h = E[max(X_h, 0)], EL_h = E[max(-X_h, 0)]
+    #   net_h = EI_h - risk_weight * EL_h.
+    # This keeps transition decisions Bayesian but avoids the brittle hard
+    # probability threshold that rejected useful h=4 switches and accepted
+    # an over-confident late h=5 switch in previous runs.
+    density = _standard_normal_pdf(z_score)
+    expected_improvement = delta_mean * switch_probability + delta_std * density
+    expected_loss = (
+        -delta_mean * _standard_normal_cdf(-z_score) + delta_std * density
+    )
+    expected_net_benefit = (
+        expected_improvement - horizon_state.transition_risk_weight * expected_loss
+    )
+    if (
+        horizon_state.credible_transition_enabled and
+        horizon_state.credible_transition_rule == 'expected_improvement'
+    ):
+      proposal_score = expected_net_benefit
+    credible_switch = (
+        expected_net_benefit[proposed_idx] > horizon_state.transition_min_expected_net
+        if horizon_state.credible_transition_rule == 'expected_improvement'
+        else switch_probability[proposed_idx] >= horizon_state.credible_transition_min_prob
+    )
+    margin_switch = proposed_score > incumbent_score + horizon_state.incumbent_switch_margin
+    switch = jnp.where(
+        horizon_state.credible_transition_enabled,
+        jnp.logical_and(proposed_idx != incumbent_idx, credible_switch),
+        margin_switch,
+    )
     raw_selected_horizon = jnp.where(switch, proposed_horizon, horizon_state.best_h)
     if horizon_state.max_transition_delta > 0:
       delta = jnp.clip(
@@ -834,8 +976,17 @@ def _build_dense_query_kernel(eval_state: Any,
         return_term=return_term,
         roughness_term=roughness_term,
         sigma_r_term=sigma_r_term,
+        transition_cost=transition_cost,
+        transition_adjusted_score=transition_adjusted_score,
+        switch_probability=switch_probability,
+        expected_improvement=expected_improvement,
+        expected_loss=expected_loss,
+        expected_net_benefit=expected_net_benefit,
         incumbent_deployment_score=incumbent_score,
         proposed_deployment_score=proposed_score,
+        proposed_transition_cost=transition_cost[proposed_idx],
+        proposed_switch_probability=switch_probability[proposed_idx],
+        proposed_expected_net_benefit=expected_net_benefit[proposed_idx],
         robust_return=robust_return,
         prefix_objectives=model_stage.prefix_objectives,
         probe_prefixes=model_stage.probe_prefixes,
@@ -994,6 +1145,12 @@ def dense_checkpoint_eval(agent,
   return_term = np.asarray(result.return_term, dtype=np.float32)
   roughness_term = np.asarray(result.roughness_term, dtype=np.float32)
   sigma_r_term = np.asarray(result.sigma_r_term, dtype=np.float32)
+  transition_cost = np.asarray(result.transition_cost, dtype=np.float32)
+  transition_adjusted_score = np.asarray(result.transition_adjusted_score, dtype=np.float32)
+  switch_probability = np.asarray(result.switch_probability, dtype=np.float32)
+  expected_improvement = np.asarray(result.expected_improvement, dtype=np.float32)
+  expected_loss = np.asarray(result.expected_loss, dtype=np.float32)
+  expected_net_benefit = np.asarray(result.expected_net_benefit, dtype=np.float32)
   robust_return = np.asarray(result.robust_return, dtype=np.float32)
   prefix_objectives = np.asarray(result.prefix_objectives, dtype=np.float32)
   probe_prefixes = np.asarray(result.probe_prefixes, dtype=np.float32)
@@ -1019,6 +1176,23 @@ def dense_checkpoint_eval(agent,
       'dense_rhs/proposed_deployment_score': float(
           np.asarray(result.proposed_deployment_score)
       ),
+      'dense_rhs/proposed_transition_cost': float(
+          np.asarray(result.proposed_transition_cost)
+      ),
+      'dense_rhs/proposed_switch_probability': float(
+          np.asarray(result.proposed_switch_probability)
+      ),
+      'dense_rhs/proposed_expected_net_benefit': float(
+          np.asarray(result.proposed_expected_net_benefit)
+      ),
+      'dense_rhs/transition_cost_best': float(transition_cost[selected_idx]),
+      'dense_rhs/transition_adjusted_score_best': float(
+          transition_adjusted_score[selected_idx]
+      ),
+      'dense_rhs/switch_probability_best': float(switch_probability[selected_idx]),
+      'dense_rhs/expected_improvement_best': float(expected_improvement[selected_idx]),
+      'dense_rhs/expected_loss_best': float(expected_loss[selected_idx]),
+      'dense_rhs/expected_net_benefit_best': float(expected_net_benefit[selected_idx]),
       'dense_rhs/return_term_best': float(return_term[selected_idx]),
       'dense_rhs/roughness_term_best': float(roughness_term[selected_idx]),
       'dense_rhs/return_std_term_best': float(sigma_r_term[selected_idx]),
@@ -1037,6 +1211,18 @@ def dense_checkpoint_eval(agent,
     metrics[f'dense_rhs/candidate_{horizon}_fitness'] = float(fitness[idx])
     metrics[f'dense_rhs/candidate_{horizon}_deployment_score'] = float(
         deployment_score[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_transition_cost'] = float(
+        transition_cost[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_transition_adjusted_score'] = float(
+        transition_adjusted_score[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_switch_probability'] = float(
+        switch_probability[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_expected_net_benefit'] = float(
+        expected_net_benefit[idx]
     )
     metrics[f'dense_rhs/candidate_{horizon}_return'] = float(robust_return[idx])
     metrics[f'dense_rhs/candidate_{horizon}_return_term'] = float(return_term[idx])

@@ -1,0 +1,20 @@
+\section{Dense-RHS Campaign Report}
+
+\paragraph{Goal.}
+The campaign validates Dense-RHS against no-RHS baselines under clean and chaos training, then expands the same procedure across the configured task list.
+
+\paragraph{Algorithm policy.}
+The winning algorithm must preserve online horizon selection, dense shared diagnostics across horizons, candidate-only environment evaluation, and deployment of one selected horizon between queries.
+
+\paragraph{Current winning records.}
+\begin{itemize}
+\item quadruped-run / clean / no\_rhs: final return 924.65 $\pm$ 16.91, runtime 01:15:58.
+\item quadruped-run / chaos / no\_rhs: final return 683.0 , runtime unknown.
+\item quadruped-run / clean / dense\_rhs\_sparse\_hifi: final return 915.34 $\pm$ 24.33, runtime 01:29:59.
+\end{itemize}
+
+\paragraph{Open algorithm RFCs.}
+\begin{itemize}
+\item expected\_improvement\_transition: Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously.
+\item cap\_or\_uncertain\_late\_large\_horizon: Run 1618 showed h=5/bucket=8 caused final-eval collapse after a strong 250k checkpoint; larger horizon switches late in training need a general uncertainty gate.
+\end{itemize}

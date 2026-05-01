@@ -118,6 +118,15 @@ class _ArtifactWriter:
             'deployment_score_best',
             'incumbent_deployment_score',
             'proposed_deployment_score',
+            'proposed_transition_cost',
+            'proposed_switch_probability',
+            'proposed_expected_net_benefit',
+            'transition_cost_best',
+            'transition_adjusted_score_best',
+            'switch_probability_best',
+            'expected_improvement_best',
+            'expected_loss_best',
+            'expected_net_benefit_best',
             'return_term_best',
             'roughness_term_best',
             'return_std_term_best',
@@ -686,6 +695,33 @@ def _run_mjx_training_loop(cfg,
         'proposed_deployment_score': float(
             dense_metrics['dense_rhs/proposed_deployment_score']
         ),
+        'proposed_transition_cost': float(
+            dense_metrics.get('dense_rhs/proposed_transition_cost', 0.0)
+        ),
+        'proposed_switch_probability': float(
+            dense_metrics.get('dense_rhs/proposed_switch_probability', 0.0)
+        ),
+        'proposed_expected_net_benefit': float(
+            dense_metrics.get('dense_rhs/proposed_expected_net_benefit', 0.0)
+        ),
+        'transition_cost_best': float(
+            dense_metrics.get('dense_rhs/transition_cost_best', 0.0)
+        ),
+        'transition_adjusted_score_best': float(
+            dense_metrics.get('dense_rhs/transition_adjusted_score_best', 0.0)
+        ),
+        'switch_probability_best': float(
+            dense_metrics.get('dense_rhs/switch_probability_best', 0.0)
+        ),
+        'expected_improvement_best': float(
+            dense_metrics.get('dense_rhs/expected_improvement_best', 0.0)
+        ),
+        'expected_loss_best': float(
+            dense_metrics.get('dense_rhs/expected_loss_best', 0.0)
+        ),
+        'expected_net_benefit_best': float(
+            dense_metrics.get('dense_rhs/expected_net_benefit_best', 0.0)
+        ),
         'return_term_best': float(dense_metrics['dense_rhs/return_term_best']),
         'roughness_term_best': float(
             dense_metrics['dense_rhs/roughness_term_best']
@@ -1253,6 +1289,32 @@ def train(cfg: dict):
         local_window_radius=int(dense_rhs_config.local_window_radius),
         max_transition_delta=int(dense_rhs_config.max_transition_delta),
         incumbent_switch_margin=float(dense_rhs_config.incumbent_switch_margin),
+        credible_transition_enabled=bool(
+            dense_rhs_config.get('credible_transition_enabled', False)
+        ),
+        credible_transition_rule=str(
+            dense_rhs_config.get('credible_transition_rule', 'probability')
+        ),
+        credible_transition_min_prob=float(
+            dense_rhs_config.get('credible_transition_min_prob', 0.0)
+        ),
+        transition_cost_scale=float(dense_rhs_config.get('transition_cost_scale', 0.0)),
+        transition_risk_weight=float(dense_rhs_config.get('transition_risk_weight', 1.0)),
+        transition_min_expected_net=float(
+            dense_rhs_config.get('transition_min_expected_net', 0.0)
+        ),
+        transition_model_weight=float(dense_rhs_config.get('transition_model_weight', 1.0)),
+        transition_probe_weight=float(dense_rhs_config.get('transition_probe_weight', 1.0)),
+        transition_planner_weight=float(dense_rhs_config.get('transition_planner_weight', 1.0)),
+        transition_roughness_weight=float(
+            dense_rhs_config.get('transition_roughness_weight', 1.0)
+        ),
+        transition_return_std_weight=float(
+            dense_rhs_config.get('transition_return_std_weight', 1.0)
+        ),
+        transition_uncertainty_floor=float(
+            dense_rhs_config.get('transition_uncertainty_floor', 0.05)
+        ),
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
     agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)

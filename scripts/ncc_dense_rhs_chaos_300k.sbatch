@@ -43,6 +43,12 @@ DENSE_RHS_QUERY_POPULATION="${DENSE_RHS_QUERY_POPULATION:-128}"
 DENSE_RHS_QUERY_POLICY_PRIOR="${DENSE_RHS_QUERY_POLICY_PRIOR:-8}"
 DENSE_RHS_QUERY_ELITES="${DENSE_RHS_QUERY_ELITES:-16}"
 DENSE_RHS_QUERY_MPPI_ITERS="${DENSE_RHS_QUERY_MPPI_ITERS:-2}"
+DENSE_RHS_CREDIBLE_TRANSITION="${DENSE_RHS_CREDIBLE_TRANSITION:-false}"
+DENSE_RHS_CREDIBLE_TRANSITION_RULE="${DENSE_RHS_CREDIBLE_TRANSITION_RULE:-probability}"
+DENSE_RHS_CREDIBLE_SWITCH_PROB="${DENSE_RHS_CREDIBLE_SWITCH_PROB:-0.0}"
+DENSE_RHS_TRANSITION_COST_SCALE="${DENSE_RHS_TRANSITION_COST_SCALE:-0.0}"
+DENSE_RHS_TRANSITION_RISK_WEIGHT="${DENSE_RHS_TRANSITION_RISK_WEIGHT:-1.0}"
+DENSE_RHS_TRANSITION_MIN_EXPECTED_NET="${DENSE_RHS_TRANSITION_MIN_EXPECTED_NET:-0.0}"
 PREWARM_ALL_PHASES="${PREWARM_ALL_PHASES:-false}"
 
 source "$VENV_PATH/bin/activate"
@@ -88,6 +94,12 @@ python -m tdmpc2_jax.train \
   dense_rhs.query_num_elites="${DENSE_RHS_QUERY_ELITES}" \
   dense_rhs.query_mppi_iterations="${DENSE_RHS_QUERY_MPPI_ITERS}" \
   dense_rhs.query_temperature=1.0 \
+  dense_rhs.credible_transition_enabled="${DENSE_RHS_CREDIBLE_TRANSITION}" \
+  dense_rhs.credible_transition_rule="${DENSE_RHS_CREDIBLE_TRANSITION_RULE}" \
+  dense_rhs.credible_transition_min_prob="${DENSE_RHS_CREDIBLE_SWITCH_PROB}" \
+  dense_rhs.transition_cost_scale="${DENSE_RHS_TRANSITION_COST_SCALE}" \
+  dense_rhs.transition_risk_weight="${DENSE_RHS_TRANSITION_RISK_WEIGHT}" \
+  dense_rhs.transition_min_expected_net="${DENSE_RHS_TRANSITION_MIN_EXPECTED_NET}" \
   dense_rhs.prewarm_all_phases="${PREWARM_ALL_PHASES}" \
   evaluation.enabled=true \
   evaluation.interval_steps="${EVAL_INTERVAL_STEPS}" \

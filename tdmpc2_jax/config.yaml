@@ -63,6 +63,18 @@ dense_rhs:
   local_window_radius: 0
   max_transition_delta: 0
   incumbent_switch_margin: 0.0
+  credible_transition_enabled: false
+  credible_transition_rule: probability
+  credible_transition_min_prob: 0.0
+  transition_cost_scale: 0.0
+  transition_risk_weight: 1.0
+  transition_min_expected_net: 0.0
+  transition_model_weight: 1.0
+  transition_probe_weight: 1.0
+  transition_planner_weight: 1.0
+  transition_roughness_weight: 1.0
+  transition_return_std_weight: 1.0
+  transition_uncertainty_floor: 0.05
   horizon_buckets: []
   phase_min_samples_to_drop: 3
   num_env_eval_replicas: 16
