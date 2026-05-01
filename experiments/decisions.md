@@ -176,3 +176,7 @@ Interpretation: early low-horizon adaptation still hurts, while the `70k` warmup
 
 - `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15`: later `120k` adaptation with small margin, testing whether safer late adaptation can improve over fixed `h=3`.
 - `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15`: same `70k` warmup with mildly return-dominant deployment, testing whether the search can exploit a better local horizon without aggressive early switching.
+
+## 2026-05-01T19:12:23+00:00
+
+Launched `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` as job `1670`.
