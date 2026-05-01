@@ -284,3 +284,7 @@ Processed `dense_rhs_plus2_sparse_hifi_start20_r2b5_margin05_300k_vec8_s15` job 
 ## 2026-05-01T21:35:21+00:00
 
 Launched `dense_rhs_plus2_evidence_ultrahifi_start70_300k_vec8_s15` as job `1674`.
+
+## 2026-05-01T21:35:41+00:00
+
+Launched `dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15` as job `1675`.
