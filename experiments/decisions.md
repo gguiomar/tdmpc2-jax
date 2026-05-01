@@ -51,3 +51,7 @@ Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k` job `1644`: `ei
 - Horizon path: `3->3->3`
 - Reason: EI smoke stayed at h=3 with non-positive expected net benefit at every query; lower risk/cost should be tested before a full run.
 - Follow-up: Queued follow-up `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k`.
+
+## 2026-05-01T14:30:11+00:00
+
+Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k` as job `1655`.
