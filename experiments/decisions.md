@@ -107,3 +107,7 @@ Processed `dense_rhs_sparse_hifi_smoke_120k_vec8_s15_start20k` job `1659`: `comp
 ## 2026-05-01 Sparse-HiFi Chaos Smoke RFC
 
 Clean Dense-RHS does not need more EI transition tuning right now: run `1387` already satisfies the `0.98 * no_rhs` clean non-inferiority gate, and the new Sparse-HiFi fallback recovered to `640.40` by 120k after weak early evals. The next campaign step is therefore quadruped chaos. Queue `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` using the chaos launcher, clean evaluation, and the same sparse high-fidelity query budget. If this smoke is non-degenerate, promote the same family to a 300k chaos comparison against the no-RHS chaos reference.
+
+## 2026-05-01T17:23:49+00:00
+
+Launched `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` as job `1661`.
