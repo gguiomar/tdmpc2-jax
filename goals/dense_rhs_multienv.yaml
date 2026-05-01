@@ -1,6 +1,6 @@
 {
   "constraints": {
-    "max_active_gpus": 2,
+    "max_active_gpus": 3,
     "max_walltime": "02:30:00",
     "require_mjx_final": true,
     "require_remote_git_sync": true,
@@ -624,6 +624,47 @@
       "run_label": "dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15",
       "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
       "stage": "quadruped_clean_plus2"
+    },
+    {
+      "env": {
+        "CHECKPOINT_BUFFER": "false",
+        "DENSE_QUERY_INTERVAL_STEPS": 50000,
+        "DENSE_QUERY_START_STEP": 20000,
+        "DENSE_RHS_CANDIDATE_BUDGET_A": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B1": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B2": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B3": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B4": 3,
+        "DENSE_RHS_CREDIBLE_SWITCH_PROB": 0.0,
+        "DENSE_RHS_CREDIBLE_TRANSITION": "false",
+        "DENSE_RHS_CREDIBLE_TRANSITION_RULE": "probability",
+        "DENSE_RHS_EVAL_STEPS": 512,
+        "DENSE_RHS_HORIZON_BUCKETS": "[4,8,12,16,24,30]",
+        "DENSE_RHS_INCUMBENT_MARGIN": 0.05,
+        "DENSE_RHS_LOCAL_WINDOW_RADIUS": 1,
+        "DENSE_RHS_MAX_TRANSITION_DELTA": 1,
+        "DENSE_RHS_QUERY_ELITES": 64,
+        "DENSE_RHS_QUERY_MPPI_ITERS": 6,
+        "DENSE_RHS_QUERY_POLICY_PRIOR": 24,
+        "DENSE_RHS_QUERY_POPULATION": 512,
+        "DENSE_RHS_QUERY_TEMPERATURE": 0.5,
+        "DENSE_RHS_REPLICAS": 32,
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_NUM_ENVS": 8,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "quadruped-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/quadruped-run_dense_rhs_clean_dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15",
+      "method": "dense_rhs_sparse_hifi",
+      "notes": "Evidence-quality hypothesis I. Early start-20 adaptation with ultra-HiFi query evidence, testing whether the original early-adaptive family was under-informed rather than harmed by early search itself.",
+      "regime": "clean",
+      "run_label": "dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15",
+      "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
+      "stage": "quadruped_clean_plus2"
     }
   ],
   "name": "dense_rhs_multienv",
@@ -656,7 +697,7 @@
       "name": "clean_plus2_sparse_hifi_parallel",
       "reason": "The formal clean goal is now to beat no-RHS by 2%; run two distinct Sparse-HiFi clean attempts in parallel under the max-2-GPU policy.",
       "stage": "quadruped_clean_plus2",
-      "status": "two_full_runs_pending"
+      "status": "three_evidence_runs_pending"
     },
     {
       "name": "learner_aware_virtual_update_query",

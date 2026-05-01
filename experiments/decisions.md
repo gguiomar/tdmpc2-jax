@@ -244,3 +244,15 @@ Launched `dense_rhs_plus2_sparse_hifi_start70_returndom_r2b5_300k_vec8_s15` as j
 ## 2026-05-01T20:50:15+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start20_r2b5_margin05_300k_vec8_s15` as job `1673`.
+
+## 2026-05-01 Three-GPU Evidence Search
+
+Cancelled active jobs `1672` and `1673` because they were still local-window/transition variants rather than the evidence-quality direction needed to beat the clean no-RHS baseline by `2%`.
+
+Update the campaign cap from `2` to `3` active GPUs and run three clean evidence-quality attempts when capacity is free:
+
+- `dense_rhs_plus2_evidence_ultrahifi_start70_300k_vec8_s15`: safe start-70 with ultra-HiFi query evidence.
+- `dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15`: ultra-HiFi query evidence with wider local window and mildly return-dominant deployment.
+- `dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15`: early start-20 with ultra-HiFi evidence to test whether early adaptation failed because evidence was too noisy.
+
+The clean +2% target remains unchanged at `943.143`; chaos remains postponed until this gate is passed.
