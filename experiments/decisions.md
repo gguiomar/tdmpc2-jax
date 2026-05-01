@@ -71,3 +71,19 @@ Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k` job `1655`: `we
 ## 2026-05-01T15:19:24+00:00
 
 Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k` as job `1658`.
+
+## 2026-05-01T16:12:26+00:00
+
+Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k` job `1658`: `weak_smoke`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:43:00`
+- Final eval: `463.6806945800781` ± `129.16029357910156`
+- Best eval: `463.6806945800781` at step `80000`
+- Horizon path: `3->3->3`
+- Reason: EI smoke best eval is low at `463.6806945800781`; needs a bounded parameter iteration, not a full run.
+- Follow-up: Follow-up `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k` already exists.
+
+## 2026-05-01 Sparse-HiFi Fallback RFC
+
+The expected-improvement transition family has now failed the high-risk, low-risk, and midpoint 80k smokes. The failure pattern is not enough to reject Dense-RHS, because the existing Sparse-HiFi family already reached `915.34` at 300k. The next bounded hypothesis is therefore `dense_rhs_sparse_hifi_smoke_120k_vec8_s15_start20k`: disable EI/credible transition gating, keep local-window bucketed Sparse-HiFi search, and run a 120k smoke with eval every 40k. If this recovers the known learning trajectory, the campaign should use Sparse-HiFi as the base family for the next clean/chaos comparisons instead of continuing EI threshold tuning.
