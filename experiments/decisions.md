@@ -111,3 +111,24 @@ Clean Dense-RHS does not need more EI transition tuning right now: run `1387` al
 ## 2026-05-01T17:23:49+00:00
 
 Launched `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` as job `1661`.
+
+## 2026-05-01 Clean +2% Goal Correction
+
+The formal campaign target is corrected from clean non-inferiority to clean improvement: Dense-RHS must beat the clean no-RHS reference by `2%`. With no-RHS run `1179` at `924.65`, the clean target is `943.14`. Current best Dense-RHS run `1387` reached `915.34`, so it remains the best-so-far but does not satisfy the goal. Chaos validation is postponed until this clean +2% gate is met.
+
+Queued two clean 300k attempts to keep the max-2-GPU policy saturated:
+
+- `dense_rhs_plus2_sparse_hifi_margin08_300k_vec8_s15_start20k`: Sparse-HiFi with stronger incumbent margin (`0.08`) to reduce low-evidence early downshifts.
+- `dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15`: Sparse-HiFi with a moderate `70k` fixed-horizon warmup before free adaptive Dense-RHS.
+
+## 2026-05-01T17:31:25+00:00
+
+Processed `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` job `1661`: `postponed_clean_plus2`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:07:22`
+- Final eval: `None` ± `None`
+- Best eval: `None` at step `None`
+- Horizon path: ``
+- Reason: Chaos validation postponed until clean Dense-RHS beats the no-RHS baseline by `2%`.
+- Follow-up: No automatic follow-up rule fired.
