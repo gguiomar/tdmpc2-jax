@@ -180,3 +180,7 @@ Interpretation: early low-horizon adaptation still hurts, while the `70k` warmup
 ## 2026-05-01T19:12:23+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` as job `1670`.
+
+## 2026-05-01T19:12:39+00:00
+
+Launched `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15` as job `1671`.
