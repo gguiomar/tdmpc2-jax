@@ -316,3 +316,15 @@ Processed `dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15` job `1676`:
 - Horizon path: `3->3->4->5->5->4`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T23:53:59+00:00
+
+Processed `dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15` job `1675`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `02:07:45`
+- Final eval: `729.8106079101562` ± `17.057329177856445`
+- Best eval: `740.24560546875` at step `250000`
+- Horizon path: `3->4->5->6->6`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
