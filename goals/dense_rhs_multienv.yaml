@@ -3,7 +3,7 @@
   "repo": {
     "local_path": "/Users/ggmar/Documents/git/tdmpc2-jax",
     "remote_host": "ncc-gpu1",
-    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex",
     "branch": "codex/tdmpc2-jax-mjx-parity"
   },
   "constraints": {
