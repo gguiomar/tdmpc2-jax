@@ -292,3 +292,27 @@ Launched `dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15` as job `
 ## 2026-05-01T21:36:01+00:00
 
 Launched `dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15` as job `1676`.
+
+## 2026-05-01T23:38:27+00:00
+
+Processed `dense_rhs_plus2_evidence_ultrahifi_start70_300k_vec8_s15` job `1674`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `02:00:12`
+- Final eval: `884.75537109375` ± `28.268857955932617`
+- Best eval: `884.75537109375` at step `300000`
+- Horizon path: `3->4->5->5->6`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T23:38:29+00:00
+
+Processed `dense_rhs_plus2_evidence_ultrahifi_start20_300k_vec8_s15` job `1676`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:56:26`
+- Final eval: `849.2491455078125` ± `15.82135009765625`
+- Best eval: `849.2491455078125` at step `300000`
+- Horizon path: `3->3->4->5->5->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
