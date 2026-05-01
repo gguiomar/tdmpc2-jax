@@ -280,3 +280,7 @@ Processed `dense_rhs_plus2_sparse_hifi_start20_r2b5_margin05_300k_vec8_s15` job 
 - Horizon path: `3->4`
 - Reason: SLURM state `CANCELLED by 1002`.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T21:35:21+00:00
+
+Launched `dense_rhs_plus2_evidence_ultrahifi_start70_300k_vec8_s15` as job `1674`.
