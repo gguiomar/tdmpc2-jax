@@ -35,3 +35,7 @@ Decision equation:
 The proposed horizon is selected by `B_h` over the candidate set, and the switch is accepted when `B_h > transition_min_expected_net`. This keeps the transition rule Bayesian but avoids the brittle hard switch-probability threshold that made `1600` too conservative and `1618` too permissive late in training.
 
 Added one smoke profile: `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k`. It must not launch until the code is committed/synced because this is not marked as a dirty smoke.
+
+## 2026-05-01T10:15:53+00:00
+
+Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k` as job `1644`.
