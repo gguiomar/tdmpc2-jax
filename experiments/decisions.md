@@ -140,3 +140,39 @@ Launched `dense_rhs_plus2_sparse_hifi_margin08_300k_vec8_s15_start20k` as job `1
 ## 2026-05-01T17:35:18+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15` as job `1663`.
+
+## 2026-05-01T19:10:57+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_margin08_300k_vec8_s15_start20k` job `1662`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:31:16`
+- Final eval: `901.0157470703125` ± `17.160640716552734`
+- Best eval: `901.0157470703125` at step `300000`
+- Horizon path: `2->2->3->4->4->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T19:10:59+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15` job `1663`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:31:18`
+- Final eval: `922.63330078125` ± `21.33823585510254`
+- Best eval: `922.63330078125` at step `300000`
+- Horizon path: `3->3->3->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01 Clean +2% Follow-Up RFC
+
+The two parallel clean +2% attempts completed without reaching the target `943.14`.
+
+- `dense_rhs_plus2_sparse_hifi_margin08_300k_vec8_s15_start20k`: `901.02 ± 17.16`, horizon path `2->2->3->4->4->4`.
+- `dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15`: `922.63 ± 21.34`, horizon path `3->3->3->3->3`.
+
+Interpretation: early low-horizon adaptation still hurts, while the `70k` warmup profile recovers near the no-RHS baseline but does not exploit enough to pass the `+2%` target. Queue two clean attempts to keep the max-2-GPU policy saturated:
+
+- `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15`: later `120k` adaptation with small margin, testing whether safer late adaptation can improve over fixed `h=3`.
+- `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15`: same `70k` warmup with mildly return-dominant deployment, testing whether the search can exploit a better local horizon without aggressive early switching.
