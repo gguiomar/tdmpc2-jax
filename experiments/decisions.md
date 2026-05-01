@@ -67,3 +67,7 @@ Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k` job `1655`: `we
 - Horizon path: `2->2->2`
 - Reason: EI smoke best eval is low at `286.9360656738281`; needs a bounded parameter iteration, not a full run.
 - Follow-up: Queued follow-up `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k`.
+
+## 2026-05-01T15:19:24+00:00
+
+Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k` as job `1658`.
