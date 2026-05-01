@@ -177,6 +177,12 @@ Interpretation: early low-horizon adaptation still hurts, while the `70k` warmup
 - `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15`: later `120k` adaptation with small margin, testing whether safer late adaptation can improve over fixed `h=3`.
 - `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15`: same `70k` warmup with mildly return-dominant deployment, testing whether the search can exploit a better local horizon without aggressive early switching.
 
+## 2026-05-01 Clean +2% Follow-Up RFC E
+
+`dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` completed at `831.64`, so delaying the first query to `120k` is not enough and likely leaves too little useful adaptation budget. One GPU is free while `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15` continues.
+
+Queue `dense_rhs_plus2_sparse_hifi_start70_returndom_r2b5_300k_vec8_s15`: keep the stronger `70k` warmup, widen the local candidate window to radius `2`, evaluate `5` candidates, and make deployment return-dominant by setting roughness and return-std deployment weights to `0`. This tests whether the stable start-70 profile can exploit better local horizons when the query has richer local evidence.
+
 ## 2026-05-01T19:12:23+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` as job `1670`.
@@ -184,3 +190,15 @@ Launched `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` as job `1
 ## 2026-05-01T19:12:39+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15` as job `1671`.
+
+## 2026-05-01T20:47:30+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` job `1670`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:34:51`
+- Final eval: `831.63916015625` ± `21.24997901916504`
+- Best eval: `831.63916015625` at step `300000`
+- Horizon path: `2->2->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
