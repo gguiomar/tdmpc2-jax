@@ -183,6 +183,12 @@ Interpretation: early low-horizon adaptation still hurts, while the `70k` warmup
 
 Queue `dense_rhs_plus2_sparse_hifi_start70_returndom_r2b5_300k_vec8_s15`: keep the stronger `70k` warmup, widen the local candidate window to radius `2`, evaluate `5` candidates, and make deployment return-dominant by setting roughness and return-std deployment weights to `0`. This tests whether the stable start-70 profile can exploit better local horizons when the query has richer local evidence.
 
+## 2026-05-01 Clean +2% Follow-Up RFC F
+
+`dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15` completed at `855.80`, so mild return-dominance with a narrow local window degraded performance rather than improving over the stable `h=3` path.
+
+Queue `dense_rhs_plus2_sparse_hifi_start20_r2b5_margin05_300k_vec8_s15` as a different hypothesis from the pending return-dominant run: start adaptation early as in the best-so-far Sparse-HiFi family, but widen the high-fidelity local window to radius `2` and evaluate `5` candidates while keeping the standard geometric deployment score and a moderate incumbent margin. This tests whether the original early-adaptive family was under-informed rather than structurally wrong.
+
 ## 2026-05-01T19:12:23+00:00
 
 Launched `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` as job `1670`.
@@ -200,5 +206,17 @@ Processed `dense_rhs_plus2_sparse_hifi_start120_margin03_300k_vec8_s15` job `167
 - Final eval: `831.63916015625` ± `21.24997901916504`
 - Best eval: `831.63916015625` at step `300000`
 - Horizon path: `2->2->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01T20:48:56+00:00
+
+Processed `dense_rhs_plus2_sparse_hifi_start70_returnlite_300k_vec8_s15` job `1671`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:35:10`
+- Final eval: `855.7972412109375` ± `17.007858276367188`
+- Best eval: `855.7972412109375` at step `300000`
+- Horizon path: `3->2->3->2->3`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
