@@ -1,166 +1,238 @@
 {
-  "name": "dense_rhs_multienv",
-  "repo": {
-    "local_path": "/Users/ggmar/Documents/git/tdmpc2-jax",
-    "remote_host": "ncc-gpu1",
-    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex",
-    "branch": "codex/tdmpc2-jax-mjx-parity"
-  },
   "constraints": {
     "max_active_gpus": 2,
-    "require_slurm": true,
+    "max_walltime": "02:30:00",
     "require_mjx_final": true,
     "require_remote_git_sync": true,
-    "wandb_enabled": false,
-    "max_walltime": "02:30:00"
+    "require_slurm": true,
+    "wandb_enabled": false
   },
-  "success": {
-    "clean_noninferiority_ratio": 0.98,
-    "chaos_rhs_improvement_ratio": 1.05,
-    "confirmation_seeds": [1, 3, 5, 7, 15]
-  },
-  "tracking": {
-    "ledger": "experiments/ledger.csv",
-    "decisions": "experiments/decisions.md",
-    "results_dir": "runs/results"
-  },
-  "tasks": [
-    {"env_id": "fish-swim", "mjx_status": "pending_port"},
-    {"env_id": "finger-turn_hard", "mjx_status": "pending_port"},
-    {"env_id": "cheetah-run", "mjx_status": "pending_port"},
-    {"env_id": "cartpole-swingup", "mjx_status": "pending_port"},
-    {"env_id": "quadruped-run", "mjx_status": "ready"},
-    {"env_id": "acrobot-swingup", "mjx_status": "pending_port"},
-    {"env_id": "walker-run", "mjx_status": "pending_port"},
-    {"env_id": "hopper-hop", "mjx_status": "pending_port"}
-  ],
   "known_runs": [
     {
-      "job_id": "1179",
+      "best_eval_mean": 924.65,
       "env_id": "quadruped-run",
-      "regime": "clean",
-      "method": "no_rhs",
-      "seed": 15,
-      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_no_rhs_smoke_parity_300k_vec8_s15",
       "final_eval_mean": 924.65,
       "final_eval_std": 16.91,
-      "best_eval_mean": 924.65,
+      "job_id": "1179",
+      "method": "no_rhs",
+      "regime": "clean",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_no_rhs_smoke_parity_300k_vec8_s15",
       "runtime": "01:15:58",
+      "seed": 15,
       "winner": true
     },
     {
-      "job_id": "1181",
+      "best_eval_mean": 683.0,
       "env_id": "quadruped-run",
-      "regime": "chaos",
-      "method": "no_rhs",
-      "seed": 15,
-      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_chaos_no_rhs_parity_300k_vec8_s15_chaos",
       "final_eval_mean": 683.0,
       "final_eval_std": null,
-      "best_eval_mean": 683.0,
+      "job_id": "1181",
+      "method": "no_rhs",
+      "regime": "chaos",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_chaos_no_rhs_parity_300k_vec8_s15_chaos",
       "runtime": "unknown",
+      "seed": 15,
       "winner": true
     },
     {
-      "job_id": "1387",
+      "best_eval_mean": 915.34,
       "env_id": "quadruped-run",
-      "regime": "clean",
-      "method": "dense_rhs_sparse_hifi",
-      "seed": 15,
-      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_bucket_hifi_300k_vec8_s15_start20k",
       "final_eval_mean": 915.34,
       "final_eval_std": 24.33,
-      "best_eval_mean": 915.34,
-      "runtime": "01:29:59",
       "horizon_path": "2->2->3->2->3->4",
+      "job_id": "1387",
+      "method": "dense_rhs_sparse_hifi",
+      "regime": "clean",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_bucket_hifi_300k_vec8_s15_start20k",
+      "runtime": "01:29:59",
+      "seed": 15,
       "winner": true
     },
     {
-      "job_id": "1600",
+      "best_eval_mean": 889.66,
       "env_id": "quadruped-run",
-      "regime": "clean",
-      "method": "dense_rhs_credible_p65_c006",
-      "seed": 15,
-      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_credible_hifi_300k_vec8_s15_p65_c006_start20k",
       "final_eval_mean": 889.66,
       "final_eval_std": 22.17,
-      "best_eval_mean": 889.66,
-      "runtime": "01:26:10",
       "horizon_path": "3->3->3->3->3->3",
+      "job_id": "1600",
+      "method": "dense_rhs_credible_p65_c006",
+      "regime": "clean",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_credible_hifi_300k_vec8_s15_p65_c006_start20k",
+      "runtime": "01:26:10",
+      "seed": 15,
       "winner": false
     },
     {
-      "job_id": "1618",
+      "best_eval_mean": 894.1,
+      "best_eval_step": 250000,
       "env_id": "quadruped-run",
-      "regime": "clean",
-      "method": "dense_rhs_credible_mid_p56_c003",
-      "seed": 15,
-      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_credible_mid_300k_vec8_s15_p56_c003_start20k",
       "final_eval_mean": 516.52,
       "final_eval_std": 323.68,
-      "best_eval_mean": 894.10,
-      "best_eval_step": 250000,
-      "runtime": "01:38:32",
       "horizon_path": "3->3->4->4->4->5",
+      "job_id": "1618",
+      "method": "dense_rhs_credible_mid_p56_c003",
+      "regime": "clean",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_credible_mid_300k_vec8_s15_p56_c003_start20k",
+      "runtime": "01:38:32",
+      "seed": 15,
       "winner": false
     }
   ],
   "launch_queue": [
     {
-      "run_label": "dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k",
-      "stage": "quadruped_clean",
-      "env_id": "quadruped-run",
-      "regime": "clean",
-      "method": "dense_rhs_expected_improvement",
-      "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
-      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k",
-      "notes": "Smoke the expected-improvement transition RFC before any full run. Requires committed/synced code; steward must refuse launch while dirty.",
       "env": {
-        "MAX_STEPS": 80000,
-        "SEED": 15,
-        "TRAIN_NUM_ENVS": 8,
-        "UTD_RATIO": 1.0,
-        "SEED_STEPS_OVERRIDE": 4000,
         "CHECKPOINT_BUFFER": "false",
-        "EVAL_INTERVAL_STEPS": 40000,
-        "EVAL_NUM_EPISODES": 8,
-        "DENSE_QUERY_START_STEP": 20000,
         "DENSE_QUERY_INTERVAL_STEPS": 20000,
-        "DENSE_RHS_LOCAL_WINDOW_RADIUS": 1,
-        "DENSE_RHS_MAX_TRANSITION_DELTA": 1,
-        "DENSE_RHS_CREDIBLE_TRANSITION": "true",
-        "DENSE_RHS_CREDIBLE_TRANSITION_RULE": "expected_improvement",
-        "DENSE_RHS_TRANSITION_COST_SCALE": 0.03,
-        "DENSE_RHS_TRANSITION_RISK_WEIGHT": 1.5,
-        "DENSE_RHS_TRANSITION_MIN_EXPECTED_NET": 0.0,
-        "DENSE_RHS_REPLICAS": 16,
-        "DENSE_RHS_EVAL_STEPS": 256,
-        "DENSE_RHS_QUERY_POPULATION": 256,
-        "DENSE_RHS_QUERY_POLICY_PRIOR": 12,
-        "DENSE_RHS_QUERY_ELITES": 32,
-        "DENSE_RHS_QUERY_MPPI_ITERS": 4,
-        "DENSE_RHS_QUERY_TEMPERATURE": 0.5,
+        "DENSE_QUERY_START_STEP": 20000,
         "DENSE_RHS_CANDIDATE_BUDGET_A": 3,
         "DENSE_RHS_CANDIDATE_BUDGET_B1": 3,
         "DENSE_RHS_CANDIDATE_BUDGET_B2": 3,
         "DENSE_RHS_CANDIDATE_BUDGET_B3": 3,
         "DENSE_RHS_CANDIDATE_BUDGET_B4": 3,
-        "DENSE_RHS_HORIZON_BUCKETS": "[4,8,12,16,24,30]"
-      }
+        "DENSE_RHS_CREDIBLE_TRANSITION": "true",
+        "DENSE_RHS_CREDIBLE_TRANSITION_RULE": "expected_improvement",
+        "DENSE_RHS_EVAL_STEPS": 256,
+        "DENSE_RHS_HORIZON_BUCKETS": "[4,8,12,16,24,30]",
+        "DENSE_RHS_LOCAL_WINDOW_RADIUS": 1,
+        "DENSE_RHS_MAX_TRANSITION_DELTA": 1,
+        "DENSE_RHS_QUERY_ELITES": 32,
+        "DENSE_RHS_QUERY_MPPI_ITERS": 4,
+        "DENSE_RHS_QUERY_POLICY_PRIOR": 12,
+        "DENSE_RHS_QUERY_POPULATION": 256,
+        "DENSE_RHS_QUERY_TEMPERATURE": 0.5,
+        "DENSE_RHS_REPLICAS": 16,
+        "DENSE_RHS_TRANSITION_COST_SCALE": 0.03,
+        "DENSE_RHS_TRANSITION_MIN_EXPECTED_NET": 0.0,
+        "DENSE_RHS_TRANSITION_RISK_WEIGHT": 1.5,
+        "EVAL_INTERVAL_STEPS": 40000,
+        "EVAL_NUM_EPISODES": 8,
+        "MAX_STEPS": 80000,
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_NUM_ENVS": 8,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "quadruped-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax/outputs/quadruped-run_dense_rhs_clean_dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k",
+      "method": "dense_rhs_expected_improvement",
+      "notes": "Smoke the expected-improvement transition RFC before any full run. Requires committed/synced code; steward must refuse launch while dirty.",
+      "regime": "clean",
+      "run_label": "dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k",
+      "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
+      "stage": "quadruped_clean"
+    },
+    {
+      "env": {
+        "CHECKPOINT_BUFFER": "false",
+        "DENSE_QUERY_INTERVAL_STEPS": 20000,
+        "DENSE_QUERY_START_STEP": 20000,
+        "DENSE_RHS_CANDIDATE_BUDGET_A": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B1": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B2": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B3": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B4": 3,
+        "DENSE_RHS_CREDIBLE_TRANSITION": "true",
+        "DENSE_RHS_CREDIBLE_TRANSITION_RULE": "expected_improvement",
+        "DENSE_RHS_EVAL_STEPS": 256,
+        "DENSE_RHS_HORIZON_BUCKETS": "[4,8,12,16,24,30]",
+        "DENSE_RHS_LOCAL_WINDOW_RADIUS": 1,
+        "DENSE_RHS_MAX_TRANSITION_DELTA": 1,
+        "DENSE_RHS_QUERY_ELITES": 32,
+        "DENSE_RHS_QUERY_MPPI_ITERS": 4,
+        "DENSE_RHS_QUERY_POLICY_PRIOR": 12,
+        "DENSE_RHS_QUERY_POPULATION": 256,
+        "DENSE_RHS_QUERY_TEMPERATURE": 0.5,
+        "DENSE_RHS_REPLICAS": 16,
+        "DENSE_RHS_TRANSITION_COST_SCALE": 0.02,
+        "DENSE_RHS_TRANSITION_MIN_EXPECTED_NET": 0.0,
+        "DENSE_RHS_TRANSITION_RISK_WEIGHT": 0.5,
+        "EVAL_INTERVAL_STEPS": 40000,
+        "EVAL_NUM_EPISODES": 8,
+        "MAX_STEPS": 80000,
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_NUM_ENVS": 8,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "quadruped-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/quadruped-run_dense_rhs_clean_dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k",
+      "method": "dense_rhs_expected_improvement",
+      "notes": "Auto-generated after the risk=1.5 EI smoke was too conservative. Tests a lower risk penalty and lower transition cost while preserving the same sparse HiFi query budget.",
+      "regime": "clean",
+      "run_label": "dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k",
+      "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
+      "stage": "quadruped_clean"
     }
   ],
+  "name": "dense_rhs_multienv",
+  "repo": {
+    "branch": "codex/tdmpc2-jax-mjx-parity",
+    "local_path": "/Users/ggmar/Documents/git/tdmpc2-jax",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex"
+  },
   "rfc_queue": [
     {
       "name": "expected_improvement_transition",
+      "reason": "Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously.",
       "stage": "quadruped_clean",
-      "status": "implemented_smoke_pending",
-      "reason": "Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously."
+      "status": "implemented_second_smoke_pending"
     },
     {
       "name": "cap_or_uncertain_late_large_horizon",
+      "reason": "Run 1618 showed h=5/bucket=8 caused final-eval collapse after a strong 250k checkpoint; larger horizon switches late in training need a general uncertainty gate.",
       "stage": "quadruped_clean",
-      "status": "proposed",
-      "reason": "Run 1618 showed h=5/bucket=8 caused final-eval collapse after a strong 250k checkpoint; larger horizon switches late in training need a general uncertainty gate."
+      "status": "proposed"
     }
-  ]
+  ],
+  "success": {
+    "chaos_rhs_improvement_ratio": 1.05,
+    "clean_noninferiority_ratio": 0.98,
+    "confirmation_seeds": [
+      1,
+      3,
+      5,
+      7,
+      15
+    ]
+  },
+  "tasks": [
+    {
+      "env_id": "fish-swim",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "finger-turn_hard",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "cheetah-run",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "cartpole-swingup",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "quadruped-run",
+      "mjx_status": "ready"
+    },
+    {
+      "env_id": "acrobot-swingup",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "walker-run",
+      "mjx_status": "pending_port"
+    },
+    {
+      "env_id": "hopper-hop",
+      "mjx_status": "pending_port"
+    }
+  ],
+  "tracking": {
+    "decisions": "experiments/decisions.md",
+    "ledger": "experiments/ledger.csv",
+    "results_dir": "runs/results"
+  }
 }

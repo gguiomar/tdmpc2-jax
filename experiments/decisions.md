@@ -39,3 +39,15 @@ Added one smoke profile: `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k`.
 ## 2026-05-01T10:15:53+00:00
 
 Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k` as job `1644`.
+
+## 2026-05-01T14:29:12+00:00
+
+Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k` job `1644`: `ei_too_conservative`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:39:23`
+- Final eval: `241.28457641601562` ± `123.68336486816406`
+- Best eval: `241.28457641601562` at step `80000`
+- Horizon path: `3->3->3`
+- Reason: EI smoke stayed at h=3 with non-positive expected net benefit at every query; lower risk/cost should be tested before a full run.
+- Follow-up: Queued follow-up `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k`.
