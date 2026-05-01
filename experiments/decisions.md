@@ -55,3 +55,15 @@ Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk15_c003_start20k` job `1644`: `ei
 ## 2026-05-01T14:30:11+00:00
 
 Launched `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k` as job `1655`.
+
+## 2026-05-01T15:18:52+00:00
+
+Processed `dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k` job `1655`: `weak_smoke`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:41:16`
+- Final eval: `286.9360656738281` ± `150.44711303710938`
+- Best eval: `286.9360656738281` at step `80000`
+- Horizon path: `2->2->2`
+- Reason: EI smoke best eval is low at `286.9360656738281`; needs a bounded parameter iteration, not a full run.
+- Follow-up: Queued follow-up `dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k`.

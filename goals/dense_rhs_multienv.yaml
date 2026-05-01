@@ -7,6 +7,14 @@
     "require_slurm": true,
     "wandb_enabled": false
   },
+  "early_stop": {
+    "bad_horizon_max": 2,
+    "enabled": true,
+    "min_eval_step": 40000,
+    "min_query_rows": 2,
+    "smoke_max_steps": 100000,
+    "weak_eval_threshold": 500.0
+  },
   "known_runs": [
     {
       "best_eval_mean": 924.65,
@@ -162,6 +170,48 @@
       "run_label": "dense_rhs_ei_smoke_80k_vec8_s15_risk05_c002_start20k",
       "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
       "stage": "quadruped_clean"
+    },
+    {
+      "env": {
+        "CHECKPOINT_BUFFER": "false",
+        "DENSE_QUERY_INTERVAL_STEPS": 20000,
+        "DENSE_QUERY_START_STEP": 20000,
+        "DENSE_RHS_CANDIDATE_BUDGET_A": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B1": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B2": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B3": 3,
+        "DENSE_RHS_CANDIDATE_BUDGET_B4": 3,
+        "DENSE_RHS_CREDIBLE_TRANSITION": "true",
+        "DENSE_RHS_CREDIBLE_TRANSITION_RULE": "expected_improvement",
+        "DENSE_RHS_EVAL_STEPS": 256,
+        "DENSE_RHS_HORIZON_BUCKETS": "[4,8,12,16,24,30]",
+        "DENSE_RHS_LOCAL_WINDOW_RADIUS": 1,
+        "DENSE_RHS_MAX_TRANSITION_DELTA": 1,
+        "DENSE_RHS_QUERY_ELITES": 32,
+        "DENSE_RHS_QUERY_MPPI_ITERS": 4,
+        "DENSE_RHS_QUERY_POLICY_PRIOR": 12,
+        "DENSE_RHS_QUERY_POPULATION": 256,
+        "DENSE_RHS_QUERY_TEMPERATURE": 0.5,
+        "DENSE_RHS_REPLICAS": 16,
+        "DENSE_RHS_TRANSITION_COST_SCALE": 0.02,
+        "DENSE_RHS_TRANSITION_MIN_EXPECTED_NET": 0.1,
+        "DENSE_RHS_TRANSITION_RISK_WEIGHT": 1.0,
+        "EVAL_INTERVAL_STEPS": 40000,
+        "EVAL_NUM_EPISODES": 8,
+        "MAX_STEPS": 80000,
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_NUM_ENVS": 8,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "quadruped-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/quadruped-run_dense_rhs_clean_dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k",
+      "method": "dense_rhs_expected_improvement",
+      "notes": "Auto-generated after the lower-risk EI smoke downshifted to h=2 and stayed weak. Tests the midpoint risk setting plus a positive expected-net threshold so switches require clearer utility evidence.",
+      "regime": "clean",
+      "run_label": "dense_rhs_ei_smoke_80k_vec8_s15_risk10_c002_min010_start20k",
+      "script": "scripts/ncc_dense_rhs_clean_300k.sbatch",
+      "stage": "quadruped_clean"
     }
   ],
   "name": "dense_rhs_multienv",
@@ -176,7 +226,7 @@
       "name": "expected_improvement_transition",
       "reason": "Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously.",
       "stage": "quadruped_clean",
-      "status": "implemented_second_smoke_pending"
+      "status": "implemented_midpoint_smoke_pending"
     },
     {
       "name": "cap_or_uncertain_late_large_horizon",
