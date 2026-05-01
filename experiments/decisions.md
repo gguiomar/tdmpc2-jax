@@ -91,3 +91,19 @@ The expected-improvement transition family has now failed the high-risk, low-ris
 ## 2026-05-01T16:17:59+00:00
 
 Launched `dense_rhs_sparse_hifi_smoke_120k_vec8_s15_start20k` as job `1659`.
+
+## 2026-05-01T17:22:26+00:00
+
+Processed `dense_rhs_sparse_hifi_smoke_120k_vec8_s15_start20k` job `1659`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:56:30`
+- Final eval: `640.4043579101562` ± `58.951446533203125`
+- Best eval: `640.4043579101562` at step `120000`
+- Horizon path: `2->2`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-01 Sparse-HiFi Chaos Smoke RFC
+
+Clean Dense-RHS does not need more EI transition tuning right now: run `1387` already satisfies the `0.98 * no_rhs` clean non-inferiority gate, and the new Sparse-HiFi fallback recovered to `640.40` by 120k after weak early evals. The next campaign step is therefore quadruped chaos. Queue `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` using the chaos launcher, clean evaluation, and the same sparse high-fidelity query budget. If this smoke is non-degenerate, promote the same family to a 300k chaos comparison against the no-RHS chaos reference.
