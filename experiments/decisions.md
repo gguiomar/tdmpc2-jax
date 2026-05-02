@@ -622,3 +622,15 @@ Manual chaos-baseline override after removing the restricted `1711` diagnostic f
 - Launched no-RHS current-MJX chaos baseline `no_rhs_chaos_parity_300k_vec8_s15_current` as job `1715`.
 - Definition: chaos is applied during training only with `env.mjx_dmc.enable_domain_randomization=true`, `env.mjx_dmc.enable_observation_noise=true`, and `env.mjx_dmc.base_action_delay=1`; clean evaluation remains enabled every `50k` for `20` episodes.
 - Legacy-match check: this matches the old experimental convention of randomized/noisy training with clean evaluation, but the current MJX port implements actuator-strength randomization, observation noise, wind/push perturbations, jitter/slip-style perturbation, and action delay. It does not currently randomize MuJoCo mass, damping, or friction parameters, so this is a current-JAX chaos baseline rather than full legacy-chaos parity.
+
+## 2026-05-02T19:18:56+00:00
+
+Processed `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` job `1712`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:39:11`
+- Final eval: `837.6513671875` ± `28.396848678588867`
+- Best eval: `837.6513671875` at step `300000`
+- Horizon path: `4->3->5->5->7`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
