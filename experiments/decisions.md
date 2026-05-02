@@ -674,3 +674,12 @@ H={3,4} late-exploitation family completed below target (best=919.34619140625, b
 ## 2026-05-02T19:51:00+00:00
 
 H={3,4} late-exploitation family completed below target (best=919.34619140625, best_label=dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15). Steward needs a new algorithm RFC; do not silently lower the clean +2 goal.
+
+## 2026-05-02T19:52:30+00:00
+
+RFC `full_horizon_utility_evidence`: keep full adaptive horizon search over `H={2,...,30}` and improve evidence attribution instead of applying a hard horizon cap.
+
+- Evidence: full-H all-candidate and full-H EI runs both underperformed (`837.65` and `879.51`) and selected larger horizons (`5/7`) too aggressively. H-capped diagnostics got closer but violate the final algorithm principle.
+- Rule: queue three full-H profiles that keep `H={2,...,30}` and bucketed compilation only as an implementation detail: deployment-utility posterior, learner-proxy scoring, and a combined utility-plus-learner-proxy profile.
+- Expected benefit: horizon changes are guided by downstream eval-gain evidence and dense learner compatibility, not only by noisy short query returns.
+- Failure mode: if these still drift to harmful large horizons, the next patch should improve query pairing/calibration or add a principled horizon-complexity prior, not manually remove horizon values.
