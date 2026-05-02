@@ -519,3 +519,27 @@ Processed `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15` job `1703`: `failed`.
 ## 2026-05-02T13:54:24+00:00
 
 Launched `dense_rhs_plus2_hcap4_uplift_start70_300k_vec8_s15` as job `1708`.
+
+## 2026-05-02T14:49:55+00:00
+
+Processed `dense_rhs_plus2_hcap4_start70_margin04_300k_vec8_s15` job `1701`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:25:44`
+- Final eval: `896.6925048828125` ± `20.500463485717773`
+- Best eval: `896.6925048828125` at step `300000`
+- Horizon path: `3->3->2->2->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T14:49:57+00:00
+
+Processed `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15` job `1702`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:25:30`
+- Final eval: `898.8212890625` ± `24.93979263305664`
+- Best eval: `908.4658203125` at step `200000`
+- Horizon path: `3->3->4->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
