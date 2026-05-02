@@ -503,3 +503,15 @@ RFC `deployment_utility_posterior`: add an explicit posterior over expected eval
 - Expected benefit: improve horizon evidence quality by measuring downstream learner/eval gain rather than relying only on one-shot short candidate rollouts.
 - Failure mode: delayed attribution is noisy because each eval interval includes continued learning and stochasticity; if the run switches erratically or stays below the hcap4 baselines, keep the logged metrics for analysis but do not promote this rule.
 - Queued: `dense_rhs_plus2_hcap4_uplift_start70_300k_vec8_s15`.
+
+## 2026-05-02T13:54:18+00:00
+
+Processed `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15` job `1703`: `failed`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:34:28`
+- Final eval: `46.981651306152344` ± `23.216461181640625`
+- Best eval: `46.981651306152344` at step `50000`
+- Horizon path: `2`
+- Reason: SLURM state `CANCELLED by 1002`.
+- Follow-up: No automatic follow-up rule fired.
