@@ -683,3 +683,7 @@ RFC `full_horizon_utility_evidence`: keep full adaptive horizon search over `H={
 - Rule: queue three full-H profiles that keep `H={2,...,30}` and bucketed compilation only as an implementation detail: deployment-utility posterior, learner-proxy scoring, and a combined utility-plus-learner-proxy profile.
 - Expected benefit: horizon changes are guided by downstream eval-gain evidence and dense learner compatibility, not only by noisy short query returns.
 - Failure mode: if these still drift to harmful large horizons, the next patch should improve query pairing/calibration or add a principled horizon-complexity prior, not manually remove horizon values.
+
+## 2026-05-02T19:53:42+00:00
+
+Launched `dense_rhs_plus2_fullh_du_start70_300k_vec8_s15` as job `1716`.
