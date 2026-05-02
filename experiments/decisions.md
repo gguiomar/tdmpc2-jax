@@ -484,3 +484,7 @@ RFC `horizon_trust_region_hcap4`: queue three clean +2 Dense-RHS variants after 
 ## 2026-05-02T13:17:59+00:00
 
 Launched `dense_rhs_plus2_hcap4_start70_margin04_300k_vec8_s15` as job `1701`.
+
+## 2026-05-02T13:18:38+00:00
+
+Launched `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15` as job `1702`.
