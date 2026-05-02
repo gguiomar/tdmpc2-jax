@@ -416,3 +416,15 @@ Promoted best shadow-probe smoke `dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s1
 ## 2026-05-02T01:02:09+00:00
 
 Launched `dense_rhs_plus2_shadowprobe_w0p25_300k_vec8_s15_start20k` as job `1691`.
+
+## 2026-05-02T01:56:12+00:00
+
+Processed `dense_rhs_plus2_shadowprobe_w0p25_300k_vec8_s15_start20k` job `1691`: `failed`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:53:46`
+- Final eval: `68.86866760253906` ± `175.0941619873047`
+- Best eval: `68.86866760253906` at step `100000`
+- Horizon path: `3->4->4`
+- Reason: SLURM state `CANCELLED by 1002`.
+- Follow-up: No automatic follow-up rule fired.
