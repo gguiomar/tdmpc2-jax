@@ -804,6 +804,42 @@
     }
   ],
   "name": "dense_rhs_multienv",
+  "reporting": {
+    "final_report_required": true,
+    "report_after_campaign_completion": true,
+    "artifact_policy": "Copy winning run metrics and summary plots into runs/results; reference every trained model by run_dir and artifact paths.",
+    "required_outputs": [
+      "runs/results/score_table.tex",
+      "runs/results/model_ranking_table.tex",
+      "runs/results/clean_chaos_comparison_table.tex",
+      "runs/results/winning_algorithms_report.tex",
+      "runs/results/dense_rhs_decision_report.tex"
+    ],
+    "decision_report_requirements": [
+      "List every trained model and its final/best eval scores, runtime, horizon path, bucket path, outcome, and run directory.",
+      "Name every algorithm/config change that was tested.",
+      "For each architecture step, justify why it was introduced and what result/plot/metric motivated it.",
+      "Reference summary plots for each run when available: artifacts/run_summary_grid.png and artifacts/run_summary_grid.pdf.",
+      "Explain which plots/data led to continuing, cancelling, promoting, or abandoning each architecture variant.",
+      "Keep the explanation readable and avoid unexplained launcher-only heuristic bundles."
+    ],
+    "regime_comparisons": {
+      "enabled": true,
+      "when": "after_clean_plus2_gate_passes_and_chaos_jobs_complete",
+      "scope": "For every scheduled environment, compare clean vs chaos for no-RHS baseline and the winning Dense-RHS model.",
+      "methods": [
+        "no_rhs",
+        "winning_dense_rhs"
+      ],
+      "metrics": [
+        "final_eval_mean",
+        "final_eval_std",
+        "best_eval_mean",
+        "runtime",
+        "horizon_path"
+      ]
+    }
+  },
   "repo": {
     "branch": "codex/tdmpc2-jax-mjx-parity",
     "local_path": "/Users/ggmar/Documents/git/tdmpc2-jax",

@@ -2,10 +2,25 @@
 \toprule
 Environment & Regime & Method & Seeds & Final mean & Final std & Best mean & Runtime & Horizon path \\
 \midrule
-quadruped-run & clean & no\_rhs & 15 & 924.65 & 16.91 & 924.65 & 01:15:58 &  \\
 quadruped-run & chaos & no\_rhs & 15 & 683.0 &  & 683.0 & unknown &  \\
+quadruped-run & chaos & dense\_rhs\_sparse\_hifi & 15 &  &  &  & 00:07:22 &  \\
+quadruped-run & clean & no\_rhs & 15 & 924.65 & 16.91 & 924.65 & 01:15:58 &  \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 922.63330078125 & 21.33823585510254 & 922.63330078125 & 01:31:18 & 3->3->3->3->3 \\
 quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 915.34 & 24.33 & 915.34 & 01:29:59 & 2->2->3->2->3->4 \\
-quadruped-run & clean & dense\_rhs\_credible\_p65\_c006 & 15 & 889.66 & 22.17 & 889.66 & 01:26:10 & 3->3->3->3->3->3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 901.0157470703125 & 17.160640716552734 & 901.0157470703125 & 01:31:16 & 2->2->3->4->4->4 \\
 quadruped-run & clean & dense\_rhs\_credible\_mid\_p56\_c003 & 15 & 516.52 & 323.68 & 894.1 & 01:38:32 & 3->3->4->4->4->5 \\
+quadruped-run & clean & dense\_rhs\_credible\_p65\_c006 & 15 & 889.66 & 22.17 & 889.66 & 01:26:10 & 3->3->3->3->3->3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 884.75537109375 & 28.268857955932617 & 884.75537109375 & 02:00:12 & 3->4->5->5->6 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 855.7972412109375 & 17.007858276367188 & 855.7972412109375 & 01:35:10 & 3->2->3->2->3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 849.2491455078125 & 15.82135009765625 & 849.2491455078125 & 01:56:26 & 3->3->4->5->5->4 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 831.63916015625 & 21.24997901916504 & 831.63916015625 & 01:34:51 & 2->2->3->3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 729.8106079101562 & 17.057329177856445 & 740.24560546875 & 02:07:45 & 3->4->5->6->6 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 640.4043579101562 & 58.951446533203125 & 640.4043579101562 & 00:56:30 & 2->2 \\
+quadruped-run & clean & dense\_rhs\_expected\_improvement & 15 & 463.6806945800781 & 129.16029357910156 & 463.6806945800781 & 00:43:00 & 3->3->3 \\
+quadruped-run & clean & dense\_rhs\_expected\_improvement & 15 & 286.9360656738281 & 150.44711303710938 & 286.9360656738281 & 00:41:16 & 2->2->2 \\
+quadruped-run & clean & dense\_rhs\_shadow\_probe & 15 & 274.5364074707031 & 156.55780029296875 & 274.5364074707031 & 00:30:43 & 3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 262.2226867675781 & 118.21903228759766 & 262.2226867675781 & 00:44:08 & 3->4 \\
+quadruped-run & clean & dense\_rhs\_expected\_improvement & 15 & 241.28457641601562 & 123.68336486816406 & 241.28457641601562 & 00:39:23 & 3->3->3 \\
+quadruped-run & clean & dense\_rhs\_sparse\_hifi & 15 & 97.265380859375 & 141.6887664794922 & 97.265380859375 & 00:44:33 & 4 \\
 \bottomrule
 \end{tabular}
