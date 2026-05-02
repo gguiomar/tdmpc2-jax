@@ -638,3 +638,27 @@ Processed `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` job `1712`: `compl
 ## 2026-05-02T19:19:02+00:00
 
 H={3,4} late-exploitation family completed below target (best=919.34619140625, best_label=dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15). Steward needs a new algorithm RFC; do not silently lower the clean +2 goal.
+
+## 2026-05-02T19:29:38+00:00
+
+Processed `dense_rhs_plus2_fullh_ei_b9_start70_300k_vec8_s15` job `1713`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:43:33`
+- Final eval: `879.5133056640625` ± `28.175579071044922`
+- Best eval: `879.5133056640625` at step `300000`
+- Horizon path: `5->7->7->7->7`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T19:29:40+00:00
+
+Processed `no_rhs_chaos_parity_300k_vec8_s15_current` job `1715`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:30:18`
+- Final eval: `505.26690673828125` ± `35.0055046081543`
+- Best eval: `590.1742553710938` at step `200000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
