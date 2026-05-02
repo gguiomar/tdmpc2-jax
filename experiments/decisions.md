@@ -492,3 +492,14 @@ Launched `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15` as job `1702`
 ## 2026-05-02T13:19:44+00:00
 
 Launched `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15` as job `1703`.
+
+## 2026-05-02T13:52:42+00:00
+
+RFC `deployment_utility_posterior`: add an explicit posterior over expected eval-reward gain by deployed horizon.
+
+- Evidence: active job `1703` is the weakest current hcap4 run at the first eval (`46.98 ± 23.22` at 50k), while `1701` and `1702` are less bad (`164.06` and `216.53`). This makes `1703` the slot to replace with a qualitatively different evidence model rather than another transition-threshold tweak.
+- Rule: after each clean eval, attribute the eval-return delta since the previous eval to the horizon deployed during that interval. Maintain per-horizon Gaussian-style sufficient statistics over these deltas and compute a UCB utility `mean_gain(h) + beta * uncertainty(h)`. At query time, combine this utility with the normalized Dense-RHS deployment score and allow it to override the query-selected horizon only among the evaluated candidates.
+- Config flags: `DENSE_RHS_DEPLOYMENT_UTILITY_ENABLED`, `DENSE_RHS_DEPLOYMENT_UTILITY_WEIGHT`, `DENSE_RHS_DEPLOYMENT_UTILITY_EXPLORATION`, `DENSE_RHS_DEPLOYMENT_UTILITY_PRIOR_MEAN`, `DENSE_RHS_DEPLOYMENT_UTILITY_PRIOR_STD`, `DENSE_RHS_DEPLOYMENT_UTILITY_DENSE_SCORE_WEIGHT`, and `DENSE_RHS_DEPLOYMENT_UTILITY_MIN_OBSERVATIONS`.
+- Expected benefit: improve horizon evidence quality by measuring downstream learner/eval gain rather than relying only on one-shot short candidate rollouts.
+- Failure mode: delayed attribution is noisy because each eval interval includes continued learning and stochasticity; if the run switches erratically or stays below the hcap4 baselines, keep the logged metrics for analysis but do not promote this rule.
+- Queued: `dense_rhs_plus2_hcap4_uplift_start70_300k_vec8_s15`.

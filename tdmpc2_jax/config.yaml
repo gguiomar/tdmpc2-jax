@@ -63,6 +63,13 @@ dense_rhs:
   learner_proxy_enabled: false
   learner_proxy_weight: 0.0
   learner_proxy_mode: probe_mean_loss
+  deployment_utility_enabled: false
+  deployment_utility_weight: 1.0
+  deployment_utility_exploration: 1.0
+  deployment_utility_prior_mean: 0.0
+  deployment_utility_prior_std: 150.0
+  deployment_utility_dense_score_weight: 25.0
+  deployment_utility_min_observations: 1
   local_window_radius: 0
   max_transition_delta: 0
   incumbent_switch_margin: 0.0

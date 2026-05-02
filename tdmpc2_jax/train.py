@@ -131,6 +131,16 @@ class _ArtifactWriter:
             'roughness_term_best',
             'return_std_term_best',
             'learner_proxy_term_best',
+            'deployment_utility_enabled',
+            'deployment_utility_observations',
+            'deployment_utility_override',
+            'deployment_utility_selected_expected_gain',
+            'deployment_utility_selected_uncertainty',
+            'deployment_utility_selected_score',
+            'deployment_utility_proposed_expected_gain',
+            'deployment_utility_proposed_uncertainty',
+            'deployment_utility_proposed_score',
+            'deployment_utility_last_observed_gain',
             'robust_return_best',
             'query_total_s',
             'query_model_diag_s',
@@ -247,6 +257,242 @@ def _make_zero_plan(agent: TDMPC2, batch_shape):
       jnp.zeros(plan_shape, dtype=jnp.float32),
       jnp.full(plan_shape, agent.max_plan_std, dtype=jnp.float32),
   )
+
+
+def _init_deployment_utility_state(horizons, dense_rhs_config):
+  horizons = np.asarray(horizons, dtype=np.int32)
+  return {
+      'enabled': bool(dense_rhs_config.get('deployment_utility_enabled', False)),
+      'horizons': horizons,
+      'gain_sum': np.zeros_like(horizons, dtype=np.float64),
+      'gain_sum_sq': np.zeros_like(horizons, dtype=np.float64),
+      'gain_count': np.zeros_like(horizons, dtype=np.float64),
+      'last_eval_return': None,
+      'pending_horizon': None,
+      'last_observed_gain': 0.0,
+  }
+
+
+def _deployment_utility_stats(deployment_utility_state, dense_rhs_config):
+  gain_count = deployment_utility_state['gain_count']
+  prior_mean = float(
+      dense_rhs_config.get('deployment_utility_prior_mean', 0.0)
+  )
+  prior_std = float(
+      dense_rhs_config.get('deployment_utility_prior_std', 150.0)
+  )
+  observed = gain_count > 0
+  mean = np.full_like(gain_count, prior_mean, dtype=np.float64)
+  mean[observed] = (
+      deployment_utility_state['gain_sum'][observed] / gain_count[observed]
+  )
+
+  variance = np.full_like(gain_count, prior_std**2, dtype=np.float64)
+  enough_for_sample_var = gain_count > 1
+  sample_mean = np.zeros_like(gain_count, dtype=np.float64)
+  sample_mean[observed] = mean[observed]
+  sample_var = (
+      deployment_utility_state['gain_sum_sq']
+      / np.maximum(gain_count, 1.0)
+      - np.square(sample_mean)
+  )
+  variance[enough_for_sample_var] = np.maximum(
+      sample_var[enough_for_sample_var],
+      1.0,
+  )
+  uncertainty = np.sqrt(variance) / np.sqrt(gain_count + 1.0)
+  return mean, uncertainty
+
+
+def _update_deployment_utility_from_eval(deployment_utility_state,
+                                         *,
+                                         selected_horizon: int,
+                                         eval_return_mean: float):
+  if not deployment_utility_state['enabled']:
+    return {}
+  if not np.isfinite(eval_return_mean):
+    return {}
+
+  last_eval_return = deployment_utility_state['last_eval_return']
+  pending_horizon = deployment_utility_state['pending_horizon']
+  observed_gain = 0.0
+  if last_eval_return is not None and pending_horizon is not None:
+    observed_gain = float(eval_return_mean - last_eval_return)
+    matches = np.where(deployment_utility_state['horizons'] == int(pending_horizon))[0]
+    if matches.size:
+      idx = int(matches[0])
+      deployment_utility_state['gain_sum'][idx] += observed_gain
+      deployment_utility_state['gain_sum_sq'][idx] += observed_gain**2
+      deployment_utility_state['gain_count'][idx] += 1.0
+      deployment_utility_state['last_observed_gain'] = observed_gain
+
+  deployment_utility_state['last_eval_return'] = float(eval_return_mean)
+  deployment_utility_state['pending_horizon'] = int(selected_horizon)
+  return {
+      'dense_rhs/deployment_utility_last_observed_gain': float(observed_gain),
+      'dense_rhs/deployment_utility_observations': float(
+          np.sum(deployment_utility_state['gain_count'])
+      ),
+  }
+
+
+def _candidate_horizons_from_metrics(dense_metrics):
+  horizons = []
+  prefix = 'dense_rhs/candidate_'
+  suffix = '_deployment_score'
+  for metric_name in dense_metrics:
+    if metric_name.startswith(prefix) and metric_name.endswith(suffix):
+      horizon_text = metric_name[len(prefix):-len(suffix)]
+      try:
+        horizons.append(int(horizon_text))
+      except ValueError:
+        continue
+  return sorted(set(horizons))
+
+
+def _maybe_apply_deployment_utility_override(horizon_state,
+                                             selected_horizon: int,
+                                             dense_metrics,
+                                             deployment_utility_state,
+                                             dense_rhs_config):
+  if not deployment_utility_state['enabled']:
+    return horizon_state, int(selected_horizon), {
+        'dense_rhs/deployment_utility_enabled': 0.0,
+        'dense_rhs/deployment_utility_override': 0.0,
+        'dense_rhs/deployment_utility_observations': 0.0,
+        'dense_rhs/deployment_utility_last_observed_gain': 0.0,
+  }
+
+  horizons = deployment_utility_state['horizons']
+  mean, uncertainty = _deployment_utility_stats(
+      deployment_utility_state,
+      dense_rhs_config,
+  )
+  horizon_to_idx = {int(h): idx for idx, h in enumerate(horizons.tolist())}
+  candidate_horizons = _candidate_horizons_from_metrics(dense_metrics)
+  if not candidate_horizons:
+    candidate_horizons = [int(selected_horizon)]
+
+  raw_dense_scores = np.asarray(
+      [
+          float(dense_metrics.get(f'dense_rhs/candidate_{h}_deployment_score', 0.0))
+          for h in candidate_horizons
+      ],
+      dtype=np.float64,
+  )
+  if raw_dense_scores.size > 1:
+    score_span = float(np.max(raw_dense_scores) - np.min(raw_dense_scores))
+    dense_score = (
+        (raw_dense_scores - np.min(raw_dense_scores)) / score_span
+        if score_span > 1e-9 else np.zeros_like(raw_dense_scores)
+    )
+  else:
+    dense_score = np.zeros_like(raw_dense_scores)
+
+  utility_weight = float(
+      dense_rhs_config.get('deployment_utility_weight', 1.0)
+  )
+  exploration = float(
+      dense_rhs_config.get('deployment_utility_exploration', 1.0)
+  )
+  dense_score_weight = float(
+      dense_rhs_config.get('deployment_utility_dense_score_weight', 25.0)
+  )
+  utility_scores = []
+  metrics = {
+      'dense_rhs/deployment_utility_enabled': 1.0,
+      'dense_rhs/deployment_utility_observations': float(
+          np.sum(deployment_utility_state['gain_count'])
+      ),
+      'dense_rhs/deployment_utility_last_observed_gain': float(
+          deployment_utility_state['last_observed_gain']
+      ),
+  }
+  for slot, horizon in enumerate(candidate_horizons):
+    idx = horizon_to_idx.get(int(horizon))
+    expected_gain = float(mean[idx]) if idx is not None else 0.0
+    gain_uncertainty = float(uncertainty[idx]) if idx is not None else 0.0
+    utility_score = (
+        utility_weight * (expected_gain + exploration * gain_uncertainty)
+        + dense_score_weight * float(dense_score[slot])
+    )
+    utility_scores.append(utility_score)
+    metrics[f'dense_rhs/candidate_{horizon}_expected_eval_gain'] = expected_gain
+    metrics[f'dense_rhs/candidate_{horizon}_eval_gain_uncertainty'] = gain_uncertainty
+    metrics[f'dense_rhs/candidate_{horizon}_deployment_utility_score'] = float(
+        utility_score
+    )
+
+  proposed_slot = int(np.argmax(np.asarray(utility_scores, dtype=np.float64)))
+  proposed_horizon = int(candidate_horizons[proposed_slot])
+  selected_idx = horizon_to_idx.get(int(selected_horizon))
+  proposed_idx = horizon_to_idx.get(proposed_horizon)
+  selected_expected_gain = float(mean[selected_idx]) if selected_idx is not None else 0.0
+  selected_uncertainty = (
+      float(uncertainty[selected_idx]) if selected_idx is not None else 0.0
+  )
+  selected_utility_score = float(
+      metrics.get(
+          f'dense_rhs/candidate_{int(selected_horizon)}_deployment_utility_score',
+          0.0,
+      )
+  )
+  proposed_expected_gain = float(mean[proposed_idx]) if proposed_idx is not None else 0.0
+  proposed_uncertainty = (
+      float(uncertainty[proposed_idx]) if proposed_idx is not None else 0.0
+  )
+  proposed_utility_score = float(utility_scores[proposed_slot])
+  observations = float(np.sum(deployment_utility_state['gain_count']))
+  min_observations = float(
+      dense_rhs_config.get('deployment_utility_min_observations', 1)
+  )
+  override = observations >= min_observations and proposed_horizon != int(selected_horizon)
+  if override:
+    selected_horizon = proposed_horizon
+    horizon_state = horizon_state.replace(
+        best_h=jnp.asarray(selected_horizon, dtype=jnp.int32)
+    )
+
+  selected_idx = horizon_to_idx.get(int(selected_horizon))
+  selected_expected_gain = float(mean[selected_idx]) if selected_idx is not None else 0.0
+  selected_uncertainty = (
+      float(uncertainty[selected_idx]) if selected_idx is not None else 0.0
+  )
+  selected_utility_score = float(
+      metrics.get(
+          f'dense_rhs/candidate_{int(selected_horizon)}_deployment_utility_score',
+          0.0,
+      )
+  )
+
+  selected_candidate_metrics = {
+      'fitness': 'best_fitness',
+      'deployment_score': 'deployment_score_best',
+      'return_term': 'return_term_best',
+      'roughness_term': 'roughness_term_best',
+      'return_std_term': 'return_std_term_best',
+      'learner_proxy_term': 'learner_proxy_term_best',
+      'return': 'robust_return_best',
+  }
+  for source_suffix, target_suffix in selected_candidate_metrics.items():
+    candidate_metric = (
+        f'dense_rhs/candidate_{int(selected_horizon)}_{source_suffix}'
+    )
+    if candidate_metric in dense_metrics:
+      metrics[f'dense_rhs/{target_suffix}'] = float(dense_metrics[candidate_metric])
+
+  metrics.update({
+      'dense_rhs/selected_horizon': float(selected_horizon),
+      'dense_rhs/deployment_utility_override': float(bool(override)),
+      'dense_rhs/deployment_utility_selected_expected_gain': selected_expected_gain,
+      'dense_rhs/deployment_utility_selected_uncertainty': selected_uncertainty,
+      'dense_rhs/deployment_utility_selected_score': selected_utility_score,
+      'dense_rhs/deployment_utility_proposed_horizon': float(proposed_horizon),
+      'dense_rhs/deployment_utility_proposed_expected_gain': proposed_expected_gain,
+      'dense_rhs/deployment_utility_proposed_uncertainty': proposed_uncertainty,
+      'dense_rhs/deployment_utility_proposed_score': proposed_utility_score,
+  })
+  return horizon_state, int(selected_horizon), metrics
 
 
 def _reset_plan_for_done(plan, done_mask, max_plan_std: float):
@@ -598,6 +844,11 @@ def _run_mjx_training_loop(cfg,
       if horizon_state is not None else int(agent.horizon)
   )
   agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
+  deployment_utility_state = _init_deployment_utility_state(
+      np.asarray(horizon_state.horizons)
+      if horizon_state is not None else np.asarray([selected_horizon]),
+      dense_rhs_config,
+  )
 
   def run_update_batches(total_updates: int, *, step_for_logs: int):
     nonlocal agent, buffer_state, rng, train_time_since_log, train_info_accumulator
@@ -654,6 +905,17 @@ def _run_mjx_training_loop(cfg,
         query_step=int(step_for_query),
         dense_query_kernels=dense_query_kernels,
     )
+    horizon_state, selected_horizon, utility_metrics = (
+        _maybe_apply_deployment_utility_override(
+            horizon_state,
+            int(selected_horizon),
+            dense_metrics,
+            deployment_utility_state,
+            dense_rhs_config,
+        )
+    )
+    dense_metrics.update(utility_metrics)
+    deployment_utility_state['pending_horizon'] = int(selected_horizon)
     agent = _make_training_horizon_agent(
         agent,
         selected_horizon,
@@ -732,6 +994,48 @@ def _run_mjx_training_loop(cfg,
         ),
         'learner_proxy_term_best': float(
             dense_metrics.get('dense_rhs/learner_proxy_term_best', 0.0)
+        ),
+        'deployment_utility_enabled': float(
+            dense_metrics.get('dense_rhs/deployment_utility_enabled', 0.0)
+        ),
+        'deployment_utility_observations': float(
+            dense_metrics.get('dense_rhs/deployment_utility_observations', 0.0)
+        ),
+        'deployment_utility_override': float(
+            dense_metrics.get('dense_rhs/deployment_utility_override', 0.0)
+        ),
+        'deployment_utility_selected_expected_gain': float(
+            dense_metrics.get(
+                'dense_rhs/deployment_utility_selected_expected_gain',
+                0.0,
+            )
+        ),
+        'deployment_utility_selected_uncertainty': float(
+            dense_metrics.get(
+                'dense_rhs/deployment_utility_selected_uncertainty',
+                0.0,
+            )
+        ),
+        'deployment_utility_selected_score': float(
+            dense_metrics.get('dense_rhs/deployment_utility_selected_score', 0.0)
+        ),
+        'deployment_utility_proposed_expected_gain': float(
+            dense_metrics.get(
+                'dense_rhs/deployment_utility_proposed_expected_gain',
+                0.0,
+            )
+        ),
+        'deployment_utility_proposed_uncertainty': float(
+            dense_metrics.get(
+                'dense_rhs/deployment_utility_proposed_uncertainty',
+                0.0,
+            )
+        ),
+        'deployment_utility_proposed_score': float(
+            dense_metrics.get('dense_rhs/deployment_utility_proposed_score', 0.0)
+        ),
+        'deployment_utility_last_observed_gain': float(
+            dense_metrics.get('dense_rhs/deployment_utility_last_observed_gain', 0.0)
         ),
         'robust_return_best': float(dense_metrics['dense_rhs/robust_return_best']),
         'query_total_s': float(dense_metrics['timing/query_total_s']),
@@ -988,6 +1292,12 @@ def _run_mjx_training_loop(cfg,
           steps_per_episode=int(periodic_eval_env._metadata.episode_length),
           key=jax.random.PRNGKey(global_step + 20_000 + cfg.seed),
       )
+      utility_eval_metrics = _update_deployment_utility_from_eval(
+          deployment_utility_state,
+          selected_horizon=int(selected_horizon),
+          eval_return_mean=float(eval_metrics.get('eval/return_mean', np.nan)),
+      )
+      eval_metrics.update(utility_eval_metrics)
       for metric_name, metric_value in eval_metrics.items():
         writer.scalar(metric_name, metric_value, global_step)
       writer.scalar('timing/eval_s', time.perf_counter() - eval_start, global_step)
