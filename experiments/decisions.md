@@ -515,3 +515,7 @@ Processed `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15` job `1703`: `failed`.
 - Horizon path: `2`
 - Reason: SLURM state `CANCELLED by 1002`.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T13:54:24+00:00
+
+Launched `dense_rhs_plus2_hcap4_uplift_start70_300k_vec8_s15` as job `1708`.
