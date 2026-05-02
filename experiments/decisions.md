@@ -634,3 +634,7 @@ Processed `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` job `1712`: `compl
 - Horizon path: `4->3->5->5->7`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T19:19:02+00:00
+
+H={3,4} late-exploitation family completed below target (best=919.34619140625, best_label=dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15). Steward needs a new algorithm RFC; do not silently lower the clean +2 goal.

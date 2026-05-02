@@ -1488,9 +1488,9 @@
     },
     {
       "name": "h34_late_exploitation",
-      "reason": "Diagnostic only: test whether the failures were caused by h=2 downshifts and h=5 drift. This is not acceptable as a final algorithm because it pre-restricts the horizon set too strongly.",
+      "reason": "If the H={2,3,4} trust region does not beat the clean +2 target, test the smaller adaptive set H={3,4}. This keeps online horizon selection but removes the empirically harmful h=5 option and avoids early downshifts to h=2.",
       "stage": "quadruped_clean_plus2",
-      "status": "profiles_pending"
+      "status": "completed_below_target_blocked"
     },
     {
       "name": "full_horizon_evidence_search",
