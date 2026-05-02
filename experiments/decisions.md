@@ -346,3 +346,7 @@ RFC dispatcher queued shadow-probe smokes: dense_rhs_plus2_shadowprobe_w0p25_120
 ## 2026-05-02T00:11:38+00:00
 
 Launched `dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k` as job `1686`.
+
+## 2026-05-02T00:12:05+00:00
+
+Launched `dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k` as job `1687`.
