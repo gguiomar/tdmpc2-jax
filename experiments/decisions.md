@@ -609,3 +609,7 @@ RFC `full_horizon_evidence_search`: restore the full adaptive horizon set after 
 ## 2026-05-02T17:35:14+00:00
 
 Launched `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` as job `1712`.
+
+## 2026-05-02T17:36:23+00:00
+
+Launched `dense_rhs_plus2_fullh_ei_b9_start70_300k_vec8_s15` as job `1713`.
