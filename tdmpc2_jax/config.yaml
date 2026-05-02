@@ -60,6 +60,9 @@ dense_rhs:
   selection_return_power: 1.0
   roughness_weight: 1.0
   return_std_weight: 1.0
+  learner_proxy_enabled: false
+  learner_proxy_weight: 0.0
+  learner_proxy_mode: probe_mean_loss
   local_window_radius: 0
   max_transition_delta: 0
   incumbent_switch_margin: 0.0

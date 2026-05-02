@@ -92,6 +92,9 @@ class HorizonSearchState:
   selection_return_power: float = struct.field(pytree_node=False)
   roughness_weight: float = struct.field(pytree_node=False)
   return_std_weight: float = struct.field(pytree_node=False)
+  learner_proxy_enabled: bool = struct.field(pytree_node=False)
+  learner_proxy_weight: float = struct.field(pytree_node=False)
+  learner_proxy_mode: str = struct.field(pytree_node=False)
   local_window_radius: int = struct.field(pytree_node=False)
   max_transition_delta: int = struct.field(pytree_node=False)
   incumbent_switch_margin: float = struct.field(pytree_node=False)
@@ -122,6 +125,9 @@ class HorizonSearchState:
              selection_return_power: float = 1.0,
              roughness_weight: float = 1.0,
              return_std_weight: float = 1.0,
+             learner_proxy_enabled: bool = False,
+             learner_proxy_weight: float = 0.0,
+             learner_proxy_mode: str = 'probe_mean_loss',
              local_window_radius: int = 0,
              max_transition_delta: int = 0,
              incumbent_switch_margin: float = 0.0,
@@ -184,6 +190,9 @@ class HorizonSearchState:
         selection_return_power=float(selection_return_power),
         roughness_weight=float(roughness_weight),
         return_std_weight=float(return_std_weight),
+        learner_proxy_enabled=bool(learner_proxy_enabled),
+        learner_proxy_weight=float(learner_proxy_weight),
+        learner_proxy_mode=str(learner_proxy_mode),
         local_window_radius=int(local_window_radius),
         max_transition_delta=int(max_transition_delta),
         incumbent_switch_margin=float(incumbent_switch_margin),
@@ -223,6 +232,7 @@ class DenseQueryResult:
   return_term: jax.Array
   roughness_term: jax.Array
   sigma_r_term: jax.Array
+  learner_proxy_term: jax.Array
   transition_cost: jax.Array
   transition_adjusted_score: jax.Array
   switch_probability: jax.Array
@@ -866,6 +876,17 @@ def _build_dense_query_kernel(eval_state: Any,
     return_term = _normalise_jax(robust_return)
     roughness_term = _normalise_jax(model_stage.roughness, inverse=True)
     sigma_r_term = _normalise_jax(env_std, inverse=True)
+    horizon_lengths = jnp.maximum(horizon_state.horizons.astype(jnp.float32), 1.0)
+    learner_proxy_raw = (
+        model_stage.prefix_objectives / horizon_lengths
+        if horizon_state.learner_proxy_mode == 'total_mean_loss'
+        else model_stage.probe_prefixes / horizon_lengths
+    )
+    learner_proxy_term = _normalise_jax(learner_proxy_raw, inverse=True)
+    learner_proxy_weight = (
+        horizon_state.learner_proxy_weight
+        if horizon_state.learner_proxy_enabled else 0.0
+    )
     fitness = jnp.power(
         jnp.clip(return_term * roughness_term * sigma_r_term + EPS, EPS, None),
         0.25,
@@ -873,7 +894,8 @@ def _build_dense_query_kernel(eval_state: Any,
     deployment_score = (
         jnp.power(jnp.clip(return_term, EPS, 1.0), horizon_state.selection_return_power) *
         jnp.power(jnp.clip(roughness_term, EPS, 1.0), horizon_state.roughness_weight) *
-        jnp.power(jnp.clip(sigma_r_term, EPS, 1.0), horizon_state.return_std_weight)
+        jnp.power(jnp.clip(sigma_r_term, EPS, 1.0), horizon_state.return_std_weight) *
+        jnp.power(jnp.clip(learner_proxy_term, EPS, 1.0), learner_proxy_weight)
     )
     candidate_eval_mask = jnp.zeros_like(horizon_state.active_mask).at[
         model_stage.candidate_indices
@@ -976,6 +998,7 @@ def _build_dense_query_kernel(eval_state: Any,
         return_term=return_term,
         roughness_term=roughness_term,
         sigma_r_term=sigma_r_term,
+        learner_proxy_term=learner_proxy_term,
         transition_cost=transition_cost,
         transition_adjusted_score=transition_adjusted_score,
         switch_probability=switch_probability,
@@ -1145,6 +1168,7 @@ def dense_checkpoint_eval(agent,
   return_term = np.asarray(result.return_term, dtype=np.float32)
   roughness_term = np.asarray(result.roughness_term, dtype=np.float32)
   sigma_r_term = np.asarray(result.sigma_r_term, dtype=np.float32)
+  learner_proxy_term = np.asarray(result.learner_proxy_term, dtype=np.float32)
   transition_cost = np.asarray(result.transition_cost, dtype=np.float32)
   transition_adjusted_score = np.asarray(result.transition_adjusted_score, dtype=np.float32)
   switch_probability = np.asarray(result.switch_probability, dtype=np.float32)
@@ -1196,6 +1220,7 @@ def dense_checkpoint_eval(agent,
       'dense_rhs/return_term_best': float(return_term[selected_idx]),
       'dense_rhs/roughness_term_best': float(roughness_term[selected_idx]),
       'dense_rhs/return_std_term_best': float(sigma_r_term[selected_idx]),
+      'dense_rhs/learner_proxy_term_best': float(learner_proxy_term[selected_idx]),
       'dense_rhs/model_prefix_loss_best': float(prefix_objectives[selected_idx]),
       'dense_rhs/model_probe_prefix_best': float(probe_prefixes[selected_idx]),
       'dense_rhs/planner_return_best': float(planner_prefix_returns[selected_idx]),
@@ -1228,4 +1253,7 @@ def dense_checkpoint_eval(agent,
     metrics[f'dense_rhs/candidate_{horizon}_return_term'] = float(return_term[idx])
     metrics[f'dense_rhs/candidate_{horizon}_roughness_term'] = float(roughness_term[idx])
     metrics[f'dense_rhs/candidate_{horizon}_return_std_term'] = float(sigma_r_term[idx])
+    metrics[f'dense_rhs/candidate_{horizon}_learner_proxy_term'] = float(
+        learner_proxy_term[idx]
+    )
   return new_state, selected_horizon, metrics

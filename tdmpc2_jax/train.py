@@ -130,6 +130,7 @@ class _ArtifactWriter:
             'return_term_best',
             'roughness_term_best',
             'return_std_term_best',
+            'learner_proxy_term_best',
             'robust_return_best',
             'query_total_s',
             'query_model_diag_s',
@@ -729,6 +730,9 @@ def _run_mjx_training_loop(cfg,
         'return_std_term_best': float(
             dense_metrics['dense_rhs/return_std_term_best']
         ),
+        'learner_proxy_term_best': float(
+            dense_metrics.get('dense_rhs/learner_proxy_term_best', 0.0)
+        ),
         'robust_return_best': float(dense_metrics['dense_rhs/robust_return_best']),
         'query_total_s': float(dense_metrics['timing/query_total_s']),
         'query_model_diag_s': float(dense_metrics['timing/query_model_diag_s']),
@@ -1286,6 +1290,11 @@ def train(cfg: dict):
         selection_return_power=float(dense_rhs_config.selection_return_power),
         roughness_weight=float(dense_rhs_config.roughness_weight),
         return_std_weight=float(dense_rhs_config.return_std_weight),
+        learner_proxy_enabled=bool(dense_rhs_config.get('learner_proxy_enabled', False)),
+        learner_proxy_weight=float(dense_rhs_config.get('learner_proxy_weight', 0.0)),
+        learner_proxy_mode=str(
+            dense_rhs_config.get('learner_proxy_mode', 'probe_mean_loss')
+        ),
         local_window_radius=int(dense_rhs_config.local_window_radius),
         max_transition_delta=int(dense_rhs_config.max_transition_delta),
         incumbent_switch_margin=float(dense_rhs_config.incumbent_switch_margin),

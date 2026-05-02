@@ -328,3 +328,13 @@ Processed `dense_rhs_plus2_evidence_ultrahifi_returnlocal_300k_vec8_s15` job `16
 - Horizon path: `3->4->5->6->6`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T00:10:00+00:00
+
+Implemented RFC `shadow_horizon_training_stats` as a bounded Dense-RHS evidence patch.
+
+- Equation: deployment utility is now optionally multiplied by `u_h^w`, where `u_h = norm_inv(L_probe(h) / h)` and `L_probe(h)` is the dense replay-prefix dynamics+reward probe loss.
+- Config flags: `dense_rhs.learner_proxy_enabled`, `dense_rhs.learner_proxy_weight`, and `dense_rhs.learner_proxy_mode`.
+- Expected benefit: discourage horizon switches that look good in short candidate env rollouts but have worse learner-facing model/reward prefix evidence.
+- Expected failure mode: if the proxy is too strong, it may collapse back to fixed `h=3`; the dispatcher therefore launches bounded weights `0.25`, `0.5`, and `1.0`.
+- Cleanup condition: remove or demote the proxy if all shadow-probe smokes underperform Sparse-HiFi without improving horizon stability.
