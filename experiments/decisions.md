@@ -357,6 +357,16 @@ Added final reporting and clean/chaos comparison deliverables to the steward.
 - `package-results` now writes model ranking and clean-vs-chaos comparison tables in addition to the score table and winning-algorithm report.
 - After the clean +2% threshold is passed and chaos jobs are run, every scheduled environment must compare clean and chaos results for both no-RHS baseline and the winning Dense-RHS model family.
 
+## 2026-05-02T08:50:00+00:00
+
+Closed the failed shadow-probe branch and queued two clean +2 anchor retries.
+
+- `shadow_horizon_training_stats` is marked `shadow_probe_failed`: the 120k smokes reached only `684.22`, `578.20`, and the promoted 300k run collapsed to `68.87` by 100k.
+- The next queued profiles return to the known Sparse-HiFi family, where the best run was close to baseline at `922.63`.
+- `dense_rhs_plus2_anchor_start70_margin10_300k_vec8_s15` tests the stable start-70 profile with a stricter incumbent margin `0.10`.
+- `dense_rhs_plus2_anchor_start90_margin06_300k_vec8_s15` tests a longer fixed-horizon warmup to protect early learning, then a small local adaptive search.
+- The steward cap remains `2` to preserve the manually freed GPU slot until explicitly changed.
+
 ## 2026-05-02T00:11:33+00:00
 
 RFC dispatcher queued shadow-probe smokes: dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k.
