@@ -350,3 +350,7 @@ Launched `dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k` as job `1686
 ## 2026-05-02T00:12:05+00:00
 
 Launched `dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k` as job `1687`.
+
+## 2026-05-02T00:12:26+00:00
+
+Launched `dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k` as job `1688`.
