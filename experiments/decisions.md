@@ -605,3 +605,7 @@ RFC `full_horizon_evidence_search`: restore the full adaptive horizon set after 
 - Expected benefit: preserve the adaptive RHS spirit while directly testing whether better horizon evidence and softer transition decisions can avoid bad downshifts/upshifts without removing horizons.
 - Failure mode: if full-H still underperforms, the next RFC should improve evidence attribution or query pairing, not narrow the horizon set again.
 - Queued: `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` and `dense_rhs_plus2_fullh_ei_b9_start70_300k_vec8_s15`.
+
+## 2026-05-02T17:35:14+00:00
+
+Launched `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` as job `1712`.
