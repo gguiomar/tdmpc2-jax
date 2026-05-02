@@ -595,3 +595,13 @@ Processed `dense_rhs_plus2_h34_start160_returndom_300k_vec8_s15` job `1710`: `co
 - Horizon path: `4->4->4`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T17:34:12+00:00
+
+RFC `full_horizon_evidence_search`: restore the full adaptive horizon set after diagnostic trust-region runs.
+
+- Evidence: H={2,3,4} and H={3,4} runs were useful diagnostics but did not beat the clean +2 target. They also violate the intended final algorithm principle: the search should discover the useful horizon online rather than receive a hand-capped set.
+- Rule: keep `H={2,...,30}` and use bucketed compilation only as an implementation detail. Queue one broad all-horizon evaluator that evaluates all 29 horizons at each query with lower per-horizon eval budget, plus one full-H Bayesian expected-improvement evaluator with global posterior candidate selection.
+- Expected benefit: preserve the adaptive RHS spirit while directly testing whether better horizon evidence and softer transition decisions can avoid bad downshifts/upshifts without removing horizons.
+- Failure mode: if full-H still underperforms, the next RFC should improve evidence attribution or query pairing, not narrow the horizon set again.
+- Queued: `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` and `dense_rhs_plus2_fullh_ei_b9_start70_300k_vec8_s15`.
