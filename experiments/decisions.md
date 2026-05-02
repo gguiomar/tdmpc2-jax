@@ -446,3 +446,27 @@ Launched `dense_rhs_plus2_anchor_start70_margin10_300k_vec8_s15` as job `1692`.
 ## 2026-05-02T08:50:09+00:00
 
 Launched `dense_rhs_plus2_anchor_start90_margin06_300k_vec8_s15` as job `1693`.
+
+## 2026-05-02T10:44:29+00:00
+
+Processed `dense_rhs_plus2_anchor_start70_margin10_300k_vec8_s15` job `1692`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:47:51`
+- Final eval: `898.3875122070312` ± `21.15914535522461`
+- Best eval: `898.3875122070312` at step `300000`
+- Horizon path: `4->3->4->5->5`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T10:44:31+00:00
+
+Processed `dense_rhs_plus2_anchor_start90_margin06_300k_vec8_s15` job `1693`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:47:01`
+- Final eval: `906.2188720703125` ± `31.46767234802246`
+- Best eval: `906.2188720703125` at step `300000`
+- Horizon path: `3->4->4->5->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
