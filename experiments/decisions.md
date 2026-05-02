@@ -547,3 +547,7 @@ Processed `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15` job `1702`: 
 ## 2026-05-02T14:50:02+00:00
 
 Hcap4 trust-region family completed below target (best=908.4658203125, best_label=dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15); queued H={3,4} late-exploitation profiles: dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15, dense_rhs_plus2_h34_start160_returndom_300k_vec8_s15, dense_rhs_plus2_h34_ei_start120_300k_vec8_s15.
+
+## 2026-05-02T14:50:06+00:00
+
+Launched `dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15` as job `1709`.
