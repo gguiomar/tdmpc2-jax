@@ -480,3 +480,7 @@ RFC `horizon_trust_region_hcap4`: queue three clean +2 Dense-RHS variants after 
 - Expected benefit: preserve the near-winning Sparse-HiFi behavior while removing the empirically harmful h=5 transition and reducing query compute.
 - Failure mode: if all hcap4 variants remain below the no-RHS baseline, the missing ingredient is not late h=5 drift; mark this trust-region family for removal from final algorithm candidates.
 - Queued: `dense_rhs_plus2_hcap4_start70_margin04_300k_vec8_s15`, `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15`, and `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15`.
+
+## 2026-05-02T13:17:59+00:00
+
+Launched `dense_rhs_plus2_hcap4_start70_margin04_300k_vec8_s15` as job `1701`.
