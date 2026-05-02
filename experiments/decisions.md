@@ -613,3 +613,12 @@ Launched `dense_rhs_plus2_fullh_all29_start70_300k_vec8_s15` as job `1712`.
 ## 2026-05-02T17:36:23+00:00
 
 Launched `dense_rhs_plus2_fullh_ei_b9_start70_300k_vec8_s15` as job `1713`.
+
+## 2026-05-02T17:42:30+00:00
+
+Manual chaos-baseline override after removing the restricted `1711` diagnostic from the active set.
+
+- `1711` was already terminal when cancellation was requested; it completed at `899.64` final clean eval and remains below the clean +2 target.
+- Launched no-RHS current-MJX chaos baseline `no_rhs_chaos_parity_300k_vec8_s15_current` as job `1715`.
+- Definition: chaos is applied during training only with `env.mjx_dmc.enable_domain_randomization=true`, `env.mjx_dmc.enable_observation_noise=true`, and `env.mjx_dmc.base_action_delay=1`; clean evaluation remains enabled every `50k` for `20` episodes.
+- Legacy-match check: this matches the old experimental convention of randomized/noisy training with clean evaluation, but the current MJX port implements actuator-strength randomization, observation noise, wind/push perturbations, jitter/slip-style perturbation, and action delay. It does not currently randomize MuJoCo mass, damping, or friction parameters, so this is a current-JAX chaos baseline rather than full legacy-chaos parity.
