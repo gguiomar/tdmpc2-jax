@@ -662,3 +662,7 @@ Processed `no_rhs_chaos_parity_300k_vec8_s15_current` job `1715`: `completed`.
 - Horizon path: ``
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T19:29:43+00:00
+
+H={3,4} late-exploitation family completed below target (best=919.34619140625, best_label=dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15). Steward needs a new algorithm RFC; do not silently lower the clean +2 goal.
