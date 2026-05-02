@@ -687,3 +687,7 @@ RFC `full_horizon_utility_evidence`: keep full adaptive horizon search over `H={
 ## 2026-05-02T19:53:42+00:00
 
 Launched `dense_rhs_plus2_fullh_du_start70_300k_vec8_s15` as job `1716`.
+
+## 2026-05-02T19:54:11+00:00
+
+Launched `dense_rhs_plus2_fullh_learnerproxy_start70_300k_vec8_s15` as job `1717`.
