@@ -384,3 +384,27 @@ Processed `dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k` job `1688`: 
 - Horizon path: `3`
 - Reason: SLURM state `CANCELLED by 1002`.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T01:02:01+00:00
+
+Processed `dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k` job `1686`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:48:44`
+- Final eval: `684.2154541015625` ± `26.09765625`
+- Best eval: `684.2154541015625` at step `120000`
+- Horizon path: `3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T01:02:03+00:00
+
+Processed `dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k` job `1687`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:47:00`
+- Final eval: `578.2000732421875` ± `16.3250789642334`
+- Best eval: `578.2000732421875` at step `120000`
+- Horizon path: `2->2`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
