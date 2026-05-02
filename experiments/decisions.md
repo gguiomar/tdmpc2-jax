@@ -339,6 +339,15 @@ Implemented RFC `shadow_horizon_training_stats` as a bounded Dense-RHS evidence 
 - Expected failure mode: if the proxy is too strong, it may collapse back to fixed `h=3`; the dispatcher therefore launches bounded weights `0.25`, `0.5`, and `1.0`.
 - Cleanup condition: remove or demote the proxy if all shadow-probe smokes underperform Sparse-HiFi without improving horizon stability.
 
+## 2026-05-02T00:40:00+00:00
+
+Recorded manual GPU-freeing intervention.
+
+- Job `1688` was manually cancelled to free a GPU for other work.
+- The campaign cap is reduced from `3` to `2` active steward GPUs so future ticks do not immediately refill the freed slot.
+- The active shadow-probe jobs `1686` and `1687` continue to provide bounded evidence for weights `0.25` and `0.5`.
+- Raise `constraints.max_active_gpus` explicitly if the steward should use three GPUs again.
+
 ## 2026-05-02T00:11:33+00:00
 
 RFC dispatcher queued shadow-probe smokes: dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k.

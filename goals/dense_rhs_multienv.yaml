@@ -1,6 +1,7 @@
 {
   "constraints": {
-    "max_active_gpus": 3,
+    "max_active_gpus": 2,
+    "manual_free_gpu_note": "2026-05-02: one steward job was manually cancelled to free a GPU; keep the steward cap at 2 until the user explicitly raises it again.",
     "max_walltime": "02:30:00",
     "require_mjx_final": true,
     "require_remote_git_sync": true,
