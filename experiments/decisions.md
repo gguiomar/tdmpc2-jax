@@ -408,3 +408,7 @@ Processed `dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k` job `1687`: 
 - Horizon path: `2->2`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T01:02:05+00:00
+
+Promoted best shadow-probe smoke `dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k` (best_eval=684.22, job=1686) to full profile `dense_rhs_plus2_shadowprobe_w0p25_300k_vec8_s15_start20k`.
