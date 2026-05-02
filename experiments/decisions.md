@@ -470,3 +470,13 @@ Processed `dense_rhs_plus2_anchor_start90_margin06_300k_vec8_s15` job `1693`: `c
 - Horizon path: `3->4->4->5->4`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-02T10:56:44+00:00
+
+RFC `horizon_trust_region_hcap4`: queue three clean +2 Dense-RHS variants after jobs 1692/1693 completed below target.
+
+- Evidence: 1692 reached `898.39` with path `4->3->4->5->5`; 1693 reached `906.22` with path `3->4->4->5->4`. Both improved until 200k and then plateaued or regressed after h=5 appeared.
+- Rule: keep Dense-RHS adaptive but restrict the candidate horizon set to `H={2,3,4}` for this diagnostic family, with `hmax=4` and bucket `[4]`. This is a horizon trust region, not a fixed-horizon control: the learner and planner still follow the selected horizon online.
+- Expected benefit: preserve the near-winning Sparse-HiFi behavior while removing the empirically harmful h=5 transition and reducing query compute.
+- Failure mode: if all hcap4 variants remain below the no-RHS baseline, the missing ingredient is not late h=5 drift; mark this trust-region family for removal from final algorithm candidates.
+- Queued: `dense_rhs_plus2_hcap4_start70_margin04_300k_vec8_s15`, `dense_rhs_plus2_hcap4_start120_returnlite_300k_vec8_s15`, and `dense_rhs_plus2_hcap4_ei_start70_300k_vec8_s15`.
