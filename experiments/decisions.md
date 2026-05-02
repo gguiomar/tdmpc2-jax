@@ -354,3 +354,15 @@ Launched `dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k` as job `1687`
 ## 2026-05-02T00:12:26+00:00
 
 Launched `dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k` as job `1688`.
+
+## 2026-05-02T00:47:06+00:00
+
+Processed `dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k` job `1688`: `failed`.
+
+- SLURM state: `CANCELLED by 1002`
+- Runtime: `00:30:43`
+- Final eval: `274.5364074707031` ± `156.55780029296875`
+- Best eval: `274.5364074707031` at step `40000`
+- Horizon path: `3`
+- Reason: SLURM state `CANCELLED by 1002`.
+- Follow-up: No automatic follow-up rule fired.
