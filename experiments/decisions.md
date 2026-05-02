@@ -338,3 +338,7 @@ Implemented RFC `shadow_horizon_training_stats` as a bounded Dense-RHS evidence 
 - Expected benefit: discourage horizon switches that look good in short candidate env rollouts but have worse learner-facing model/reward prefix evidence.
 - Expected failure mode: if the proxy is too strong, it may collapse back to fixed `h=3`; the dispatcher therefore launches bounded weights `0.25`, `0.5`, and `1.0`.
 - Cleanup condition: remove or demote the proxy if all shadow-probe smokes underperform Sparse-HiFi without improving horizon stability.
+
+## 2026-05-02T00:11:33+00:00
+
+RFC dispatcher queued shadow-probe smokes: dense_rhs_plus2_shadowprobe_w0p25_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w0p5_120k_vec8_s15_start20k, dense_rhs_plus2_shadowprobe_w1p0_120k_vec8_s15_start20k.
