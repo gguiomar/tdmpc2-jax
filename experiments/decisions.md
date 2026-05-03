@@ -695,3 +695,39 @@ Launched `dense_rhs_plus2_fullh_learnerproxy_start70_300k_vec8_s15` as job `1717
 ## 2026-05-02T19:54:46+00:00
 
 Launched `dense_rhs_plus2_fullh_du_learnerproxy_start70_300k_vec8_s15` as job `1718`.
+
+## 2026-05-03T09:56:30+00:00
+
+Processed `dense_rhs_plus2_fullh_du_start70_300k_vec8_s15` job `1716`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:27:59`
+- Final eval: `826.55810546875` ± `19.581214904785156`
+- Best eval: `826.55810546875` at step `300000`
+- Horizon path: `2->2->2->2->2`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-03T09:56:31+00:00
+
+Processed `dense_rhs_plus2_fullh_learnerproxy_start70_300k_vec8_s15` job `1717`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:49:03`
+- Final eval: `912.6260986328125` ± `29.712343215942383`
+- Best eval: `912.6260986328125` at step `300000`
+- Horizon path: `3->5->7->7->9`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-03T09:56:33+00:00
+
+Processed `dense_rhs_plus2_fullh_du_learnerproxy_start70_300k_vec8_s15` job `1718`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:27:42`
+- Final eval: `834.3712768554688` ± `20.812170028686523`
+- Best eval: `834.3712768554688` at step `300000`
+- Horizon path: `3->4->4->4->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
