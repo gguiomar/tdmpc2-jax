@@ -1,7 +1,7 @@
 {
   "constraints": {
-    "manual_free_gpu_note": "2026-05-02: heartbeat guardrail raised active steward cap to 3; ignore unrelated GPU-1 jobs and keep at most 3 TD-MPC2-JAX steward jobs active.",
-    "max_active_gpus": 3,
+    "manual_free_gpu_note": "2026-05-04: active steward cap set to 2; use node-wide GPU load checks before launches and keep at most 2 TD-MPC2-JAX steward jobs active.",
+    "max_active_gpus": 2,
     "max_walltime": "02:30:00",
     "require_mjx_final": true,
     "require_remote_git_sync": true,
