@@ -780,3 +780,15 @@ New launches are blocked until `runs/results/final_results_table_template.tex` i
 ## 2026-05-04T12:48:12+00:00
 
 Launched `dense_rhs_winner_chaos_300k_vec8_s15` as job `1810`.
+
+## 2026-05-04T14:44:40+00:00
+
+Processed `dense_rhs_winner_chaos_300k_vec8_s15` job `1810`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:48:24`
+- Final eval: `614.44970703125` ± `44.561885833740234`
+- Best eval: `614.44970703125` at step `300000`
+- Horizon path: `3->2->2->2->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
