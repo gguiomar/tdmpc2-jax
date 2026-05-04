@@ -776,3 +776,7 @@ The new steward objective is table-driven cross-environment evaluation:
 - Finally run the selected Dense-RHS winner architecture in chaos mode.
 
 New launches are blocked until `runs/results/final_results_table_template.tex` is reviewed and approved. The goal file now enforces `constraints.max_active_gpus=2`, `success.clean_plus2_gate_closed=true`, and `constraints.final_table_approved=false`.
+
+## 2026-05-04T12:48:12+00:00
+
+Launched `dense_rhs_winner_chaos_300k_vec8_s15` as job `1810`.
