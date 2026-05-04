@@ -3,13 +3,15 @@
     "approval_gate": "Approved on 2026-05-04. Launch only table-driven baseline/RHS cells; no architecture search.",
     "architecture_search": "closed",
     "launch_order": [
+      "0. For each non-ready environment, complete the MJX port gate: task semantics, MJX backend, shape checks, fixed-action reward parity, chaos semantics, and no-RHS learning smoke.",
       "1. For each MJX-ready environment, run clean no-RHS paper-parity baseline until it matches/approaches the TD-MPC2 paper score.",
       "2. Run the selected Dense-RHS winner architecture in clean/no-chaos mode on the same environment.",
       "3. Run no-RHS chaos training with clean evaluation for each environment.",
       "4. Run the selected Dense-RHS winner architecture under chaos training with clean evaluation.",
       "5. After single-seed winners are identified, run confirmation seeds [1,3,5,7,15] and generate final tables/reports."
     ],
-    "phase": "table_approved_launching_missing_cells",
+    "mjx_gate_policy": "Before any clean/chaos no-RHS or Dense-RHS training cell for an environment, the environment MJX port gate must be ready/passed. Non-quadruped cells are blocked until their gates pass.",
+    "phase": "blocked_on_mjx_port_gates_after_quadruped_single_seed_cells",
     "selected_dense_rhs_architecture": "dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15"
   },
   "constraints": {
@@ -1623,6 +1625,234 @@
       "stage": "quadruped_chaos_table"
     }
   ],
+  "mjx_port_gates": [
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "fish-swim",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/fish-swim/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/fish-swim/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/fish-swim/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/fish-swim/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "finger-turn_hard",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/finger-turn_hard/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/finger-turn_hard/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/finger-turn_hard/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/finger-turn_hard/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "cheetah-run",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/cheetah-run/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/cheetah-run/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/cheetah-run/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/cheetah-run/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "cartpole-swingup",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/cartpole-swingup/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/cartpole-swingup/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/cartpole-swingup/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/cartpole-swingup/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [],
+      "env_id": "quadruped-run",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "training_cells_unblocked",
+      "notes": "Current MJX backend supports quadruped-run and has completed no-RHS/Dense-RHS clean+chaos single-seed cells.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/quadruped-run/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/quadruped-run/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/quadruped-run/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/quadruped-run/smoke_summary.json"
+      },
+      "status": "ready"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "acrobot-swingup",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/acrobot-swingup/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/acrobot-swingup/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/acrobot-swingup/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/acrobot-swingup/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "walker-run",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/walker-run/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/walker-run/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/walker-run/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/walker-run/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    },
+    {
+      "blocks": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
+      "env_id": "hopper-hop",
+      "gate_order": [
+        "inspect_dmcontrol_task_semantics",
+        "implement_or_wire_mjx_environment",
+        "validate_reset_observation_action_shapes",
+        "compare_fixed_action_rollout_rewards_against_dmcontrol",
+        "verify_episode_length_done_reward_semantics",
+        "verify_chaos_domain_randomization_noise_delay_semantics",
+        "run_short_no_rhs_learning_smoke",
+        "mark_gate_passed_and_unblock_training_cells"
+      ],
+      "next_action": "implement_mjx_env_backend_and_run_gate",
+      "notes": "Training cells for this environment remain blocked until the MJX gate passes; CPU dm_control is allowed only as the parity reference.",
+      "required_artifacts": {
+        "gate_report": "runs/results/mjx_gates/hopper-hop/gate_report.json",
+        "gate_summary": "runs/results/mjx_gates/hopper-hop/gate_summary.md",
+        "parity_plot": "runs/results/mjx_gates/hopper-hop/rollout_parity.png",
+        "smoke_summary": "runs/results/mjx_gates/hopper-hop/smoke_summary.json"
+      },
+      "status": "pending_implementation"
+    }
+  ],
   "name": "dense_rhs_multienv",
   "repo": {
     "branch": "codex/tdmpc2-jax-mjx-parity",
@@ -1684,10 +1914,10 @@
         15
       ],
       "env_id": "fish-swim",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1702,10 +1932,10 @@
         15
       ],
       "env_id": "finger-turn_hard",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1720,10 +1950,10 @@
         15
       ],
       "env_id": "cheetah-run",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1738,15 +1968,22 @@
         15
       ],
       "env_id": "cartpole-swingup",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
+      "chaos_delta_vs_no_rhs": "+21.6%",
       "chaos_dense_rhs_winner": {
+        "best": "614.45",
+        "horizon_path": "3->2->2->2->3",
+        "job": "1810",
         "run_label": "dense_rhs_winner_chaos_300k_vec8_s15",
-        "status": "queued"
+        "runtime": "01:48:24",
+        "score": "614.45 \u00b1 44.56",
+        "seed": "15",
+        "status": "complete_single_seed_current_mjx"
       },
       "chaos_no_rhs": {
         "best": "590.17",
@@ -1756,6 +1993,7 @@
         "seed": "15",
         "status": "complete_single_seed_current_mjx"
       },
+      "clean_delta_vs_no_rhs": "-0.2%",
       "clean_dense_rhs_winner": {
         "best": "922.63",
         "job": "1663",
@@ -1781,9 +2019,9 @@
       ],
       "env_id": "quadruped-run",
       "mjx_port_status": "ready",
-      "next_required_action": "run_queued_chaos_dense_rhs_winner",
+      "next_required_action": "run_mjx_port_gate_for_fish-swim",
       "paper_tdmpc2_target": "TBD",
-      "status": "active_table_driven_campaign"
+      "status": "quadruped_single_seed_cells_complete_next_env_blocked_pending_mjx_port"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1798,10 +2036,10 @@
         15
       ],
       "env_id": "acrobot-swingup",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1816,10 +2054,10 @@
         15
       ],
       "env_id": "walker-run",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     },
     {
       "chaos_dense_rhs_winner": {},
@@ -1834,10 +2072,10 @@
         15
       ],
       "env_id": "hopper-hop",
-      "mjx_port_status": "pending_port",
-      "next_required_action": "run_mjx_port_gate_before_training",
+      "mjx_port_status": "pending_implementation",
+      "next_required_action": "implement_mjx_env_backend_and_run_gate",
       "paper_tdmpc2_target": "TBD",
-      "status": "blocked_pending_mjx_port"
+      "status": "blocked_pending_mjx_port_gate"
     }
   ],
   "rfc_queue": [
@@ -1915,9 +2153,15 @@
     },
     {
       "name": "table_driven_multienv_evaluation",
-      "reason": "Final table approved. First launchable missing cell is quadruped chaos Dense-RHS winner; non-quadruped environments remain blocked on MJX port gates.",
+      "reason": "Quadruped clean/chaos single-seed table cells are filled. Remaining scheduled environments are blocked on explicit MJX port gates before training can launch.",
       "stage": "multienv_baseline_and_rhs",
-      "status": "approved_first_profile_pending"
+      "status": "blocked_on_next_mjx_port_gate"
+    },
+    {
+      "name": "mjx_port_gates",
+      "reason": "Non-quadruped environments require MJX/full-GPU ports before final table runs. This gate is now a first-class steward task rather than a passive pending_port marker.",
+      "stage": "multienv_mjx_porting",
+      "status": "active_next_gate_fish-swim"
     }
   ],
   "success": {
@@ -1948,36 +2192,110 @@
   },
   "tasks": [
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "fish-swim",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/fish-swim/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "finger-turn_hard",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/finger-turn_hard/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "cheetah-run",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/cheetah-run/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "cartpole-swingup",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/cartpole-swingup/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [],
       "env_id": "quadruped-run",
-      "mjx_status": "ready"
+      "gate_report": "runs/results/mjx_gates/quadruped-run/gate_report.json",
+      "mjx_gate_status": "ready",
+      "mjx_status": "ready",
+      "next_action": "training_cells_unblocked"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "acrobot-swingup",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/acrobot-swingup/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "walker-run",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/walker-run/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     },
     {
+      "blocked_training_cells": [
+        "clean_no_rhs",
+        "clean_dense_rhs_winner",
+        "chaos_no_rhs",
+        "chaos_dense_rhs_winner",
+        "confirmation_seeds"
+      ],
       "env_id": "hopper-hop",
-      "mjx_status": "pending_port"
+      "gate_report": "runs/results/mjx_gates/hopper-hop/gate_report.json",
+      "mjx_gate_status": "pending_implementation",
+      "mjx_status": "pending_port",
+      "next_action": "implement_mjx_env_backend_and_run_gate"
     }
   ],
   "tracking": {

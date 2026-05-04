@@ -104,6 +104,15 @@ Processed `dense_rhs_sparse_hifi_smoke_120k_vec8_s15_start20k` job `1659`: `comp
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
 
+## 2026-05-04T15:10:00+00:00
+
+Promoted MJX environment ports from passive `pending_port` markers to first-class steward gates.
+
+- Quadruped-run remains `ready`; its single-seed clean and chaos no-RHS/Dense-RHS table cells are filled.
+- The next campaign blocker is `fish-swim`, status `pending_implementation`.
+- Each non-quadruped environment now requires a gate report, rollout parity check, chaos-semantics check, and short no-RHS learning smoke before training profiles can launch.
+- `goalctl.py` now reports MJX gate state in `status` and refuses launches for environments whose MJX gate is not `ready` or `passed`.
+
 ## 2026-05-01 Sparse-HiFi Chaos Smoke RFC
 
 Clean Dense-RHS does not need more EI transition tuning right now: run `1387` already satisfies the `0.98 * no_rhs` clean non-inferiority gate, and the new Sparse-HiFi fallback recovered to `640.40` by 120k after weak early evals. The next campaign step is therefore quadruped chaos. Queue `dense_rhs_sparse_hifi_chaos_smoke_120k_vec8_s15_start20k` using the chaos launcher, clean evaluation, and the same sparse high-fidelity query budget. If this smoke is non-degenerate, promote the same family to a 300k chaos comparison against the no-RHS chaos reference.
