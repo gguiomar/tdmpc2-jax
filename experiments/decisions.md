@@ -763,3 +763,16 @@ H={3,4} late-exploitation family completed below target (best=919.34619140625, b
 ## 2026-05-03T11:45:59+00:00
 
 H={3,4} late-exploitation family completed below target (best=919.34619140625, best_label=dense_rhs_plus2_h34_start120_margin02_300k_vec8_s15). Steward needs a new algorithm RFC; do not silently lower the clean +2 goal.
+
+## 2026-05-04T12:40:00+00:00
+
+User closed the quadruped clean +2 architecture-search target. The campaign no longer searches for a Dense-RHS variant that beats the clean no-RHS baseline by 2%; instead, the selected Dense-RHS winner architecture is `dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15` from job `1663` (`922.63 +/- 21.34`, horizon path `3->3->3->3->3`).
+
+The new steward objective is table-driven cross-environment evaluation:
+
+- First fill MJX port gates and clean no-RHS paper-parity baselines for the scheduled environments.
+- Then run the selected Dense-RHS winner architecture in clean/no-chaos mode.
+- Then run no-RHS chaos baselines for missing environments.
+- Finally run the selected Dense-RHS winner architecture in chaos mode.
+
+New launches are blocked until `runs/results/final_results_table_template.tex` is reviewed and approved. The goal file now enforces `constraints.max_active_gpus=2`, `success.clean_plus2_gate_closed=true`, and `constraints.final_table_approved=false`.

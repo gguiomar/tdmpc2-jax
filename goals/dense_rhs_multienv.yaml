@@ -1,8 +1,24 @@
 {
+  "campaign_plan": {
+    "approval_gate": "No new launches until runs/results/final_results_table_template.tex is approved by the user.",
+    "architecture_search": "closed",
+    "launch_order": [
+      "1. For each MJX-ready environment, run clean no-RHS paper-parity baseline until it matches/approaches the TD-MPC2 paper score.",
+      "2. Run the selected Dense-RHS winner architecture in clean/no-chaos mode on the same environment.",
+      "3. Run no-RHS chaos training with clean evaluation for each environment.",
+      "4. Run the selected Dense-RHS winner architecture under chaos training with clean evaluation.",
+      "5. After single-seed winners are identified, run confirmation seeds [1,3,5,7,15] and generate final tables/reports."
+    ],
+    "phase": "final_table_pending_approval",
+    "selected_dense_rhs_architecture": "dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15"
+  },
   "constraints": {
+    "final_table_approved": false,
+    "launch_policy": "Do not launch new jobs until the final results table structure is approved by the user.",
     "manual_free_gpu_note": "2026-05-04: active steward cap set to 2; use node-wide GPU load checks before launches and keep at most 2 TD-MPC2-JAX steward jobs active.",
     "max_active_gpus": 2,
     "max_walltime": "02:30:00",
+    "require_final_table_approval_before_launch": true,
     "require_mjx_final": true,
     "require_remote_git_sync": true,
     "require_slurm": true,
@@ -86,6 +102,23 @@
       "runtime": "01:38:32",
       "seed": 15,
       "winner": false
+    },
+    {
+      "best_eval_mean": 922.63330078125,
+      "best_eval_step": 300000,
+      "env_id": "quadruped-run",
+      "final_eval_mean": 922.63330078125,
+      "final_eval_std": 21.33823585510254,
+      "horizon_path": "3->3->3->3->3",
+      "job_id": "1663",
+      "method": "dense_rhs_sparse_hifi",
+      "regime": "clean",
+      "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/quadruped-run_dense_rhs_clean_dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15",
+      "run_label": "dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15",
+      "runtime": "01:31:18",
+      "seed": 15,
+      "selected_architecture": true,
+      "winner": true
     }
   ],
   "launch_queue": [
@@ -1562,6 +1595,8 @@
       "Keep the explanation readable and avoid unexplained launcher-only heuristic bundles."
     ],
     "final_report_required": true,
+    "final_results_matrix": "runs/results/final_results_matrix.csv",
+    "final_results_table_template": "runs/results/final_results_table_template.tex",
     "regime_comparisons": {
       "enabled": true,
       "methods": [
@@ -1576,7 +1611,7 @@
         "horizon_path"
       ],
       "scope": "For every scheduled environment, compare clean vs chaos for no-RHS baseline and the winning Dense-RHS model.",
-      "when": "after_clean_plus2_gate_passes_and_chaos_jobs_complete"
+      "when": "after final table approval and after clean/chaos no-RHS and Dense-RHS winner cells are filled for each scheduled environment"
     },
     "report_after_campaign_completion": true,
     "required_outputs": [
@@ -1584,95 +1619,283 @@
       "runs/results/model_ranking_table.tex",
       "runs/results/clean_chaos_comparison_table.tex",
       "runs/results/winning_algorithms_report.tex",
-      "runs/results/dense_rhs_decision_report.tex"
+      "runs/results/dense_rhs_decision_report.tex",
+      "runs/results/final_results_table_template.tex",
+      "runs/results/final_results_matrix.csv"
     ]
   },
+  "results_matrix": [
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "fish-swim",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "finger-turn_hard",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "cheetah-run",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "cartpole-swingup",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {
+        "best": "590.17",
+        "job": "1715",
+        "runtime": "01:30:18",
+        "score": "505.27 \u00b1 35.01",
+        "seed": "15",
+        "status": "complete_single_seed_current_mjx"
+      },
+      "clean_dense_rhs_winner": {
+        "best": "922.63",
+        "job": "1663",
+        "runtime": "01:31:18",
+        "score": "922.63 \u00b1 21.34",
+        "seed": "15",
+        "status": "selected_winner_single_seed"
+      },
+      "clean_no_rhs": {
+        "best": "924.65",
+        "job": "1179",
+        "runtime": "01:15:58",
+        "score": "924.65 \u00b1 16.91",
+        "seed": "15",
+        "status": "complete_single_seed"
+      },
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "quadruped-run",
+      "mjx_port_status": "ready",
+      "next_required_action": "approve_table_then_fill_missing_cells",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "acrobot-swingup",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "walker-run",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    },
+    {
+      "chaos_dense_rhs_winner": {},
+      "chaos_no_rhs": {},
+      "clean_dense_rhs_winner": {},
+      "clean_no_rhs": {},
+      "confirmation_seeds": [
+        1,
+        3,
+        5,
+        7,
+        15
+      ],
+      "env_id": "hopper-hop",
+      "mjx_port_status": "pending_port",
+      "next_required_action": "approve_table_then_run_mjx_port_gate",
+      "paper_tdmpc2_target": "TBD",
+      "status": "pending_table_approval"
+    }
+  ],
   "rfc_queue": [
     {
       "name": "expected_improvement_transition",
-      "reason": "Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously.",
+      "reason": "Credible probability gating was too conservative at p=.65 and too permissive for late h=5 at p=.56; expected improvement should trade benefit and loss continuously. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean",
-      "status": "fallback_sparse_hifi_pending"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "cap_or_uncertain_late_large_horizon",
-      "reason": "Run 1618 showed h=5/bucket=8 caused final-eval collapse after a strong 250k checkpoint; larger horizon switches late in training need a general uncertainty gate.",
+      "reason": "Run 1618 showed h=5/bucket=8 caused final-eval collapse after a strong 250k checkpoint; larger horizon switches late in training need a general uncertainty gate. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean",
-      "status": "proposed"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "sparse_hifi_chaos_validation",
-      "reason": "Clean Dense-RHS already has a non-inferior Sparse-HiFi winner, and the 120k fallback recovered to 640.40; the campaign should now test the same family under chaos against the no-RHS chaos reference.",
+      "reason": "Chaos validation is now part of the approved final table sequence, not a continuation of clean +2 architecture search.",
       "stage": "quadruped_chaos",
-      "status": "postponed_until_clean_plus2"
+      "status": "covered_by_table_driven_multienv_plan_pending_approval"
     },
     {
       "name": "clean_plus2_sparse_hifi_parallel",
-      "reason": "The formal clean goal is now to beat no-RHS by 2%; run two distinct Sparse-HiFi clean attempts in parallel under the max-2-GPU policy.",
+      "reason": "The formal clean goal is now to beat no-RHS by 2%; run two distinct Sparse-HiFi clean attempts in parallel under the max-2-GPU policy. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "anchor_retry_profiles_pending"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "learner_aware_virtual_update_query",
-      "reason": "Current Dense-RHS mostly tests transition policy over existing diagnostics; it does not estimate whether a candidate horizon improves the learner after update. Add sparse virtual TD-MPC2 update probes for candidate horizons and score post-update validation loss/planner utility.",
+      "reason": "Current Dense-RHS mostly tests transition policy over existing diagnostics; it does not estimate whether a candidate horizon improves the learner after update. Add sparse virtual TD-MPC2 update probes for candidate horizons and score post-update validation loss/planner utility. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "implementation_needed_when_launch_queue_empty"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "shadow_horizon_training_stats",
-      "reason": "Gather better horizon evidence during ordinary training by computing shadow loss/target statistics for nearby horizons from the same replay batches, without changing deployed horizon or adding environment interaction.",
+      "reason": "Gather better horizon evidence during ordinary training by computing shadow loss/target statistics for nearby horizons from the same replay batches, without changing deployed horizon or adding environment interaction. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "shadow_probe_failed"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "deployment_utility_posterior",
-      "reason": "Replace one-shot query score switching with a posterior over observed post-switch training improvement so horizon changes are justified by downstream learner utility rather than immediate candidate rollout return alone.",
+      "reason": "Replace one-shot query score switching with a posterior over observed post-switch training improvement so horizon changes are justified by downstream learner utility rather than immediate candidate rollout return alone. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "profile_pending"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "paired_fixed_seed_query_eval",
-      "reason": "Verify or enforce paired reset seeds and matched perturbations across candidate horizons so query return differences have lower variance and are attributable to horizon choice.",
+      "reason": "Verify or enforce paired reset seeds and matched perturbations across candidate horizons so query return differences have lower variance and are attributable to horizon choice. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "verify_or_implement_when_launch_queue_empty"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "horizon_trust_region_hcap4",
-      "reason": "Jobs 1692 and 1693 plateaued or regressed after switching to h=5; test whether a small adaptive trust region H={2,3,4} preserves Dense-RHS adaptivity while avoiding the empirically harmful late large-horizon transition.",
+      "reason": "Jobs 1692 and 1693 plateaued or regressed after switching to h=5; test whether a small adaptive trust region H={2,3,4} preserves Dense-RHS adaptivity while avoiding the empirically harmful late large-horizon transition. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "completed_below_target"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "h34_late_exploitation",
-      "reason": "If the H={2,3,4} trust region does not beat the clean +2 target, test the smaller adaptive set H={3,4}. This keeps online horizon selection but removes the empirically harmful h=5 option and avoids early downshifts to h=2.",
+      "reason": "If the H={2,3,4} trust region does not beat the clean +2 target, test the smaller adaptive set H={3,4}. This keeps online horizon selection but removes the empirically harmful h=5 option and avoids early downshifts to h=2. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "completed_below_target_blocked"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "full_horizon_evidence_search",
-      "reason": "The final algorithm should discover the horizon online over H={2..30}, not inherit a hand cap from diagnostic runs. Restore the full horizon set and improve evidence quality/transition decisions without removing candidate horizons.",
+      "reason": "The final algorithm should discover the horizon online over H={2..30}, not inherit a hand cap from diagnostic runs. Restore the full horizon set and improve evidence quality/transition decisions without removing candidate horizons. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "completed_below_target"
+      "status": "closed_architecture_search_complete"
     },
     {
       "name": "full_horizon_utility_evidence",
-      "reason": "The first full-H profiles selected larger horizons too aggressively and underperformed. Keep H={2..30}, but improve evidence attribution using posterior eval-gain deployment utility and dense learner-proxy terms instead of hard horizon caps.",
+      "reason": "The first full-H profiles selected larger horizons too aggressively and underperformed. Keep H={2..30}, but improve evidence attribution using posterior eval-gain deployment utility and dense learner-proxy terms instead of hard horizon caps. Closed on 2026-05-04 because the user ended quadruped architecture search and selected the Sparse-HiFi winner for cross-environment evaluation.",
       "stage": "quadruped_clean_plus2",
-      "status": "profiles_pending"
+      "status": "closed_architecture_search_complete"
+    },
+    {
+      "name": "table_driven_multienv_evaluation",
+      "reason": "Use the final results table as the campaign state machine: fill MJX port gates, clean no-RHS paper-parity baselines, clean Dense-RHS winner runs, chaos no-RHS baselines, and chaos Dense-RHS winner runs for each scheduled environment. Do not launch until the table is approved.",
+      "stage": "multienv_baseline_and_rhs",
+      "status": "pending_user_table_approval"
     }
   ],
   "success": {
     "chaos_rhs_improvement_ratio": 1.05,
-    "clean_noninferiority_ratio": 1.02,
-    "clean_rhs_improvement_ratio": 1.02,
-    "clean_target_eval_mean": 943.143,
+    "clean_noninferiority_ratio": null,
+    "clean_plus2_closure_reason": "User accepted the Dense-RHS architecture search as complete on 2026-05-04; stop searching for a +2% quadruped architecture and use the selected winner architecture for cross-environment evaluation.",
+    "clean_plus2_gate_closed": true,
+    "clean_rhs_improvement_ratio": null,
+    "clean_target_eval_mean": null,
     "confirmation_seeds": [
       1,
       3,
       5,
       7,
       15
-    ]
+    ],
+    "selected_dense_rhs_winner": {
+      "architecture_summary": "Sparse-HiFi Dense-RHS with start_query_step=70k, local_window_radius=1, max_transition_delta=1, incumbent_margin=0.05, candidate budgets=3, query evaluator=256 population / 12 prior / 32 elites / 4 MPPI iters / 16 replicas / 256 steps, bucketed training horizons [4,8,12,16,24,30].",
+      "best_eval_mean": 922.63330078125,
+      "final_eval_mean": 922.63330078125,
+      "final_eval_std": 21.33823585510254,
+      "horizon_path": "3->3->3->3->3",
+      "job_id": "1663",
+      "method": "dense_rhs_sparse_hifi",
+      "run_label": "dense_rhs_plus2_sparse_hifi_start70_300k_vec8_s15",
+      "runtime": "01:31:18"
+    }
   },
   "tasks": [
     {
