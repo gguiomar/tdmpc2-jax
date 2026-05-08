@@ -893,3 +893,27 @@ Processed `acrobot_swingup_clean_no_rhs_300k_vec8_s15` job `1964`: `completed`.
 ## 2026-05-08T16:57:20+00:00
 
 Launched `hopper_hop_clean_no_rhs_300k_vec8_s15` as job `1967`.
+
+## 2026-05-08T18:05:38+00:00
+
+Processed `walker_run_clean_no_rhs_300k_vec8_s15` job `1966`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:26:04`
+- Final eval: `839.2001953125` ± `10.541329383850098`
+- Best eval: `839.2001953125` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-08T18:05:39+00:00
+
+Processed `hopper_hop_clean_no_rhs_300k_vec8_s15` job `1967`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:06:43`
+- Final eval: `287.27569580078125` ± `14.467547416687012`
+- Best eval: `287.27569580078125` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
