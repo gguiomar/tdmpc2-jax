@@ -849,3 +849,15 @@ Launched `cartpole_swingup_clean_no_rhs_300k_vec8_s15` as job `1963`.
 ## 2026-05-08T16:04:30+00:00
 
 Launched `acrobot_swingup_clean_no_rhs_300k_vec8_s15` as job `1964`.
+
+## 2026-05-08T16:37:34+00:00
+
+Processed `cartpole_swingup_clean_no_rhs_300k_vec8_s15` job `1963`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:52:26`
+- Final eval: `866.7747192382812` ± `0.26454320549964905`
+- Best eval: `867.5153198242188` at step `200000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
