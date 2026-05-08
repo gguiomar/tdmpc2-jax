@@ -845,3 +845,7 @@ Processed `finger_turn_hard_clean_no_rhs_300k_vec8_s15` job `1960`: `completed`.
 ## 2026-05-08T15:44:52+00:00
 
 Launched `cartpole_swingup_clean_no_rhs_300k_vec8_s15` as job `1963`.
+
+## 2026-05-08T16:04:30+00:00
+
+Launched `acrobot_swingup_clean_no_rhs_300k_vec8_s15` as job `1964`.
