@@ -981,3 +981,15 @@ Processed `cheetah_run_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1970`: `c
 ## 2026-05-08T19:32:50+00:00
 
 Launched `walker_run_clean_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1973`.
+
+## 2026-05-08T20:18:50+00:00
+
+Processed `acrobot_swingup_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1972`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:59:31`
+- Final eval: `362.320556640625` ± `108.22805786132812`
+- Best eval: `575.4118041992188` at step `200000`
+- Horizon path: `3->3->3->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
