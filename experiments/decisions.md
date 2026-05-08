@@ -997,3 +997,15 @@ Processed `acrobot_swingup_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1972`
 ## 2026-05-08T20:19:10+00:00
 
 Launched `hopper_hop_clean_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1974`.
+
+## 2026-05-08T20:21:27+00:00
+
+Processed `cartpole_swingup_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1971`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:10:34`
+- Final eval: `882.39404296875` ± `0.22589746117591858`
+- Best eval: `882.39404296875` at step `300000`
+- Horizon path: `4->4->5->4->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
