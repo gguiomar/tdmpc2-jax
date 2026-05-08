@@ -865,3 +865,15 @@ Processed `cartpole_swingup_clean_no_rhs_300k_vec8_s15` job `1963`: `completed`.
 ## 2026-05-08T16:37:43+00:00
 
 Launched `walker_run_clean_no_rhs_300k_vec8_s15` as job `1966`.
+
+## 2026-05-08T16:38:19+00:00
+
+Processed `cheetah_run_clean_no_rhs_300k_vec8_s15` job `1962`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:56:55`
+- Final eval: `845.8548583984375` ± `116.47073364257812`
+- Best eval: `871.3776245117188` at step `150000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
