@@ -24,7 +24,8 @@ set -euo pipefail
 
 VENV_PATH="${VENV_PATH:-$HOME/.venvs/temporalhorizon-jax}"
 SEED="${SEED:-15}"
-RUN_STEM="${RUN_STEM:-quadruped-run}"
+ENV_ID="${ENV_ID:-quadruped-run}"
+RUN_STEM="${RUN_STEM:-$ENV_ID}"
 RUN_LABEL="${RUN_LABEL:-dense_rhs_clean_300k_vec8_s${SEED}_start150k_job${SLURM_JOB_ID}}"
 
 MAX_STEPS="${MAX_STEPS:-300000}"
@@ -108,6 +109,7 @@ echo "HOST=$(hostname)"
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 echo "RUN_NAME=${RUN_NAME}"
+echo "ENV_ID=${ENV_ID}"
 echo "MAX_STEPS=${MAX_STEPS}"
 echo "DENSE_QUERY_START_STEP=${DENSE_QUERY_START_STEP}"
 echo "DENSE_QUERY_INTERVAL_STEPS=${DENSE_QUERY_INTERVAL_STEPS}"
@@ -135,9 +137,11 @@ python -m tdmpc2_jax.train \
   seed_pretrain_log_interval_updates="${SEED_PRETRAIN_LOG_INTERVAL_UPDATES}" \
   collect_chunk_steps="${COLLECT_CHUNK_STEPS}" \
   checkpoint_buffer="${CHECKPOINT_BUFFER}" \
+  env.env_id="${ENV_ID}" \
   env.num_envs="${TRAIN_NUM_ENVS}" \
   env.utd_ratio="${UTD_RATIO}" \
   env.asynchronous=false \
+  env.mjx_dmc.task="${ENV_ID}" \
   env.mjx_dmc.enable_domain_randomization=false \
   env.mjx_dmc.enable_observation_noise=false \
   env.mjx_dmc.base_action_delay=0 \

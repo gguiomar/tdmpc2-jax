@@ -12,8 +12,13 @@ set -euo pipefail
 
 VENV_PATH="${VENV_PATH:-$HOME/.venvs/temporalhorizon-jax}"
 SEED="${SEED:-15}"
-RUN_STEM="${RUN_STEM:-quadruped-run}"
+ENV_ID="${ENV_ID:-quadruped-run}"
+RUN_STEM="${RUN_STEM:-$ENV_ID}"
+CONDITION_NAME="${CONDITION_NAME:-chaos_no_rhs}"
 RUN_LABEL="${RUN_LABEL:-parity_300k_vec8_s${SEED}_chaos_job${SLURM_JOB_ID}}"
+ENABLE_DOMAIN_RANDOMIZATION="${ENABLE_DOMAIN_RANDOMIZATION:-true}"
+ENABLE_OBSERVATION_NOISE="${ENABLE_OBSERVATION_NOISE:-true}"
+BASE_ACTION_DELAY="${BASE_ACTION_DELAY:-1}"
 
 MAX_STEPS="${MAX_STEPS:-300000}"
 SAVE_INTERVAL_STEPS="${SAVE_INTERVAL_STEPS:-100000000}"
@@ -42,13 +47,15 @@ export PYTHONUNBUFFERED=1
 export HYDRA_FULL_ERROR=1
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 
-RUN_DIR="${PWD}/outputs/${RUN_STEM}_chaos_no_rhs_${RUN_LABEL}"
-RUN_NAME="${RUN_STEM}_chaos_no_rhs_${RUN_LABEL}"
+RUN_DIR="${PWD}/outputs/${RUN_STEM}_${CONDITION_NAME}_${RUN_LABEL}"
+RUN_NAME="${RUN_STEM}_${CONDITION_NAME}_${RUN_LABEL}"
 
 echo "HOST=$(hostname)"
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 echo "RUN_NAME=${RUN_NAME}"
+echo "ENV_ID=${ENV_ID}"
+echo "CONDITION_NAME=${CONDITION_NAME}"
 echo "MAX_STEPS=${MAX_STEPS}"
 echo "TRAIN_NUM_ENVS=${TRAIN_NUM_ENVS}"
 echo "SEED_STEPS_OVERRIDE=${SEED_STEPS_OVERRIDE}"
@@ -64,12 +71,14 @@ python -m tdmpc2_jax.train \
   seed_pretrain_log_interval_updates="${SEED_PRETRAIN_LOG_INTERVAL_UPDATES}" \
   collect_chunk_steps="${COLLECT_CHUNK_STEPS}" \
   checkpoint_buffer="${CHECKPOINT_BUFFER}" \
+  env.env_id="${ENV_ID}" \
   env.num_envs="${TRAIN_NUM_ENVS}" \
   env.utd_ratio="${UTD_RATIO}" \
   env.asynchronous=false \
-  env.mjx_dmc.enable_domain_randomization=true \
-  env.mjx_dmc.enable_observation_noise=true \
-  env.mjx_dmc.base_action_delay=1 \
+  env.mjx_dmc.task="${ENV_ID}" \
+  env.mjx_dmc.enable_domain_randomization="${ENABLE_DOMAIN_RANDOMIZATION}" \
+  env.mjx_dmc.enable_observation_noise="${ENABLE_OBSERVATION_NOISE}" \
+  env.mjx_dmc.base_action_delay="${BASE_ACTION_DELAY}" \
   env.mjx_dmc.reset_pool_size="${RESET_POOL_SIZE}" \
   dense_rhs.enabled=false \
   evaluation.enabled=true \
