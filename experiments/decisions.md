@@ -877,3 +877,15 @@ Processed `cheetah_run_clean_no_rhs_300k_vec8_s15` job `1962`: `completed`.
 - Horizon path: ``
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-08T16:57:01+00:00
+
+Processed `acrobot_swingup_clean_no_rhs_300k_vec8_s15` job `1964`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:50:35`
+- Final eval: `539.5477294921875` ± `162.24920654296875`
+- Best eval: `539.5477294921875` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
