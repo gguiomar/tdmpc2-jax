@@ -1623,6 +1623,223 @@
       "run_label": "dense_rhs_winner_chaos_300k_vec8_s15",
       "script": "scripts/ncc_dense_rhs_chaos_300k.sbatch",
       "stage": "quadruped_chaos_table"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "fish-swim",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "fish-swim",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "fish-swim",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/fish-swim_clean_no_rhs_fish_swim_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "fish_swim_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "finger-turn_hard",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "finger-turn_hard",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "finger-turn_hard",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/finger-turn_hard_clean_no_rhs_finger_turn_hard_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "finger_turn_hard_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "cheetah-run",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "cheetah-run",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "cheetah-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/cheetah-run_clean_no_rhs_cheetah_run_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "cheetah_run_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "cartpole-swingup",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "cartpole-swingup",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "cartpole-swingup",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/cartpole-swingup_clean_no_rhs_cartpole_swingup_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "cartpole_swingup_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "acrobot-swingup",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "acrobot-swingup",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "acrobot-swingup",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/acrobot-swingup_clean_no_rhs_acrobot_swingup_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "acrobot_swingup_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "walker-run",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "walker-run",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "walker-run",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/walker-run_clean_no_rhs_walker_run_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "walker_run_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
+    },
+    {
+      "env": {
+        "BASE_ACTION_DELAY": 0,
+        "CHECKPOINT_BUFFER": "false",
+        "CONDITION_NAME": "clean_no_rhs",
+        "ENABLE_DOMAIN_RANDOMIZATION": "false",
+        "ENABLE_OBSERVATION_NOISE": "false",
+        "ENV_ID": "hopper-hop",
+        "EVAL_INTERVAL_STEPS": 50000,
+        "EVAL_NUM_EPISODES": 20,
+        "MAX_STEPS": 300000,
+        "RUN_STEM": "hopper-hop",
+        "SEED": 15,
+        "SEED_STEPS_OVERRIDE": 4000,
+        "TRAIN_MPPI_ITERATIONS": 6,
+        "TRAIN_NUM_ELITES": 64,
+        "TRAIN_NUM_ENVS": 8,
+        "TRAIN_POLICY_PRIOR_SAMPLES": 24,
+        "TRAIN_POPULATION_SIZE": 512,
+        "TRAIN_TEMPERATURE": 0.5,
+        "UTD_RATIO": 1.0
+      },
+      "env_id": "hopper-hop",
+      "expected_run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/hopper-hop_clean_no_rhs_hopper_hop_clean_no_rhs_300k_vec8_s15",
+      "method": "no_rhs",
+      "notes": "Table-driven clean no-RHS MJX baseline. No architecture search.",
+      "regime": "clean",
+      "run_label": "hopper_hop_clean_no_rhs_300k_vec8_s15",
+      "script": "scripts/ncc_tdmpc2_chaos_baseline_300k.sbatch",
+      "stage": "multienv_clean_no_rhs"
     }
   ],
   "mjx_port_gates": [
@@ -1644,9 +1861,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/fish-swim/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/fish-swim/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/fish-swim/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/fish-swim/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/fish-swim/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/fish-swim/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/fish-swim/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1668,9 +1885,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/finger-turn_hard/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/finger-turn_hard/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/finger-turn_hard/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/finger-turn_hard/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/finger-turn_hard/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/finger-turn_hard/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/finger-turn_hard/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1692,9 +1909,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/cheetah-run/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/cheetah-run/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/cheetah-run/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/cheetah-run/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/cheetah-run/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/cheetah-run/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/cheetah-run/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1716,9 +1933,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/cartpole-swingup/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/cartpole-swingup/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/cartpole-swingup/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/cartpole-swingup/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/cartpole-swingup/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/cartpole-swingup/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/cartpole-swingup/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1763,9 +1980,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/acrobot-swingup/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/acrobot-swingup/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/acrobot-swingup/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/acrobot-swingup/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/acrobot-swingup/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/acrobot-swingup/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/acrobot-swingup/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1787,9 +2004,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/walker-run/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/walker-run/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/walker-run/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/walker-run/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/walker-run/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/walker-run/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/walker-run/smoke_summary.json"
       },
       "status": "ready"
     },
@@ -1811,9 +2028,9 @@
       "required_artifacts": {
         "gate_report": "runs/results/mjx_gates/hopper-hop/gate_report.json",
         "gate_summary": "runs/results/mjx_gates/hopper-hop/gate_summary.md",
+        "mjx_gate": "runs/results/mjx_gates/hopper-hop/mjx_gate.json",
         "parity_plot": "runs/results/mjx_gates/hopper-hop/rollout_parity.png",
-        "smoke_summary": "runs/results/mjx_gates/hopper-hop/smoke_summary.json",
-        "mjx_gate": "runs/results/mjx_gates/hopper-hop/mjx_gate.json"
+        "smoke_summary": "runs/results/mjx_gates/hopper-hop/smoke_summary.json"
       },
       "status": "ready"
     }
