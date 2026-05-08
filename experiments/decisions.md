@@ -809,3 +809,7 @@ Table dispatcher queued clean_no_rhs profiles: fish_swim_clean_no_rhs_300k_vec8_
 ## 2026-05-08T14:46:18+00:00
 
 Launched `fish_swim_clean_no_rhs_300k_vec8_s15` as job `1959`.
+
+## 2026-05-08T14:47:20+00:00
+
+Launched `finger_turn_hard_clean_no_rhs_300k_vec8_s15` as job `1960`.
