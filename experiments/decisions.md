@@ -829,3 +829,15 @@ Processed `fish_swim_clean_no_rhs_300k_vec8_s15` job `1959`: `completed`.
 ## 2026-05-08T15:40:58+00:00
 
 Launched `cheetah_run_clean_no_rhs_300k_vec8_s15` as job `1962`.
+
+## 2026-05-08T15:44:32+00:00
+
+Processed `finger_turn_hard_clean_no_rhs_300k_vec8_s15` job `1960`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `00:56:55`
+- Final eval: `980.5499877929688` ± `13.987404823303223`
+- Best eval: `980.5499877929688` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
