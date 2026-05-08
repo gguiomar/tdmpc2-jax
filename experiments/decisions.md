@@ -965,3 +965,15 @@ Processed `finger_turn_hard_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1969
 ## 2026-05-08T19:18:28+00:00
 
 Launched `acrobot_swingup_clean_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1972`.
+
+## 2026-05-08T19:32:30+00:00
+
+Processed `cheetah_run_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1970`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:19:14`
+- Final eval: `933.12890625` ± `37.509788513183594`
+- Best eval: `933.12890625` at step `300000`
+- Horizon path: `4->5->6->6->6`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
