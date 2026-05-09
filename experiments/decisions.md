@@ -1165,3 +1165,15 @@ Launched `finger_turn_hard_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` as job `19
 ## 2026-05-09T17:52:27+00:00
 
 Launched `cheetah_run_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1984`.
+
+## 2026-05-09T19:11:57+00:00
+
+Processed `fish_swim_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1982`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:19:01`
+- Final eval: `76.80537414550781` ± `35.97894287109375`
+- Best eval: `90.21401977539062` at step `50000`
+- Horizon path: `3->3->3->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
