@@ -1009,3 +1009,27 @@ Processed `cartpole_swingup_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1971
 - Horizon path: `4->4->5->4->3`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T08:50:01+00:00
+
+Processed `walker_run_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1973`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:38:25`
+- Final eval: `835.9410400390625` ± `9.586824417114258`
+- Best eval: `835.9410400390625` at step `300000`
+- Horizon path: `4->3->3->4->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T08:50:03+00:00
+
+Processed `hopper_hop_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1974`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:16:29`
+- Final eval: `350.6131896972656` ± `12.311149597167969`
+- Best eval: `351.2184143066406` at step `250000`
+- Horizon path: `2->2->3->2->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
