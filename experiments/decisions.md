@@ -1213,3 +1213,15 @@ Processed `cheetah_run_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1984`: `c
 ## 2026-05-09T19:25:15+00:00
 
 Launched `walker_run_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1987`.
+
+## 2026-05-09T20:33:45+00:00
+
+Processed `cartpole_swingup_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1985`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:19:03`
+- Final eval: `876.3756103515625` ± `1.726609706878662`
+- Best eval: `876.3756103515625` at step `300000`
+- Horizon path: `3->3->3->2->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
