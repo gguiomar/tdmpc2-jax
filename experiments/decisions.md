@@ -1065,3 +1065,27 @@ Processed `fish_swim_chaos_no_rhs_300k_vec8_s15` job `1975`: `completed`.
 ## 2026-05-09T10:03:38+00:00
 
 Launched `cartpole_swingup_chaos_no_rhs_300k_vec8_s15` as job `1978`.
+
+## 2026-05-09T10:04:31+00:00
+
+Processed `finger_turn_hard_chaos_no_rhs_300k_vec8_s15` job `1976`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:13:09`
+- Final eval: `713.4000244140625` ± `403.3861083984375`
+- Best eval: `713.4000244140625` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T10:04:33+00:00
+
+Processed `cheetah_run_chaos_no_rhs_300k_vec8_s15` job `1977`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:13:47`
+- Final eval: `457.7344665527344` ± `76.45452117919922`
+- Best eval: `457.7344665527344` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
