@@ -1229,3 +1229,15 @@ Processed `cartpole_swingup_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1985
 ## 2026-05-09T20:34:08+00:00
 
 Launched `hopper_hop_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` as job `1988`.
+
+## 2026-05-09T20:36:00+00:00
+
+Processed `acrobot_swingup_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1986`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:16:17`
+- Final eval: `353.9346923828125` ± `109.49887084960938`
+- Best eval: `379.4981994628906` at step `250000`
+- Horizon path: `4->4->4->4->4`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
