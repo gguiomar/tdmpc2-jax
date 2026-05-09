@@ -1033,3 +1033,7 @@ Processed `hopper_hop_clean_dense_rhs_sparse_hifi_300k_vec8_s15` job `1974`: `co
 - Horizon path: `2->2->3->2->3`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T08:50:17+00:00
+
+Table dispatcher queued chaos_no_rhs profiles: fish_swim_chaos_no_rhs_300k_vec8_s15, finger_turn_hard_chaos_no_rhs_300k_vec8_s15, cheetah_run_chaos_no_rhs_300k_vec8_s15, cartpole_swingup_chaos_no_rhs_300k_vec8_s15, acrobot_swingup_chaos_no_rhs_300k_vec8_s15, walker_run_chaos_no_rhs_300k_vec8_s15, hopper_hop_chaos_no_rhs_300k_vec8_s15.
