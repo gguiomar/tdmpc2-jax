@@ -1253,3 +1253,15 @@ Processed `walker_run_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1987`: `co
 - Horizon path: `3->3->3->4->4`
 - Reason: Completed; no automatic classifier for this method.
 - Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T22:06:08+00:00
+
+Processed `hopper_hop_chaos_dense_rhs_sparse_hifi_300k_vec8_s15` job `1988`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:31:31`
+- Final eval: `173.11436462402344` ± `9.265361785888672`
+- Best eval: `173.11436462402344` at step `300000`
+- Horizon path: `2->2->2->3->3`
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
