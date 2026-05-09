@@ -1049,3 +1049,15 @@ Launched `finger_turn_hard_chaos_no_rhs_300k_vec8_s15` as job `1976`.
 ## 2026-05-09T08:50:34+00:00
 
 Launched `cheetah_run_chaos_no_rhs_300k_vec8_s15` as job `1977`.
+
+## 2026-05-09T10:03:15+00:00
+
+Processed `fish_swim_chaos_no_rhs_300k_vec8_s15` job `1975`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:10:46`
+- Final eval: `73.97637939453125` ± `35.65225601196289`
+- Best eval: `82.80696105957031` at step `50000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
