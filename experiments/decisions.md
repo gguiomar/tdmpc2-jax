@@ -1125,3 +1125,27 @@ Processed `acrobot_swingup_chaos_no_rhs_300k_vec8_s15` job `1979`: `completed`.
 ## 2026-05-09T11:14:33+00:00
 
 Launched `hopper_hop_chaos_no_rhs_300k_vec8_s15` as job `1981`.
+
+## 2026-05-09T17:51:44+00:00
+
+Processed `walker_run_chaos_no_rhs_300k_vec8_s15` job `1980`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:43:12`
+- Final eval: `591.030029296875` ± `30.23134994506836`
+- Best eval: `591.030029296875` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
+
+## 2026-05-09T17:51:48+00:00
+
+Processed `hopper_hop_chaos_no_rhs_300k_vec8_s15` job `1981`: `completed`.
+
+- SLURM state: `COMPLETED`
+- Runtime: `01:19:11`
+- Final eval: `198.45770263671875` ± `7.539370059967041`
+- Best eval: `198.45770263671875` at step `300000`
+- Horizon path: ``
+- Reason: Completed; no automatic classifier for this method.
+- Follow-up: No automatic follow-up rule fired.
