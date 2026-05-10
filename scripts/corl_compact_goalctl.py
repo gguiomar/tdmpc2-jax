@@ -62,6 +62,12 @@ SLURM_TERMINAL_PREFIXES = (
     'OUT_OF_MEMORY',
     'BOOT_FAIL',
 )
+STEWARD_OWNED_PATHS = (
+    'experiments/corl_compact_ledger.csv',
+    'experiments/corl_compact_decisions.md',
+    'goals/dense_rhs_corl_compact.yaml',
+    'runs/results/corl_compact/',
+)
 
 
 def now_iso() -> str:
@@ -114,6 +120,87 @@ def local_git_state() -> dict[str, Any]:
       'status': status.stdout.strip(),
       'error': (commit.stderr + status.stderr).strip(),
   }
+
+
+def git_dirty_paths() -> list[str]:
+  status = run_local(['git', 'status', '--porcelain'], timeout=15)
+  if status.returncode != 0:
+    return []
+  paths: list[str] = []
+  for line in status.stdout.splitlines():
+    if not line:
+      continue
+    path = line[3:].strip()
+    if ' -> ' in path:
+      path = path.split(' -> ', 1)[1].strip()
+    paths.append(path)
+  return paths
+
+
+def is_steward_owned_path(path: str) -> bool:
+  return any(path == prefix.rstrip('/') or path.startswith(prefix)
+             for prefix in STEWARD_OWNED_PATHS)
+
+
+def dirty_paths_are_steward_owned() -> bool:
+  paths = git_dirty_paths()
+  return bool(paths) and all(is_steward_owned_path(path) for path in paths)
+
+
+def current_branch() -> str:
+  result = run_local(['git', 'branch', '--show-current'], timeout=15)
+  if result.returncode != 0:
+    return ''
+  return result.stdout.strip()
+
+
+def auto_commit_steward_state(goal: dict[str, Any], reason: str) -> str:
+  """Commit and sync steward-owned ledger/result updates.
+
+  This prevents the steward from deadlocking on its own append-only ledger rows.
+  It refuses to touch unrelated dirty files.
+  """
+  paths = git_dirty_paths()
+  if not paths:
+    return 'no steward state changes to commit'
+  if not all(is_steward_owned_path(path) for path in paths):
+    return (
+        'steward auto-commit skipped; non-steward dirty paths: ' +
+        ', '.join(path for path in paths if not is_steward_owned_path(path))
+    )
+  add_paths = [
+      'experiments/corl_compact_ledger.csv',
+      'experiments/corl_compact_decisions.md',
+      'goals/dense_rhs_corl_compact.yaml',
+      'runs/results/corl_compact',
+  ]
+  add = run_local(['git', 'add', *add_paths], timeout=60)
+  if add.returncode != 0:
+    return f'steward auto-commit git add failed: {add.stderr.strip()}'
+  diff = run_local(['git', 'diff', '--cached', '--quiet'], timeout=30)
+  if diff.returncode == 0:
+    return 'no staged steward state changes to commit'
+  message = f'Steward update: {reason}'
+  commit = run_local(['git', 'commit', '-m', message], timeout=120)
+  if commit.returncode != 0:
+    return f'steward auto-commit failed: {commit.stderr.strip()}'
+  branch = current_branch()
+  if not branch:
+    return 'steward auto-commit succeeded but branch was unknown; remote not synced'
+  push = run_local(['git', 'push', 'gguiomar', branch], timeout=180)
+  if push.returncode != 0:
+    return f'steward auto-commit succeeded but push failed: {push.stderr.strip()}'
+  pull = run_remote(
+      goal,
+      (
+          f'cd {shlex.quote(goal["remote"]["path"])} && '
+          f'git pull --ff-only gguiomar {shlex.quote(branch)}'
+      ),
+      timeout=180,
+  )
+  if pull.returncode != 0:
+    return f'steward state pushed but remote ff-pull failed: {pull.stderr.strip()}'
+  return f'steward state committed and synced: {message}'
 
 
 def remote_git_state(goal: dict[str, Any]) -> dict[str, Any]:
@@ -847,7 +934,9 @@ def campaign_terminal(goal: dict[str, Any], rows: list[dict[str, str]]) -> bool:
 def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str:
   rows = read_ledger(goal)
   processed = 0 if dry_run else process_terminal_jobs(goal, rows)
+  sync_messages: list[str] = []
   if processed:
+    sync_messages.append(auto_commit_steward_state(goal, 'record terminal job results'))
     rows = read_ledger(goal)
   ok, messages = validate_goal(goal)
   local = local_git_state()
@@ -867,6 +956,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       f'free_physical_gpus={free_physical}',
       f'launch_slots={slots}',
   ]
+  lines.extend(sync_messages)
   if blockers:
     lines.append('launch_blocked=' + '; '.join(blockers))
     return '\n'.join(lines)
@@ -886,6 +976,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       lines.append('campaign_terminal=true')
       lines.append(package_results(goal, goal_path=goal_path))
     return '\n'.join(lines)
+  launched = 0
   for profile in pending[:slots]:
     try:
       line = launch_profile(
@@ -897,9 +988,12 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
           rows=rows,
       )
       lines.append(line)
+      launched += 1
     except Exception as exc:
       lines.append(f'launch_failed {profile["run_id"]}: {exc}')
       break
+  if launched and not dry_run:
+    lines.append(auto_commit_steward_state(goal, f'record {launched} launch(es)'))
   return '\n'.join(lines)
 
 
