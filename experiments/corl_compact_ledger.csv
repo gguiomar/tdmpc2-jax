@@ -1,0 +1,1 @@
+timestamp,event,run_id,status,job_id,attempt,env_id,regime,method,seed,paper_horizon,run_dir,launcher,git_commit,remote_commit,slurm_state,final_step,final_score,best_score,auc,wall_hours,checkpoint_ok,notes
