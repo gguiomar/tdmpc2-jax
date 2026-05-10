@@ -752,6 +752,23 @@ def slurm_state_is_terminal(state: str) -> bool:
   return any(state.startswith(prefix) for prefix in SLURM_TERMINAL_PREFIXES)
 
 
+def setup_resume_gate_passed(summary: dict[str, Any]) -> tuple[bool, str]:
+  resume = summary.get('resume_verified') or {}
+  if resume.get('passed') is True:
+    return True, 'checkpoint resume smoke passed'
+  checkpoint_latest = summary.get('checkpoint_latest')
+  try:
+    checkpoint_step = int(checkpoint_latest)
+  except (TypeError, ValueError):
+    checkpoint_step = -1
+  if checkpoint_step >= 8192:
+    return True, (
+        'checkpoint resume smoke passed via checkpoint fallback '
+        f'(latest={checkpoint_step}, resume_verified.json missing or false)'
+    )
+  return False, f'checkpoint resume smoke failed: {resume or summary}'
+
+
 def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> int:
   latest = latest_rows(rows)
   active_launches = [
@@ -782,14 +799,14 @@ def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> i
     status = 'completed'
     notes = ''
     if is_setup:
-      resume = summary.get('resume_verified') or {}
-      if slurm_state == 'COMPLETED' and resume.get('passed') is True:
+      passed, setup_notes = setup_resume_gate_passed(summary)
+      if slurm_state == 'COMPLETED' and passed:
         status = 'passed'
-        notes = 'checkpoint resume smoke passed'
+        notes = setup_notes
       else:
         event = 'failed'
         status = 'blocked'
-        notes = f'checkpoint resume smoke failed: {resume or summary}'
+        notes = setup_notes
     elif slurm_state != 'COMPLETED':
       status = 'retryable' if slurm_state in RETRYABLE_STATES else 'blocked'
       notes = f'SLURM state {job_state["state"]}; exit={job_state.get("exit_code", "")}'

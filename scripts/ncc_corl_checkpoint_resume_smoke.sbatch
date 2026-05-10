@@ -50,11 +50,13 @@ COMMON_ARGS=(
 
 python -m tdmpc2_jax.train "${COMMON_ARGS[@]}" max_steps=4096
 FIRST_STEP="$(find "${RUN_DIR}/checkpoint" -maxdepth 1 -type d -regex '.*/[0-9]+' -print 2>/dev/null | sed 's#.*/##' | sort -n | tail -1 || true)"
+echo "FIRST_CHECKPOINT_STEP=${FIRST_STEP:-missing}"
 
 python -m tdmpc2_jax.train "${COMMON_ARGS[@]}" max_steps=8192
 SECOND_STEP="$(find "${RUN_DIR}/checkpoint" -maxdepth 1 -type d -regex '.*/[0-9]+' -print 2>/dev/null | sed 's#.*/##' | sort -n | tail -1 || true)"
+echo "SECOND_CHECKPOINT_STEP=${SECOND_STEP:-missing}"
 
-python - <<PY
+"$VENV_PATH/bin/python" - <<PY
 import json
 from pathlib import Path
 
