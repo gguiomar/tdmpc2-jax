@@ -203,6 +203,49 @@ def auto_commit_steward_state(goal: dict[str, Any], reason: str) -> str:
   return f'steward state committed and synced: {message}'
 
 
+def sync_remote_to_local_if_safe(goal: dict[str, Any],
+                                 local: dict[str, Any],
+                                 remote: dict[str, Any]) -> str:
+  """Fast-forward the NCC worktree to local HEAD when this is provably safe."""
+  if not local.get('ok') or not remote.get('ok'):
+    return 'remote sync skipped: git state unavailable'
+  if local.get('commit') == remote.get('commit'):
+    return 'remote sync already current'
+  if local.get('dirty'):
+    return 'remote sync skipped: local git dirty'
+  if remote.get('dirty'):
+    return 'remote sync skipped: remote git dirty'
+  branch = current_branch()
+  if not branch:
+    return 'remote sync skipped: branch unknown'
+  ancestor = run_local(
+      ['git', 'merge-base', '--is-ancestor', remote['commit'], local['commit']],
+      timeout=30,
+  )
+  if ancestor.returncode != 0:
+    return (
+        'remote sync skipped: remote commit is not an ancestor of local HEAD '
+        f'local={local.get("commit", "")[:12]} remote={remote.get("commit", "")[:12]}'
+    )
+  push = run_local(['git', 'push', 'gguiomar', branch], timeout=180)
+  if push.returncode != 0:
+    return f'remote sync skipped: push failed: {push.stderr.strip()}'
+  pull = run_remote(
+      goal,
+      (
+          f'cd {shlex.quote(goal["remote"]["path"])} && '
+          f'git pull --ff-only gguiomar {shlex.quote(branch)}'
+      ),
+      timeout=180,
+  )
+  if pull.returncode != 0:
+    return f'remote sync failed: {pull.stderr.strip()}'
+  return (
+      'remote sync completed: '
+      f'{remote.get("commit", "")[:12]} -> {local.get("commit", "")[:12]}'
+  )
+
+
 def remote_git_state(goal: dict[str, Any]) -> dict[str, Any]:
   remote_path = shlex.quote(goal['remote']['path'])
   command = (
@@ -884,6 +927,10 @@ def status_report(goal: dict[str, Any]) -> str:
   ok, messages = validate_goal(goal)
   local = local_git_state()
   remote = remote_git_state(goal)
+  if not dry_run and local.get('commit') != remote.get('commit'):
+    sync_messages.append(sync_remote_to_local_if_safe(goal, local, remote))
+    local = local_git_state()
+    remote = remote_git_state(goal)
   gpu = ncc_status(goal)
   main_profiles = build_main_profiles(goal)
   latest = latest_rows(rows)
