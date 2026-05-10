@@ -732,7 +732,9 @@ print(json.dumps({
   command = (
       f'cd {shlex.quote(goal["remote"]["path"])} && '
       f'RUN_DIR={shlex.quote(run_dir)} MAX_STEPS={shlex.quote(str(max_steps))} '
-      f'python - <<{shlex.quote("PY")}\n{script}\nPY'
+      f'PYTHON_BIN="${{PYTHON_BIN:-$HOME/.venvs/temporalhorizon-jax/bin/python}}" && '
+      f'if ! test -x "$PYTHON_BIN"; then PYTHON_BIN="$(command -v python3 || command -v python)"; fi && '
+      f'"$PYTHON_BIN" - <<{shlex.quote("PY")}\n{script}\nPY'
   )
   result = run_remote(goal, command, timeout=120)
   if result.returncode != 0:
