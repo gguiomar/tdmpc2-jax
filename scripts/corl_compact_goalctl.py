@@ -927,10 +927,7 @@ def status_report(goal: dict[str, Any]) -> str:
   ok, messages = validate_goal(goal)
   local = local_git_state()
   remote = remote_git_state(goal)
-  if not dry_run and local.get('commit') != remote.get('commit'):
-    sync_messages.append(sync_remote_to_local_if_safe(goal, local, remote))
-    local = local_git_state()
-    remote = remote_git_state(goal)
+  # Status is intentionally read-only: do not attempt any git sync or mutation.
   gpu = ncc_status(goal)
   main_profiles = build_main_profiles(goal)
   latest = latest_rows(rows)
