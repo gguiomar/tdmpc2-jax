@@ -385,7 +385,7 @@ def plot_compute_performance(rows: list[dict[str, Any]], figures_dir: Path) -> N
   if not plotted:
     axis.text(0.5, 0.5, 'Compute/performance data unavailable until runs complete.', ha='center', va='center')
   axis.set_xlabel('Wall-clock GPU-hours')
-  axis.set_ylabel('Final clean eval return')
+  axis.set_ylabel('Final regime-matched eval return')
   axis.set_title('Compute-performance tradeoff')
   axis.grid(alpha=0.25, linestyle='--')
   if plotted:
@@ -400,7 +400,12 @@ def write_report(goal: dict[str, Any], rows: list[dict[str, Any]], results_dir: 
   report_dir = results_dir / 'report'
   report_dir.mkdir(parents=True, exist_ok=True)
   completed = len(rows)
-  expected = 72
+  expected = (
+      len(goal['matrix']['envs']) *
+      len(goal['matrix']['regimes']) *
+      len(goal['matrix']['methods']) *
+      len(goal['matrix']['seeds'])
+  )
   clean_rows = [row for row in rows if row.get('regime') == 'clean']
   chaos_rows = [row for row in rows if row.get('regime') == 'chaos']
   adaptive = [row for row in rows if row.get('method') == 'adaptive_rhs']
@@ -418,13 +423,13 @@ def write_report(goal: dict[str, Any], rows: list[dict[str, Any]], results_dir: 
 
 ## Method
 
-The baseline is TD-MPC2-JAX with Dense-RHS disabled and the paper-matched fixed horizon recorded in the ledger. Adaptive RHS uses the frozen sparse high-fidelity configuration from the current repo; no architecture search or per-environment horizon tuning is part of this campaign.
+The baseline is TD-MPC2-JAX with Dense-RHS disabled and the paper-matched fixed horizon recorded in the ledger. Adaptive RHS uses the guarded configuration recorded in the goal file; no architecture search or per-environment horizon tuning is part of this campaign.
 
 ## Experiment Setup
 
 Environments: {', '.join(item['env_id'] for item in goal['matrix']['envs'])}.
 
-Regimes: clean and chaos. Chaos enables domain randomization, observation noise, and one-step base action delay during training, while evaluation remains clean.
+Regimes: clean and chaos. Each profile is evaluated in its own regime: clean profiles use clean evaluation, and chaos profiles evaluate with domain randomization, observation noise, and one-step base action delay enabled.
 
 Seeds: {', '.join(str(seed) for seed in goal['matrix']['seeds'])}. Training budget: {goal['constraints']['full_run_steps']} environment steps.
 
@@ -444,7 +449,7 @@ See `figures/fig3_time_to_parity.*`, `figures/fig4_compute_performance.*`, `tabl
 
 ## Reproducibility
 
-All rows are sourced from `experiments/corl_compact_ledger.csv`. Each row records SLURM job id, git commit, remote commit, run directory, seed, method, regime, and checkpoint status.
+All rows are sourced from `{goal['tracking']['ledger']}`. Each row records SLURM job id, git commit, remote commit, run directory, seed, method, regime, and checkpoint status.
 
 ## Limitations
 

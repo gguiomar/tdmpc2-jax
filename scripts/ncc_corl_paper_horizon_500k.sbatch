@@ -31,6 +31,7 @@ CHECKPOINT_BUFFER="${CHECKPOINT_BUFFER:-true}"
 
 EVAL_INTERVAL_STEPS="${EVAL_INTERVAL_STEPS:-50000}"
 EVAL_NUM_EPISODES="${EVAL_NUM_EPISODES:-20}"
+EVAL_CLEAN="${EVAL_CLEAN:-true}"
 EVAL_PREWARM="${EVAL_PREWARM:-false}"
 
 ENABLE_DOMAIN_RANDOMIZATION="${ENABLE_DOMAIN_RANDOMIZATION:-false}"
@@ -63,6 +64,7 @@ echo "SEED=${SEED}"
 echo "PAPER_HORIZON=${PAPER_HORIZON}"
 echo "MAX_STEPS=${MAX_STEPS}"
 echo "CHECKPOINT_BUFFER=${CHECKPOINT_BUFFER}"
+echo "EVAL_CLEAN=${EVAL_CLEAN}"
 
 set +e
 python -m tdmpc2_jax.train \
@@ -90,7 +92,7 @@ python -m tdmpc2_jax.train \
   evaluation.enabled=true \
   evaluation.interval_steps="${EVAL_INTERVAL_STEPS}" \
   evaluation.num_episodes="${EVAL_NUM_EPISODES}" \
-  evaluation.clean=true \
+  evaluation.clean="${EVAL_CLEAN}" \
   evaluation.prewarm="${EVAL_PREWARM}" \
   tdmpc2.horizon="${PAPER_HORIZON}" \
   tdmpc2.population_size="${TRAIN_POPULATION_SIZE}" \

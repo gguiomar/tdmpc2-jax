@@ -7,6 +7,7 @@ import argparse
 import base64
 import csv
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -137,9 +138,33 @@ def git_dirty_paths() -> list[str]:
   return paths
 
 
-def is_steward_owned_path(path: str) -> bool:
-  return any(path == prefix.rstrip('/') or path.startswith(prefix)
-             for prefix in STEWARD_OWNED_PATHS)
+def repo_path_text(path: str | Path) -> str:
+  path = Path(path)
+  if path.is_absolute():
+    try:
+      return path.relative_to(ROOT).as_posix()
+    except ValueError:
+      return path.as_posix()
+  return path.as_posix()
+
+
+def steward_owned_paths(goal: dict[str, Any] | None = None) -> list[str]:
+  if goal is None:
+    return list(STEWARD_OWNED_PATHS)
+  tracking = goal.get('tracking', {})
+  paths = [
+      goal.get('_goal_path', DEFAULT_GOAL),
+      tracking.get('ledger', ''),
+      tracking.get('decisions', ''),
+      tracking.get('results_dir', ''),
+  ]
+  return [repo_path_text(path) for path in paths if path]
+
+
+def is_steward_owned_path(path: str, goal: dict[str, Any] | None = None) -> bool:
+  path = repo_path_text(path)
+  return any(path == prefix.rstrip('/') or path.startswith(prefix.rstrip('/') + '/')
+             for prefix in steward_owned_paths(goal))
 
 
 def dirty_paths_are_steward_owned() -> bool:
@@ -163,17 +188,12 @@ def auto_commit_steward_state(goal: dict[str, Any], reason: str) -> str:
   paths = git_dirty_paths()
   if not paths:
     return 'no steward state changes to commit'
-  if not all(is_steward_owned_path(path) for path in paths):
+  if not all(is_steward_owned_path(path, goal) for path in paths):
     return (
         'steward auto-commit skipped; non-steward dirty paths: ' +
-        ', '.join(path for path in paths if not is_steward_owned_path(path))
+        ', '.join(path for path in paths if not is_steward_owned_path(path, goal))
     )
-  add_paths = [
-      'experiments/corl_compact_ledger.csv',
-      'experiments/corl_compact_decisions.md',
-      'goals/dense_rhs_corl_compact.yaml',
-      'runs/results/corl_compact',
-  ]
+  add_paths = steward_owned_paths(goal)
   add = run_local(['git', 'add', *add_paths], timeout=60)
   if add.returncode != 0:
     return f'steward auto-commit git add failed: {add.stderr.strip()}'
@@ -352,6 +372,10 @@ def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
   regimes = goal['matrix']['regimes']
   priority_seeds = goal['matrix'].get('launch_seed_priority', goal['matrix']['seeds'])
   methods = goal['matrix']['methods']
+  remote_run_dir_prefix = goal.get('tracking', {}).get(
+      'remote_run_dir_prefix',
+      'outputs/corl_pub_500k',
+  )
   priority = 1
   for seed in priority_seeds:
     for env_id in env_order:
@@ -361,7 +385,7 @@ def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
               f'corl500k__{safe_slug(env_id)}__{regime_name}__{method}__s{seed}'
           )
           relative_dir = (
-              f'outputs/corl_pub_500k/{env_id}/{regime_name}/{method}/s{seed}'
+              f'{remote_run_dir_prefix}/{env_id}/{regime_name}/{method}/s{seed}'
           )
           run_dir = remote_run_dir(goal, relative_dir)
           is_adaptive = method == 'adaptive_rhs'
@@ -382,6 +406,9 @@ def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
               'CHECKPOINT_BUFFER': str(defaults['checkpoint_buffer']).lower(),
               'EVAL_INTERVAL_STEPS': str(defaults['eval_interval_steps']),
               'EVAL_NUM_EPISODES': str(defaults['eval_num_episodes']),
+              'EVAL_CLEAN': str(
+                  regime_cfg.get('eval_clean', regime_name == 'clean')
+              ).lower(),
               'TRAIN_NUM_ENVS': str(defaults['train_num_envs']),
               'SEED_STEPS_OVERRIDE': str(defaults['seed_steps_override']),
               'UPDATE_CHUNK_SIZE': str(defaults['update_chunk_size']),
@@ -424,6 +451,72 @@ def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
                 'DENSE_RHS_INCUMBENT_MARGIN': str(
                     adaptive['incumbent_switch_margin']
                 ),
+                'DENSE_RHS_LEARNER_PROXY_ENABLED': str(
+                    adaptive.get('learner_proxy_enabled', False)
+                ).lower(),
+                'DENSE_RHS_LEARNER_PROXY_WEIGHT': str(
+                    adaptive.get('learner_proxy_weight', 0.0)
+                ),
+                'DENSE_RHS_LEARNER_PROXY_MODE': str(
+                    adaptive.get('learner_proxy_mode', 'probe_mean_loss')
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_ENABLED': str(
+                    adaptive.get('deployment_utility_enabled', False)
+                ).lower(),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_WEIGHT': str(
+                    adaptive.get('deployment_utility_weight', 1.0)
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_EXPLORATION': str(
+                    adaptive.get('deployment_utility_exploration', 1.0)
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_PRIOR_MEAN': str(
+                    adaptive.get('deployment_utility_prior_mean', 0.0)
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_PRIOR_STD': str(
+                    adaptive.get('deployment_utility_prior_std', 150.0)
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_DENSE_SCORE_WEIGHT': str(
+                    adaptive.get('deployment_utility_dense_score_weight', 25.0)
+                ),
+                'DENSE_RHS_DEPLOYMENT_UTILITY_MIN_OBSERVATIONS': str(
+                    adaptive.get('deployment_utility_min_observations', 1)
+                ),
+                'DENSE_RHS_CREDIBLE_TRANSITION_ENABLED': str(
+                    adaptive.get('credible_transition_enabled', False)
+                ).lower(),
+                'DENSE_RHS_CREDIBLE_TRANSITION_RULE': str(
+                    adaptive.get('credible_transition_rule', 'probability')
+                ),
+                'DENSE_RHS_CREDIBLE_TRANSITION_MIN_PROB': str(
+                    adaptive.get('credible_transition_min_prob', 0.0)
+                ),
+                'DENSE_RHS_TRANSITION_COST_SCALE': str(
+                    adaptive.get('transition_cost_scale', 0.0)
+                ),
+                'DENSE_RHS_TRANSITION_RISK_WEIGHT': str(
+                    adaptive.get('transition_risk_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_MIN_EXPECTED_NET': str(
+                    adaptive.get('transition_min_expected_net', 0.0)
+                ),
+                'DENSE_RHS_TRANSITION_MODEL_WEIGHT': str(
+                    adaptive.get('transition_model_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_PROBE_WEIGHT': str(
+                    adaptive.get('transition_probe_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_PLANNER_WEIGHT': str(
+                    adaptive.get('transition_planner_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_ROUGHNESS_WEIGHT': str(
+                    adaptive.get('transition_roughness_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_RETURN_STD_WEIGHT': str(
+                    adaptive.get('transition_return_std_weight', 1.0)
+                ),
+                'DENSE_RHS_TRANSITION_UNCERTAINTY_FLOOR': str(
+                    adaptive.get('transition_uncertainty_floor', 0.05)
+                ),
                 'DENSE_RHS_HORIZONS': str(adaptive['horizons']),
                 'DENSE_RHS_HMAX': str(adaptive['hmax']),
                 'DENSE_RHS_HORIZON_BUCKETS': str(adaptive['horizon_buckets']),
@@ -465,6 +558,12 @@ def validate_goal(goal: dict[str, Any]) -> tuple[bool, list[str]]:
   if len(run_ids) != len(set(run_ids)):
     messages.append('duplicate main profile run_ids detected')
     failed = True
+  if goal.get('pilot', {}).get('enabled', False):
+    pilot_count = len(pilot_profiles(goal))
+    expected = int(goal['pilot'].get('expected_profiles', pilot_count))
+    if pilot_count != expected:
+      messages.append(f'expected {expected} pilot profiles, found {pilot_count}')
+      failed = True
   if int(goal['constraints']['paper_horizon']) != 3:
     messages.append(
         f"paper_horizon is {goal['constraints']['paper_horizon']}, expected 3"
@@ -521,6 +620,79 @@ def should_retry(
   return slurm_state in RETRYABLE_STATES or latest.get('status') == 'retryable'
 
 
+def profile_matches_selector(profile: dict[str, Any],
+                             selector: dict[str, Any]) -> bool:
+  for key in ('env_id', 'regime', 'method', 'seed'):
+    if key in selector and str(profile.get(key)) != str(selector[key]):
+      return False
+  return True
+
+
+def pilot_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
+  pilot = goal.get('pilot', {})
+  if not pilot.get('enabled', False):
+    return []
+  selectors = pilot.get('profiles', [])
+  profiles = build_main_profiles(goal)
+  selected: list[dict[str, Any]] = []
+  seen: set[str] = set()
+  for selector in selectors:
+    matches = [
+        profile for profile in profiles
+        if profile_matches_selector(profile, selector)
+    ]
+    for profile in matches:
+      if profile['run_id'] not in seen:
+        selected.append(profile)
+        seen.add(profile['run_id'])
+  return sorted(selected, key=lambda item: int(item['priority']))
+
+
+def pilot_gate_status(
+    goal: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> tuple[str, str]:
+  pilot = goal.get('pilot', {})
+  if not pilot.get('enabled', False):
+    return 'passed', 'pilot disabled'
+  profiles = pilot_profiles(goal)
+  expected = int(pilot.get('expected_profiles', len(profiles)))
+  if len(profiles) != expected:
+    return 'failed', f'pilot profile mismatch expected={expected} found={len(profiles)}'
+  max_abs_drop = float(pilot.get('max_abs_final_drop', 75.0))
+  max_rel_drop = float(pilot.get('max_rel_final_drop', 0.10))
+  latest = latest_rows(rows)
+  pending = []
+  failures = []
+  for profile in profiles:
+    row = latest.get(profile['run_id'])
+    if row is None or row.get('event') == 'launch' or should_retry(goal, rows, profile):
+      pending.append(profile['run_id'])
+      continue
+    if not is_complete(row):
+      failures.append(f'{profile["run_id"]}: {row.get("event", "missing")}/{row.get("status", "")}')
+      continue
+    try:
+      final_score = float(row.get('final_score', 'nan'))
+      best_score = float(row.get('best_score', 'nan'))
+    except ValueError:
+      failures.append(f'{profile["run_id"]}: non-numeric score')
+      continue
+    if not math.isfinite(final_score) or not math.isfinite(best_score):
+      failures.append(f'{profile["run_id"]}: missing score')
+      continue
+    allowed_drop = max(max_abs_drop, max_rel_drop * abs(best_score))
+    if best_score - final_score > allowed_drop:
+      failures.append(
+          f'{profile["run_id"]}: late drop {best_score - final_score:.3f} > {allowed_drop:.3f}'
+      )
+  if failures:
+    return 'failed', '; '.join(failures)
+  if pending:
+    return 'pending', f'pending pilot profiles={len(pending)}'
+  return 'passed', f'pilot passed profiles={len(profiles)}'
+
+
 def pending_profiles(goal: dict[str, Any], rows: list[dict[str, str]]) -> list[dict[str, Any]]:
   setup = build_setup_profile(goal)
   setup_state = profile_latest_status(rows, setup)
@@ -530,6 +702,24 @@ def pending_profiles(goal: dict[str, Any], rows: list[dict[str, str]]) -> list[d
       if setup_state['attempts'] <= int(goal['constraints']['max_retries']):
         return [setup]
     return []
+
+  pilot_state, _ = pilot_gate_status(goal, rows)
+  if pilot_state != 'passed':
+    if pilot_state == 'failed':
+      return []
+    pending_pilot: list[dict[str, Any]] = []
+    for profile in pilot_profiles(goal):
+      state = profile_latest_status(rows, profile)
+      latest = state['latest']
+      if latest is None:
+        pending_pilot.append(profile)
+      elif latest.get('event') == 'launch':
+        continue
+      elif is_complete(latest) or latest.get('event') == 'blocked':
+        continue
+      elif should_retry(goal, rows, profile):
+        pending_pilot.append(profile)
+    return sorted(pending_pilot, key=lambda item: int(item['priority']))
 
   pending: list[dict[str, Any]] = []
   for profile in build_main_profiles(goal):
@@ -988,6 +1178,7 @@ def status_report(goal: dict[str, Any]) -> str:
   # Status is intentionally read-only: do not attempt any git sync or mutation.
   gpu = ncc_status(goal)
   main_profiles = build_main_profiles(goal)
+  pilot_state, pilot_message = pilot_gate_status(goal, rows)
   latest = latest_rows(rows)
   complete_main = sum(
       1 for profile in main_profiles
@@ -1008,7 +1199,8 @@ def status_report(goal: dict[str, Any]) -> str:
       f'local_commit={local.get("commit", "")[:12]} dirty={local.get("dirty")}',
       f'remote_commit={remote.get("commit", "")[:12]} dirty={remote.get("dirty")} ok={remote.get("ok")}',
       f'setup_checkpoint_resume_passed={setup_gate_passed(goal, rows)}',
-      f'main_completed={complete_main}/72 blocked={blocked_main} open_launches={launched_open}',
+      f'pilot_gate={pilot_state}: {pilot_message}',
+      f'main_completed={complete_main}/{len(main_profiles)} blocked={blocked_main} open_launches={launched_open}',
       f'pending={len(pending)} next={pending[0]["run_id"] if pending else "none"}',
   ]
   if gpu.get('ok'):
@@ -1051,6 +1243,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   local = local_git_state()
   remote = remote_git_state(goal)
   gpu = ncc_status(goal)
+  pilot_state, pilot_message = pilot_gate_status(goal, rows)
   blockers = [] if ok else messages
   blockers.extend(launch_blockers(goal, local, remote, gpu))
   pending = pending_profiles(goal, rows)
@@ -1065,6 +1258,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       f'active_steward_jobs={active}',
       f'free_physical_gpus={free_physical}',
       f'launch_slots={slots}',
+      f'pilot_gate={pilot_state}: {pilot_message}',
   ]
   lines.extend(sync_messages)
   if blockers:
@@ -1085,6 +1279,12 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
     else:
       lines.append('campaign_terminal=true')
       lines.append(package_results(goal, goal_path=goal_path))
+    return '\n'.join(lines)
+  if not pending:
+    if pilot_state == 'failed':
+      lines.append('launch_blocked=pilot gate failed; no full matrix launch')
+    else:
+      lines.append('no_pending_profiles')
     return '\n'.join(lines)
   launched = 0
   for profile in pending[:slots]:
@@ -1195,6 +1395,7 @@ def main(argv: list[str] | None = None) -> int:
   if not goal_path.is_absolute():
     goal_path = ROOT / goal_path
   goal = load_goal(goal_path)
+  goal['_goal_path'] = repo_path_text(goal_path)
 
   if args.command == 'validate':
     ok, messages = validate_goal(goal)
