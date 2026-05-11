@@ -12,7 +12,7 @@
     "results_dir": "runs/results/corl_compact"
   },
   "constraints": {
-    "max_active_gpus": 4,
+    "max_active_gpus": 0,
     "physical_gpu_free_util_pct": 10,
     "physical_gpu_free_mem_mib": 1024,
     "require_clean_local_git": true,
