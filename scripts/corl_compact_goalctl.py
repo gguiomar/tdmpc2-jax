@@ -731,7 +731,7 @@ print(json.dumps({
 '''
   command = (
       f'cd {shlex.quote(goal["remote"]["path"])} && '
-      f'RUN_DIR={shlex.quote(run_dir)} MAX_STEPS={shlex.quote(str(max_steps))} '
+      f'export RUN_DIR={shlex.quote(run_dir)} MAX_STEPS={shlex.quote(str(max_steps))} && '
       f'PYTHON_BIN="${{PYTHON_BIN:-$HOME/.venvs/temporalhorizon-jax/bin/python}}" && '
       f'if ! test -x "$PYTHON_BIN"; then PYTHON_BIN="$(command -v python3 || command -v python)"; fi && '
       f'"$PYTHON_BIN" - <<{shlex.quote("PY")}\n{script}\nPY'
@@ -767,6 +767,45 @@ def setup_resume_gate_passed(summary: dict[str, Any]) -> tuple[bool, str]:
         f'(latest={checkpoint_step}, resume_verified.json missing or false)'
     )
   return False, f'checkpoint resume smoke failed: {resume or summary}'
+
+
+def reconcile_setup_gate(goal: dict[str, Any], rows: list[dict[str, str]]) -> int:
+  if setup_gate_passed(goal, rows):
+    return 0
+  profile = build_setup_profile(goal)
+  latest = profile_latest_status(rows, profile)['latest']
+  if latest is None:
+    return 0
+  summary = remote_metric_summary(goal, profile['run_dir'], 8192)
+  passed, notes = setup_resume_gate_passed(summary)
+  if not passed:
+    return 0
+  append_ledger(goal, {
+      'timestamp': now_iso(),
+      'event': 'completed',
+      'run_id': profile['run_id'],
+      'status': 'passed',
+      'job_id': latest.get('job_id', ''),
+      'attempt': latest.get('attempt', '1'),
+      'env_id': profile['env_id'],
+      'regime': profile['regime'],
+      'method': profile['method'],
+      'seed': profile['seed'],
+      'paper_horizon': profile['paper_horizon'],
+      'run_dir': profile['run_dir'],
+      'launcher': profile['script'],
+      'git_commit': latest.get('git_commit', ''),
+      'remote_commit': latest.get('remote_commit', ''),
+      'slurm_state': latest.get('slurm_state', 'RECONCILED'),
+      'final_step': summary.get('final_step', ''),
+      'final_score': summary.get('final_score', ''),
+      'best_score': summary.get('best_score', ''),
+      'auc': summary.get('auc', ''),
+      'wall_hours': latest.get('wall_hours', ''),
+      'checkpoint_ok': summary.get('checkpoint_ok', ''),
+      'notes': f'{notes}; reconciled from remote artifacts',
+  })
+  return 1
 
 
 def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> int:
@@ -996,7 +1035,14 @@ def campaign_terminal(goal: dict[str, Any], rows: list[dict[str, str]]) -> bool:
 
 def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str:
   rows = read_ledger(goal)
-  processed = 0 if dry_run else process_terminal_jobs(goal, rows)
+  processed = 0
+  reconciled = 0
+  if not dry_run:
+    processed = process_terminal_jobs(goal, rows)
+    if processed:
+      rows = read_ledger(goal)
+    reconciled = reconcile_setup_gate(goal, rows)
+    processed += reconciled
   sync_messages: list[str] = []
   if processed:
     sync_messages.append(auto_commit_steward_state(goal, 'record terminal job results'))
@@ -1014,6 +1060,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   slots = max(0, min(max_active - active, free_physical))
   lines = [
       f'processed_terminal_jobs={processed}',
+      f'reconciled_setup_gate={reconciled}',
       f'pending_profiles={len(pending)}',
       f'active_steward_jobs={active}',
       f'free_physical_gpus={free_physical}',
