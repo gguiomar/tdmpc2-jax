@@ -193,7 +193,12 @@ def auto_commit_steward_state(goal: dict[str, Any], reason: str) -> str:
         'steward auto-commit skipped; non-steward dirty paths: ' +
         ', '.join(path for path in paths if not is_steward_owned_path(path, goal))
     )
-  add_paths = steward_owned_paths(goal)
+  add_paths = [
+      path for path in steward_owned_paths(goal)
+      if (ROOT / path).exists()
+  ]
+  if not add_paths:
+    return 'steward auto-commit skipped; no existing steward paths to add'
   add = run_local(['git', 'add', *add_paths], timeout=60)
   if add.returncode != 0:
     return f'steward auto-commit git add failed: {add.stderr.strip()}'
