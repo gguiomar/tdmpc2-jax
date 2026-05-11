@@ -830,8 +830,15 @@ def query_sacct(goal: dict[str, Any], job_ids: list[str]) -> dict[str, dict[str,
       f'-j {shlex.quote(ids)} '
       '--format=JobIDRaw,State,Elapsed,ExitCode 2>/dev/null || true'
   )
-  result = run_remote(goal, command, timeout=60)
   states: dict[str, dict[str, str]] = {}
+  try:
+    result = run_remote(
+        goal,
+        command,
+        timeout=int(goal.get('constraints', {}).get('slurm_query_timeout_sec', 180)),
+    )
+  except subprocess.TimeoutExpired:
+    return states
   if result.returncode != 0:
     return states
   for line in result.stdout.splitlines():
