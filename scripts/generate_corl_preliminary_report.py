@@ -185,6 +185,30 @@ def build_rows(goal: dict[str, Any]) -> list[dict[str, Any]]:
   return rows
 
 
+def filter_envs(
+    goal: dict[str, Any],
+    rows: list[dict[str, Any]],
+    excluded_envs: set[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+  if not excluded_envs:
+    return goal, rows
+  filtered_goal = {
+      **goal,
+      'matrix': {
+          **goal['matrix'],
+          'envs': [
+              item for item in goal['matrix']['envs']
+              if item['env_id'] not in excluded_envs
+          ],
+      },
+  }
+  filtered_rows = [
+      row for row in rows
+      if row.get('env_id') not in excluded_envs
+  ]
+  return filtered_goal, filtered_rows
+
+
 def build_pairs(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
   by_key: dict[tuple[str, str, str], dict[str, dict[str, Any]]] = defaultdict(dict)
   for row in rows:
@@ -309,9 +333,9 @@ def set_plot_style() -> None:
   plt.rcParams.update({
       'figure.dpi': 180,
       'savefig.dpi': 300,
-      'font.family': 'serif',
-      'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif'],
-      'mathtext.fontset': 'stix',
+      'font.family': 'sans-serif',
+      'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
+      'mathtext.fontset': 'dejavusans',
       'axes.spines.top': False,
       'axes.spines.right': False,
       'axes.linewidth': 0.8,
@@ -600,6 +624,58 @@ def table_rows_for_tex(summary: list[dict[str, Any]], env_rows: list[dict[str, A
   return summary_tex, env_tex
 
 
+def write_matched_pairs_latex(path: Path, pairs: list[dict[str, Any]], excluded: list[dict[str, Any]]) -> None:
+  path.parent.mkdir(parents=True, exist_ok=True)
+  lines = [
+      r'\begingroup',
+      r'\scriptsize',
+      r'\setlength{\tabcolsep}{3.2pt}',
+      r'\begin{longtable}{lllrrrrr}',
+      r'\toprule',
+      r'Environment & Regime & Seed & Fixed & RHS & $\Delta$ (\%) & Fixed h & RHS h \\',
+      r'\midrule',
+      r'\endfirsthead',
+      r'\toprule',
+      r'Environment & Regime & Seed & Fixed & RHS & $\Delta$ (\%) & Fixed h & RHS h \\',
+      r'\midrule',
+      r'\endhead',
+  ]
+  for row in sorted(pairs, key=lambda item: (item['env_id'], item['regime'], int(item['seed']))):
+    delta = float(row['pct_delta'])
+    delta_text = f'{delta:+.2f}'
+    values = [
+        tex_escape(pretty_env(row['env_id'])),
+        tex_escape(row['regime']),
+        tex_escape(row['seed']),
+        fmt(row['baseline_score']),
+        fmt(row['rhs_score']),
+        delta_text,
+        fmt(row['baseline_wall_hours']),
+        fmt(row['rhs_wall_hours']),
+    ]
+    lines.append(' & '.join(values) + r' \\')
+  if excluded:
+    lines.extend([
+        r'\midrule',
+        r'\multicolumn{8}{l}{Excluded matched cells:} \\',
+    ])
+    for row in sorted(excluded, key=lambda item: (item['env_id'], item['regime'], int(item['seed']))):
+      values = [
+          tex_escape(pretty_env(row['env_id'])),
+          tex_escape(row['regime']),
+          tex_escape(row['seed']),
+          r'\multicolumn{5}{l}{' + tex_escape(row['reason']) + '}',
+      ]
+      lines.append(' & '.join(values) + r' \\')
+  lines.extend([
+      r'\bottomrule',
+      r'\end{longtable}',
+      r'\endgroup',
+      '',
+  ])
+  path.write_text('\n'.join(lines))
+
+
 def write_tables(out_dir: Path, pairs: list[dict[str, Any]], excluded: list[dict[str, Any]], summary: list[dict[str, Any]], env_rows: list[dict[str, Any]]) -> None:
   tables_dir = out_dir / 'tables'
   pair_fields = [
@@ -631,6 +707,7 @@ def write_tables(out_dir: Path, pairs: list[dict[str, Any]], excluded: list[dict
       env_tex,
       [('env_id', 'Environment'), ('regime', 'Regime'), ('n', 'n'), ('delta', r'RHS delta (\%)', True), ('win_rate', 'RHS wins', True), ('rhs_hours', 'RHS h')],
   )
+  write_matched_pairs_latex(tables_dir / 'matched_pairs_full.tex', pairs, excluded)
 
 
 def write_report_tex(
@@ -640,11 +717,21 @@ def write_report_tex(
     pairs: list[dict[str, Any]],
     excluded: list[dict[str, Any]],
     summary: list[dict[str, Any]],
+    excluded_envs: set[str],
 ) -> Path:
   top = summary[0] if summary else {}
   goal_name = goal.get('name', 'Dense-RHS compact campaign')
   envs = ', '.join(item['env_id'] for item in goal['matrix']['envs'])
   seeds = ', '.join(str(seed) for seed in goal['matrix']['seeds'])
+  excluded_env_text = ', '.join(sorted(pretty_env(env) for env in excluded_envs))
+  exclusion_note = (
+      f' The following environment is excluded from all results and plots: {tex_escape(excluded_env_text)}.'
+      if len(excluded_envs) == 1
+      else (
+          f' The following environments are excluded from all results and plots: {tex_escape(excluded_env_text)}.'
+          if excluded_envs else ''
+      )
+  )
   report = rf"""
 \documentclass[10pt]{{article}}
 \usepackage[margin=0.72in]{{geometry}}
@@ -654,6 +741,7 @@ def write_report_tex(
 \usepackage{{microtype}}
 \usepackage{{hyperref}}
 \usepackage{{xcolor}}
+\usepackage{{longtable}}
 \captionsetup{{font=small,labelfont=bf}}
 \graphicspath{{{{figures/}}}}
 \setlength{{\parskip}}{{0.45em}}
@@ -666,7 +754,7 @@ def write_report_tex(
 \begin{{document}}
 \maketitle
 
-\textbf{{Scope.}} This preliminary report summarizes the completed compact campaign ``{tex_escape(goal_name)}'' using local metric caches refreshed from the NCC run directories. It is intended as an internal CoRL-style evidence package, not as the final v3 matrix.
+\textbf{{Scope.}} This preliminary report summarizes the completed compact campaign ``{tex_escape(goal_name)}'' using local metric caches refreshed from the NCC run directories. It is intended as an internal CoRL-style evidence package, not as the final v3 matrix.{exclusion_note}
 
 \textbf{{Headline.}} Across {len(pairs)} matched valid seed pairs, Adaptive RHS changes final score by \textbf{{{fmt(top.get('mean_pct_delta'))}\% $\pm$ {fmt(top.get('std_pct_delta'))}\%}} relative to the fixed TD-MPC2 paper horizon, with an RHS win rate of \textbf{{{fmt(100.0 * top.get('rhs_win_rate', float('nan')))}\%}}. The summary excludes {len(excluded)} missing, nonfinite, or unmatched pairs.
 
@@ -677,6 +765,9 @@ We compare the TD-MPC2 fixed paper horizon against Adaptive RHS under matched en
 \begin{{center}}
 \input{{tables/aggregate_summary.tex}}
 \end{{center}}
+
+\section*{{Full Matched Results}}
+\input{{tables/matched_pairs_full.tex}}
 
 \section*{{Learning Curves}}
 \begin{{figure}}[h]
@@ -731,7 +822,7 @@ We compare the TD-MPC2 fixed paper horizon against Adaptive RHS under matched en
 \end{{figure}}
 
 \section*{{Limitations}}
-This is a preliminary report for the completed compact run ({len(rows)} terminal rows). It includes the v2 environment set, including fish-swim. Fish was later removed from the v3 final matrix after isolated MJX chaos-push diagnostics exposed nonfinite state/reward failures, so this report should be framed as preliminary evidence rather than the final CoRL table. The final v3 package should reuse the same report template with the updated environment set and six seeds.
+This is a preliminary report for the completed compact run after applying the report-level environment filter ({len(rows)} retained terminal rows). Fish-swim is intentionally omitted because it was later removed from the v3 final matrix after isolated MJX chaos-push diagnostics exposed nonfinite state/reward failures. The final v3 package should reuse the same report template with the updated environment set and six seeds.
 
 \end{{document}}
 """
@@ -764,6 +855,12 @@ def main() -> int:
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--goal', default='goals/dense_rhs_corl_compact_v2.yaml')
   parser.add_argument('--out-name', default='preliminary_publication_report')
+  parser.add_argument(
+      '--exclude-env',
+      action='append',
+      default=['fish-swim'],
+      help='Environment id to exclude from all report tables and plots. Defaults to fish-swim.',
+  )
   parser.add_argument('--no-compile', action='store_true')
   args = parser.parse_args()
 
@@ -774,7 +871,8 @@ def main() -> int:
   figures_dir = out_dir / 'figures'
   out_dir.mkdir(parents=True, exist_ok=True)
 
-  rows = build_rows(goal)
+  excluded_envs = set(args.exclude_env or [])
+  goal, rows = filter_envs(goal, build_rows(goal), excluded_envs)
   pairs, excluded = build_pairs(rows)
   summary, env_rows = aggregate_pairs(pairs)
   write_tables(out_dir, pairs, excluded, summary, env_rows)
@@ -788,7 +886,7 @@ def main() -> int:
   plot_horizon_diagnostics(goal, rows, results_dir, figures_dir)
   plot_loss_diagnostics(rows, results_dir, figures_dir)
 
-  tex_path = write_report_tex(goal, out_dir, rows, pairs, excluded, summary)
+  tex_path = write_report_tex(goal, out_dir, rows, pairs, excluded, summary, excluded_envs)
   if not args.no_compile:
     compile_pdf(tex_path)
   print(f'wrote preliminary report to {out_dir}')

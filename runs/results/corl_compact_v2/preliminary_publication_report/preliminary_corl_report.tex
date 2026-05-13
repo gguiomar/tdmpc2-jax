@@ -6,6 +6,7 @@
 \usepackage{microtype}
 \usepackage{hyperref}
 \usepackage{xcolor}
+\usepackage{longtable}
 \captionsetup{font=small,labelfont=bf}
 \graphicspath{{figures/}}
 \setlength{\parskip}{0.45em}
@@ -18,17 +19,20 @@
 \begin{document}
 \maketitle
 
-\textbf{Scope.} This preliminary report summarizes the completed compact campaign ``dense\_rhs\_corl\_compact\_v2'' using local metric caches refreshed from the NCC run directories. It is intended as an internal CoRL-style evidence package, not as the final v3 matrix.
+\textbf{Scope.} This preliminary report summarizes the completed compact campaign ``dense\_rhs\_corl\_compact\_v2'' using local metric caches refreshed from the NCC run directories. It is intended as an internal CoRL-style evidence package, not as the final v3 matrix. The following environment is excluded from all results and plots: fish-swim.
 
-\textbf{Headline.} Across 33 matched valid seed pairs, Adaptive RHS changes final score by \textbf{4.72\% $\pm$ 23.26\%} relative to the fixed TD-MPC2 paper horizon, with an RHS win rate of \textbf{66.67\%}. The summary excludes 3 missing, nonfinite, or unmatched pairs.
+\textbf{Headline.} Across 30 matched valid seed pairs, Adaptive RHS changes final score by \textbf{5.90\% $\pm$ 24.00\%} relative to the fixed TD-MPC2 paper horizon, with an RHS win rate of \textbf{70.00\%}. The summary excludes 0 missing, nonfinite, or unmatched pairs.
 
 \section*{Experimental Setup}
-We compare the TD-MPC2 fixed paper horizon against Adaptive RHS under matched environment, regime, and seed cells. Environments are quadruped-run, cheetah-run, hopper-hop, finger-turn\_hard, fish-swim, cartpole-swingup; regimes are clean and chaos; seeds are 1, 7, 15; training budget is 500000 environment steps. All rows come from \texttt{experiments/corl\_compact\_v2\_ledger.csv}; each row records the SLURM job id, git commit, remote run directory, score, runtime, and checkpoint status.
+We compare the TD-MPC2 fixed paper horizon against Adaptive RHS under matched environment, regime, and seed cells. Environments are quadruped-run, cheetah-run, hopper-hop, finger-turn\_hard, cartpole-swingup; regimes are clean and chaos; seeds are 1, 7, 15; training budget is 500000 environment steps. All rows come from \texttt{experiments/corl\_compact\_v2\_ledger.csv}; each row records the SLURM job id, git commit, remote run directory, score, runtime, and checkpoint status.
 
 \section*{Aggregate Result}
 \begin{center}
 \input{tables/aggregate_summary.tex}
 \end{center}
+
+\section*{Full Matched Results}
+\input{tables/matched_pairs_full.tex}
 
 \section*{Learning Curves}
 \begin{figure}[h]
@@ -83,6 +87,6 @@ We compare the TD-MPC2 fixed paper horizon against Adaptive RHS under matched en
 \end{figure}
 
 \section*{Limitations}
-This is a preliminary report for the completed compact run (72 terminal rows). It includes the v2 environment set, including fish-swim. Fish was later removed from the v3 final matrix after isolated MJX chaos-push diagnostics exposed nonfinite state/reward failures, so this report should be framed as preliminary evidence rather than the final CoRL table. The final v3 package should reuse the same report template with the updated environment set and six seeds.
+This is a preliminary report for the completed compact run after applying the report-level environment filter (60 retained terminal rows). Fish-swim is intentionally omitted because it was later removed from the v3 final matrix after isolated MJX chaos-push diagnostics exposed nonfinite state/reward failures. The final v3 package should reuse the same report template with the updated environment set and six seeds.
 
 \end{document}
