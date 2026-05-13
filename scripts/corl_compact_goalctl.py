@@ -579,14 +579,12 @@ def validate_goal(goal: dict[str, Any]) -> tuple[bool, list[str]]:
   for env_id, (status, message) in gate_statuses.items():
     if status == 'failed':
       messages.append(f'env gate failed for {env_id}: {message}')
-      failed = True
     elif status == 'pending':
       messages.append(f'env gate pending for {env_id}: {message}')
   for gate in goal.get('profile_gates', []):
     status, message = gate_file_status(gate['path'])
     if status == 'failed':
       messages.append(f'profile gate failed for {gate.get("name", gate["path"])}: {message}')
-      failed = True
     elif status == 'pending':
       messages.append(f'profile gate pending for {gate.get("name", gate["path"])}: {message}')
   if not failed:
@@ -685,7 +683,18 @@ def gate_file_status(path_text: str) -> tuple[str, str]:
     return 'failed', f'invalid gate artifact {path_text}: {exc}'
   if payload.get('passed') is True:
     return 'passed', f'passed gate {path_text}'
-  return 'failed', f'gate did not pass {path_text}: {payload.get("error", payload)}'
+  if 'error' in payload:
+    return 'failed', f'gate did not pass {path_text}: {payload["error"]}'
+  summary_keys = (
+      'task', 'chaos', 'num_envs', 'steps', 'reward_finite',
+      'observation_finite', 'reward_mean', 'reward_sum',
+  )
+  summary = {
+      key: payload.get(key)
+      for key in summary_keys
+      if key in payload
+  }
+  return 'failed', f'gate did not pass {path_text}: {summary}'
 
 
 def env_gate_statuses(goal: dict[str, Any]) -> dict[str, tuple[str, str]]:
@@ -729,6 +738,14 @@ def profile_gate_blockers(goal: dict[str, Any], profile: dict[str, Any]) -> list
   ]
 
 
+def profile_gate_failures(goal: dict[str, Any], profile: dict[str, Any]) -> list[str]:
+  return [
+      f'{name}=failed: {message}'
+      for name, status, message in profile_gate_statuses(goal, profile)
+      if status == 'failed'
+  ]
+
+
 def phase_profiles(goal: dict[str, Any], phase: dict[str, Any]) -> list[dict[str, Any]]:
   selectors = phase.get('selectors', [])
   profiles = build_main_profiles(goal)
@@ -751,11 +768,13 @@ def phase_status(
   latest = latest_rows(rows)
   pending = 0
   gate_pending = 0
+  gate_failed = 0
   for profile in profiles:
-    gate_blockers = profile_gate_blockers(goal, profile)
-    if gate_blockers:
-      if any('=failed:' in blocker for blocker in gate_blockers):
-        return 'failed', '; '.join(gate_blockers)
+    gate_failures = profile_gate_failures(goal, profile)
+    if gate_failures:
+      gate_failed += 1
+      continue
+    if profile_gate_blockers(goal, profile):
       gate_pending += 1
       continue
     row = latest.get(profile['run_id'])
@@ -766,10 +785,18 @@ def phase_status(
       return 'failed', f'{profile["run_id"]}: {row.get("event", "missing")}/{row.get("status", "")}'
     if not has_finite_scores(row):
       return 'failed', f'{profile["run_id"]}: non-finite final/best score'
+  if pending:
+    suffix = []
+    if gate_pending:
+      suffix.append(f'gate_pending={gate_pending}')
+    if gate_failed:
+      suffix.append(f'gate_failed={gate_failed}')
+    extra = f'; {", ".join(suffix)}' if suffix else ''
+    return 'pending', f'pending profiles={pending}/{len(profiles)}{extra}'
+  if gate_failed:
+    return 'failed', f'gate_failed_profiles={gate_failed}/{len(profiles)}'
   if gate_pending:
     return 'pending', f'waiting on gated profiles={gate_pending}/{len(profiles)}'
-  if pending:
-    return 'pending', f'pending profiles={pending}/{len(profiles)}'
   return 'passed', f'passed profiles={len(profiles)}'
 
 
@@ -793,6 +820,10 @@ def active_launch_phase(
     if status != 'passed':
       return phase, status, message
   return None, 'passed', 'all launch phases passed'
+
+
+def gate_blocked_profile_count(goal: dict[str, Any]) -> int:
+  return sum(1 for profile in build_main_profiles(goal) if profile_gate_blockers(goal, profile))
 
 
 def pilot_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
@@ -888,17 +919,8 @@ def pending_profiles(goal: dict[str, Any], rows: list[dict[str, str]]) -> list[d
         pending_pilot.append(profile)
     return sorted(pending_pilot, key=lambda item: int(item['priority']))
 
-  active_phase, phase_state, _ = active_launch_phase(goal, rows)
-  if active_phase is not None and phase_state == 'failed':
-    return []
-  candidate_profiles = (
-      phase_profiles(goal, active_phase)
-      if active_phase is not None
-      else build_main_profiles(goal)
-  )
-
   pending: list[dict[str, Any]] = []
-  for profile in candidate_profiles:
+  for profile in build_main_profiles(goal):
     if profile_gate_blockers(goal, profile):
       continue
     state = profile_latest_status(rows, profile)
@@ -1429,6 +1451,7 @@ def status_report(goal: dict[str, Any]) -> str:
       ),
       f'main_completed={complete_main}/{len(main_profiles)} blocked={blocked_main} open_launches={launched_open}',
       f'pending={len(pending)} next={pending[0]["run_id"] if pending else "none"}',
+      f'gate_blocked_profiles={gate_blocked_profile_count(goal)}',
       eta_summary(goal, rows),
       f'ledger={goal["tracking"]["ledger"]}',
       f'results_dir={goal["tracking"]["results_dir"]}',
@@ -1508,6 +1531,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
           f'{phase_state}: {phase_message}'
       ),
       eta_summary(goal, rows),
+      f'gate_blocked_profiles={gate_blocked_profile_count(goal)}',
       f'ledger={goal["tracking"]["ledger"]}',
       f'results_dir={goal["tracking"]["results_dir"]}',
   ]
@@ -1541,10 +1565,8 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   if not pending:
     if pilot_state == 'failed':
       lines.append('launch_blocked=pilot gate failed; no full matrix launch')
-    elif active_phase is not None and phase_state == 'failed':
-      lines.append(f'launch_blocked=phase gate failed: {active_phase["name"]}: {phase_message}')
-    elif active_phase is not None and phase_state == 'pending':
-      lines.append(f'launch_blocked=phase gate pending: {active_phase["name"]}: {phase_message}')
+    elif gate_blocked_profile_count(goal):
+      lines.append('no_launchable_profiles_remaining_until_gates_change')
     else:
       lines.append('no_pending_profiles')
     return '\n'.join(lines)
