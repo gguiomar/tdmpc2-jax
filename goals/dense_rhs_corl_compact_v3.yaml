@@ -1,6 +1,6 @@
 {
   "name": "dense_rhs_corl_compact_v3",
-  "description": "Expanded CoRL Dense-RHS v3 campaign: six seeds, repaired fish chaos reruns, two ready extra MJX environments, and two port-gated environments with phased launch safeguards.",
+  "description": "Expanded CoRL Dense-RHS v3 campaign: six seeds, fish removed after push-chaos instability, two ready extra MJX environments, and three port-gated replacement environments with phased launch safeguards.",
   "remote": {
     "host": "ncc-gpu1",
     "path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-codex",
@@ -24,8 +24,8 @@
     "full_run_steps": 500000,
     "paper_horizon": 3,
     "expected_main_profiles": 240,
-    "expected_reused_main_profiles": 66,
-    "expected_new_main_profiles": 174
+    "expected_reused_main_profiles": 60,
+    "expected_new_main_profiles": 180
   },
   "pilot": {
     "enabled": false,
@@ -54,9 +54,9 @@
         "reason": "precision manipulation-style task"
       },
       {
-        "env_id": "fish-swim",
-        "gate": "runs/results/mjx_gates/fish-swim/mjx_gate.json",
-        "reason": "distinct morphology; chaos runs require an additional finite-score gate"
+        "env_id": "cup-catch",
+        "gate": "runs/results/mjx_gates/cup-catch/mjx_gate.json",
+        "reason": "replacement manipulation/contact task for removed fish-swim; launch blocked until MJX port gate exists and passes"
       },
       {
         "env_id": "cartpole-swingup",
@@ -197,7 +197,7 @@
     "cheetah-run": null,
     "hopper-hop": null,
     "finger-turn_hard": null,
-    "fish-swim": null,
+    "cup-catch": null,
     "cartpole-swingup": null,
     "acrobot-swingup": null,
     "walker-run": null,
@@ -226,11 +226,9 @@
     ]
   },
   "gate_repair": {
-    "enabled": true,
-    "reserved_gpus": 1,
-    "release_when_gates_pass": [
-      "fish_chaos_finite_smoke_gate"
-    ],
+    "enabled": false,
+    "reserved_gpus": 0,
+    "release_when_gates_pass": [],
     "profiles": [
       {
         "run_id": "gate_repair__fish-swim__clean__tiny_s23",
@@ -516,38 +514,11 @@
       }
     ]
   },
-  "profile_gates": [
-    {
-      "name": "fish_chaos_finite_smoke_gate",
-      "path": "runs/results/mjx_gates_chaos/fish-swim/mjx_gate.json",
-      "selectors": [
-        {
-          "env_id": "fish-swim",
-          "regime": "chaos"
-        }
-      ],
-      "reason": "v2 fish-swim chaos produced non-finite scores for both methods and all seeds; do not rerun fish chaos or full expansion until a chaos finite rollout gate passes."
-    }
-  ],
+  "profile_gates": [],
   "launch_phases": [
     {
-      "name": "fish_chaos_repair_gate",
-      "description": "Rerun the six invalid v2 fish-swim chaos cells only after the fish chaos finite-smoke gate exists and passes.",
-      "selectors": [
-        {
-          "env_id": "fish-swim",
-          "regime": "chaos",
-          "seed": [
-            15,
-            1,
-            7
-          ]
-        }
-      ]
-    },
-    {
       "name": "existing_env_extra_seeds",
-      "description": "Add seeds 23/31/42 for the original six environments after fish chaos repair passes.",
+      "description": "Add seeds 23/31/42 for the five retained original environments after removing fish-swim.",
       "selectors": [
         {
           "env_id": [
@@ -555,7 +526,6 @@
             "cheetah-run",
             "hopper-hop",
             "finger-turn_hard",
-            "fish-swim",
             "cartpole-swingup"
           ],
           "seed": [
@@ -580,12 +550,13 @@
     },
     {
       "name": "ported_extra_envs",
-      "description": "Run pendulum-swingup and reacher-hard only after their MJX ports and gates exist and pass.",
+      "description": "Run pendulum-swingup, reacher-hard, and cup-catch only after their MJX ports and gates exist and pass.",
       "selectors": [
         {
           "env_id": [
             "pendulum-swingup",
-            "reacher-hard"
+            "reacher-hard",
+            "cup-catch"
           ]
         }
       ]
