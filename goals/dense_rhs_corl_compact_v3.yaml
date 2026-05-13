@@ -225,6 +225,50 @@
       "corl_compact_base_report.tex"
     ]
   },
+  "gate_repair": {
+    "enabled": true,
+    "reserved_gpus": 1,
+    "release_when_gates_pass": [
+      "fish_chaos_finite_smoke_gate"
+    ],
+    "profiles": [
+      {
+        "run_id": "gate_repair__fish-swim__chaos__diagnostic_s23",
+        "env_id": "fish-swim",
+        "regime": "chaos",
+        "method": "mjx_gate_diagnostic",
+        "seed": 23,
+        "priority": 1,
+        "script": "scripts/ncc_mjx_gate.sbatch",
+        "remote_out_dir": "/tmp/tdmpc2-jax-corl-v3/fish_chaos_gate_s23",
+        "gate_path": "runs/results/mjx_gates_chaos/fish-swim/mjx_gate.json",
+        "env": {
+          "TASKS": "fish-swim",
+          "OUT_DIR": "/tmp/tdmpc2-jax-corl-v3/fish_chaos_gate_s23",
+          "SEED": "23",
+          "NUM_ENVS": "8",
+          "STEPS": "128",
+          "RESET_POOL_SIZE": "64",
+          "CHAOS": "true",
+          "DIAGNOSTIC_SWEEP": "true"
+        },
+        "artifacts": [
+          {
+            "remote": "/tmp/tdmpc2-jax-corl-v3/fish_chaos_gate_s23/fish-swim/mjx_gate.json",
+            "local": "runs/results/mjx_gates_chaos/fish-swim/mjx_gate.json"
+          },
+          {
+            "remote": "/tmp/tdmpc2-jax-corl-v3/fish_chaos_gate_s23/fish-swim/diagnostic_sweep.json",
+            "local": "runs/results/mjx_gates_chaos/fish-swim/diagnostic_sweep.json"
+          },
+          {
+            "remote": "/tmp/tdmpc2-jax-corl-v3/fish_chaos_gate_s23/mjx_gate_summary.json",
+            "local": "runs/results/mjx_gates_chaos/mjx_gate_summary.json"
+          }
+        ]
+      }
+    ]
+  },
   "profile_gates": [
     {
       "name": "fish_chaos_finite_smoke_gate",

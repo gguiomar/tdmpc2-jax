@@ -52,7 +52,7 @@ LEDGER_FIELDS = [
 
 TERMINAL_EVENTS = {'completed', 'failed', 'blocked', 'partial_complete'}
 GOOD_TERMINAL_STATUSES = {'completed', 'passed', 'partial_complete'}
-RETRYABLE_STATES = {'TIMEOUT', 'NODE_FAIL', 'PREEMPTED', 'BOOT_FAIL'}
+RETRYABLE_STATES = {'TIMEOUT', 'NODE_FAIL', 'PREEMPTED', 'BOOT_FAIL', 'CANCELLED'}
 SLURM_TERMINAL_PREFIXES = (
     'COMPLETED',
     'FAILED',
@@ -368,6 +368,40 @@ def build_setup_profile(goal: dict[str, Any]) -> dict[str, Any]:
   }
 
 
+def build_gate_repair_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
+  repair = goal.get('gate_repair', {})
+  if not repair.get('enabled', False):
+    return []
+  profiles: list[dict[str, Any]] = []
+  for idx, item in enumerate(repair.get('profiles', []), start=1):
+    remote_out_dir = item.get('remote_out_dir') or item.get('out_dir')
+    if not remote_out_dir:
+      raise ValueError(f'gate repair profile {item.get("run_id", idx)} missing remote_out_dir')
+    env_vars = {
+        str(key): str(value)
+        for key, value in item.get('env', {}).items()
+    }
+    if 'OUT_DIR' not in env_vars:
+      env_vars['OUT_DIR'] = str(remote_out_dir)
+    run_id = item.get('run_id') or f'gate_repair__{idx}'
+    profiles.append({
+        'run_id': run_id,
+        'kind': 'gate_repair',
+        'env_id': item.get('env_id', 'gate'),
+        'regime': item.get('regime', 'gate'),
+        'method': item.get('method', 'mjx_gate'),
+        'seed': int(item.get('seed', 0)),
+        'paper_horizon': int(goal['constraints']['paper_horizon']),
+        'script': item['script'],
+        'run_dir': str(remote_out_dir),
+        'priority': int(item.get('priority', idx)),
+        'env': env_vars,
+        'gate_path': item.get('gate_path', ''),
+        'artifacts': item.get('artifacts', []),
+    })
+  return sorted(profiles, key=lambda profile: int(profile['priority']))
+
+
 def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
   profiles: list[dict[str, Any]] = []
   defaults = goal['run_defaults']
@@ -549,7 +583,7 @@ def build_main_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
-  return [build_setup_profile(goal)] + build_main_profiles(goal)
+  return [build_setup_profile(goal)] + build_gate_repair_profiles(goal) + build_main_profiles(goal)
 
 
 def validate_goal(goal: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -744,6 +778,74 @@ def profile_gate_failures(goal: dict[str, Any], profile: dict[str, Any]) -> list
       for name, status, message in profile_gate_statuses(goal, profile)
       if status == 'failed'
   ]
+
+
+def gate_repair_needed(goal: dict[str, Any]) -> tuple[bool, str]:
+  repair = goal.get('gate_repair', {})
+  if not repair.get('enabled', False):
+    return False, 'disabled'
+  release_names = set(repair.get('release_when_gates_pass', []))
+  if not release_names:
+    return bool(build_gate_repair_profiles(goal)), 'enabled without release gates'
+  by_name = {
+      gate.get('name', gate.get('path', '')): gate
+      for gate in goal.get('profile_gates', [])
+  }
+  missing = sorted(name for name in release_names if name not in by_name)
+  if missing:
+    return True, f'missing release gate definitions: {", ".join(missing)}'
+  blockers = []
+  for name in sorted(release_names):
+    status, message = gate_file_status(by_name[name]['path'])
+    if status != 'passed':
+      blockers.append(f'{name}={status}: {message}')
+  if blockers:
+    return True, '; '.join(blockers)
+  return False, f'release gates passed: {", ".join(sorted(release_names))}'
+
+
+def gate_repair_reserved_gpus(goal: dict[str, Any]) -> int:
+  needed, _ = gate_repair_needed(goal)
+  if not needed:
+    return 0
+  return max(0, int(goal.get('gate_repair', {}).get('reserved_gpus', 0)))
+
+
+def active_launch_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+  return [
+      row for row in latest_rows(rows).values()
+      if row.get('event') == 'launch' and row.get('job_id')
+  ]
+
+
+def active_launch_counts_by_kind(goal: dict[str, Any],
+                                 rows: list[dict[str, str]]) -> dict[str, int]:
+  profiles_by_id = {profile['run_id']: profile for profile in build_profiles(goal)}
+  counts: dict[str, int] = {}
+  for row in active_launch_rows(rows):
+    kind = profiles_by_id.get(row.get('run_id', ''), {}).get('kind', 'unknown')
+    counts[kind] = counts.get(kind, 0) + 1
+  return counts
+
+
+def pending_gate_repair_profiles(goal: dict[str, Any],
+                                 rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+  needed, _ = gate_repair_needed(goal)
+  if not needed:
+    return []
+  pending: list[dict[str, Any]] = []
+  for profile in build_gate_repair_profiles(goal):
+    state = profile_latest_status(rows, profile)
+    latest = state['latest']
+    if latest is None:
+      pending.append(profile)
+    elif latest.get('event') == 'launch':
+      continue
+    elif is_complete(latest) or latest.get('event') == 'blocked':
+      continue
+    elif should_retry(goal, rows, profile):
+      pending.append(profile)
+  return sorted(pending, key=lambda item: int(item['priority']))
 
 
 def phase_profiles(goal: dict[str, Any], phase: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1166,6 +1268,30 @@ def setup_resume_gate_passed(summary: dict[str, Any]) -> tuple[bool, str]:
   return False, f'checkpoint resume smoke failed: {resume or summary}'
 
 
+def cache_gate_repair_artifacts(goal: dict[str, Any],
+                                profile: dict[str, Any]) -> tuple[bool, str]:
+  cached = 0
+  missing = []
+  for artifact in profile.get('artifacts', []):
+    remote_file = artifact.get('remote', '')
+    local_file = artifact.get('local', '')
+    if not remote_file or not local_file:
+      continue
+    if cache_remote_file(goal, remote_file, relpath(local_file)):
+      cached += 1
+    else:
+      missing.append(remote_file)
+  gate_path = profile.get('gate_path', '')
+  if gate_path:
+    status, message = gate_file_status(gate_path)
+  else:
+    status, message = 'failed', 'gate repair profile has no gate_path'
+  notes = f'{message}; cached_artifacts={cached}'
+  if missing:
+    notes += '; missing_artifacts=' + ','.join(missing)
+  return status == 'passed', notes
+
+
 def reconcile_setup_gate(goal: dict[str, Any], rows: list[dict[str, str]]) -> int:
   if setup_gate_passed(goal, rows):
     return 0
@@ -1207,10 +1333,7 @@ def reconcile_setup_gate(goal: dict[str, Any], rows: list[dict[str, str]]) -> in
 
 def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> int:
   latest = latest_rows(rows)
-  active_launches = [
-      row for row in latest.values()
-      if row.get('event') == 'launch' and row.get('job_id')
-  ]
+  active_launches = active_launch_rows(rows)
   sacct = query_sacct(goal, [row['job_id'] for row in active_launches])
   profiles_by_id = {profile['run_id']: profile for profile in build_profiles(goal)}
   appended = 0
@@ -1224,13 +1347,46 @@ def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> i
     if profile is None:
       continue
     is_setup = profile['kind'] == 'setup_smoke'
+    is_gate_repair = profile['kind'] == 'gate_repair'
     elapsed_hours = elapsed_to_hours(job_state.get('elapsed', ''))
+    slurm_state = job_state['state'].split()[0]
+    if is_gate_repair:
+      gate_passed, gate_notes = cache_gate_repair_artifacts(goal, profile)
+      event = 'completed' if slurm_state == 'COMPLETED' and gate_passed else 'failed'
+      if slurm_state != 'COMPLETED' and slurm_state in RETRYABLE_STATES:
+        status = 'retryable'
+      elif gate_passed:
+        status = 'passed'
+      else:
+        status = 'blocked'
+      append_ledger(goal, {
+          'timestamp': now_iso(),
+          'event': event,
+          'run_id': profile['run_id'],
+          'status': status,
+          'job_id': job_id,
+          'attempt': row.get('attempt', '1'),
+          'env_id': profile['env_id'],
+          'regime': profile['regime'],
+          'method': profile['method'],
+          'seed': profile['seed'],
+          'paper_horizon': profile['paper_horizon'],
+          'run_dir': profile['run_dir'],
+          'launcher': profile['script'],
+          'git_commit': row.get('git_commit', ''),
+          'remote_commit': row.get('remote_commit', ''),
+          'slurm_state': job_state['state'],
+          'wall_hours': elapsed_hours,
+          'checkpoint_ok': gate_passed,
+          'notes': gate_notes,
+      })
+      appended += 1
+      continue
     summary = remote_metric_summary(
         goal,
         profile['run_dir'],
         8192 if is_setup else max_steps,
     )
-    slurm_state = job_state['state'].split()[0]
     event = 'completed' if slurm_state == 'COMPLETED' else 'failed'
     status = 'completed'
     notes = ''
@@ -1437,6 +1593,10 @@ def status_report(goal: dict[str, Any]) -> str:
       if row.get('event') == 'launch'
   )
   pending = pending_profiles(goal, rows)
+  repair_needed, repair_message = gate_repair_needed(goal)
+  repair_pending = pending_gate_repair_profiles(goal, rows)
+  active_counts = active_launch_counts_by_kind(goal, rows)
+  repair_reserved = gate_repair_reserved_gpus(goal)
   lines = [
       f'goal={goal["name"]}',
       f'validation={"ok" if ok else "blocked"}: {"; ".join(messages)}',
@@ -1451,6 +1611,11 @@ def status_report(goal: dict[str, Any]) -> str:
       ),
       f'main_completed={complete_main}/{len(main_profiles)} blocked={blocked_main} open_launches={launched_open}',
       f'pending={len(pending)} next={pending[0]["run_id"] if pending else "none"}',
+      (
+          f'gate_repair_needed={repair_needed} reserved_gpus={repair_reserved} '
+          f'active_repair_jobs={active_counts.get("gate_repair", 0)} '
+          f'pending_repair={len(repair_pending)} reason={repair_message}'
+      ),
       f'gate_blocked_profiles={gate_blocked_profile_count(goal)}',
       eta_summary(goal, rows),
       f'ledger={goal["tracking"]["ledger"]}',
@@ -1513,6 +1678,11 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   blockers = [] if ok else messages
   blockers.extend(launch_blockers(goal, local, remote, gpu))
   pending = pending_profiles(goal, rows)
+  repair_needed, repair_message = gate_repair_needed(goal)
+  repair_pending = pending_gate_repair_profiles(goal, rows)
+  active_counts = active_launch_counts_by_kind(goal, rows)
+  active_repair = active_counts.get('gate_repair', 0)
+  repair_reserved = gate_repair_reserved_gpus(goal)
   active = len(gpu.get('active_steward_jobs', []))
   free_physical = int(gpu.get('free_gpu_count', 0))
   max_active = int(goal['constraints']['max_active_gpus'])
@@ -1524,6 +1694,11 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       f'active_steward_jobs={active}',
       f'free_physical_gpus={free_physical}',
       f'launch_slots={slots}',
+      (
+          f'gate_repair_needed={repair_needed} reserved_gpus={repair_reserved} '
+          f'active_repair_jobs={active_repair} pending_repair={len(repair_pending)} '
+          f'reason={repair_message}'
+      ),
       f'pilot_gate={pilot_state}: {pilot_message}',
       'launch_phase=' + (
           f'{active_phase["name"]} {phase_state}: {phase_message}'
@@ -1562,16 +1737,46 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       lines.append('campaign_terminal=true')
       lines.append(package_results(goal, goal_path=goal_path))
     return '\n'.join(lines)
-  if not pending:
-    if pilot_state == 'failed':
+  launched = 0
+  repair_slots = 0
+  if repair_needed and repair_reserved:
+    repair_slots = min(slots, max(0, repair_reserved - active_repair))
+  for profile in repair_pending[:repair_slots]:
+    try:
+      line = launch_profile(
+          goal,
+          profile,
+          local_commit=local['commit'],
+          remote_commit=remote['commit'],
+          dry_run=dry_run,
+          rows=rows,
+      )
+      lines.append(line)
+      launched += 1
+    except Exception as exc:
+      lines.append(f'launch_failed {profile["run_id"]}: {exc}')
+      break
+  slots_after_repair = max(0, slots - launched)
+  active_main = max(0, active - active_repair)
+  if repair_needed and repair_reserved:
+    main_capacity = max(0, max_active - repair_reserved)
+    main_slots = min(slots_after_repair, max(0, main_capacity - active_main))
+  else:
+    main_slots = slots_after_repair
+  if repair_needed and repair_reserved and main_slots == 0:
+    lines.append('main_launch_slots_reserved_for_gate_repair')
+  if not pending and launched == 0:
+    if repair_needed and repair_pending:
+      lines.append('no_main_launches_pending_gate_repair_first')
+    elif repair_needed and not repair_pending and active_repair == 0:
+      lines.append('gate_repair_blocked=no pending repair profiles; inspect repair artifacts or add a safe diagnostic/fix profile')
+    elif pilot_state == 'failed':
       lines.append('launch_blocked=pilot gate failed; no full matrix launch')
     elif gate_blocked_profile_count(goal):
       lines.append('no_launchable_profiles_remaining_until_gates_change')
     else:
       lines.append('no_pending_profiles')
-    return '\n'.join(lines)
-  launched = 0
-  for profile in pending[:slots]:
+  for profile in pending[:main_slots]:
     try:
       line = launch_profile(
           goal,
