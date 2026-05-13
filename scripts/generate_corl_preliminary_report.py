@@ -20,17 +20,18 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 
 
+FIXED_COLOR = '#6F2DBD'
+ADAPTIVE_COLOR = '#D62728'
+NEUTRAL_COLOR = '#6F6F6F'
+
+
 METHOD_LABELS = {
     'paper_horizon': 'Fixed horizon',
     'adaptive_rhs': 'Adaptive RHS',
 }
 METHOD_COLORS = {
-    'paper_horizon': '#244C5A',
-    'adaptive_rhs': '#C45A3A',
-}
-REGIME_COLORS = {
-    'clean': '#2D6F8F',
-    'chaos': '#C46A3A',
+    'paper_horizon': FIXED_COLOR,
+    'adaptive_rhs': ADAPTIVE_COLOR,
 }
 
 
@@ -418,10 +419,10 @@ def plot_delta_summary(env_rows: list[dict[str, Any]], figures_dir: Path) -> Non
   means = np.asarray([row['mean_pct_delta'] for row in ordered], dtype=float)
   stds = np.asarray([row['std_pct_delta'] for row in ordered], dtype=float)
   y = np.arange(len(ordered))
-  colors = [REGIME_COLORS.get(row['regime'], '#666666') if row['mean_pct_delta'] >= 0 else '#7A7A7A' for row in ordered]
+  colors = [ADAPTIVE_COLOR if row['mean_pct_delta'] >= 0 else FIXED_COLOR for row in ordered]
   fig, axis = plt.subplots(figsize=(7.0, 4.9))
   axis.barh(y, means, xerr=stds, color=colors, alpha=0.88, ecolor='#2B2B2B', capsize=2)
-  axis.axvline(0, color='#1F1F1F', linewidth=0.8)
+  axis.axvline(0, color=FIXED_COLOR, linewidth=0.9)
   axis.set_yticks(y, labels)
   axis.set_xlabel('Adaptive RHS final-score delta vs fixed horizon (%)')
   axis.set_title('Matched seed percent deltas by environment and regime')
@@ -446,6 +447,7 @@ def plot_pareto(env_rows: list[dict[str, Any]], figures_dir: Path) -> None:
 
   fig, axis = plt.subplots(figsize=(5.5, 4.1))
   points = []
+  markers = {'clean': 'o', 'chaos': 's'}
   for idx, row in enumerate(env_rows):
     x = row['mean_rhs_wall_hours']
     y = row['mean_pct_delta']
@@ -454,7 +456,8 @@ def plot_pareto(env_rows: list[dict[str, Any]], figures_dir: Path) -> None:
         x,
         y,
         s=62,
-        color=REGIME_COLORS.get(row['regime'], '#777777'),
+        color=ADAPTIVE_COLOR,
+        marker=markers.get(row['regime'], 'o'),
         edgecolor='white',
         linewidth=0.7,
         zorder=3,
@@ -466,7 +469,7 @@ def plot_pareto(env_rows: list[dict[str, Any]], figures_dir: Path) -> None:
   if frontier_indices:
     frontier = sorted((env_rows[i]['mean_rhs_wall_hours'], env_rows[i]['mean_pct_delta']) for i in frontier_indices)
     axis.plot([x for x, _ in frontier], [y for _, y in frontier], color='#111111', linewidth=1.0, zorder=2)
-  axis.axhline(0, color='#1F1F1F', linewidth=0.8)
+  axis.axhline(0, color=FIXED_COLOR, linewidth=0.9)
   axis.set_xlabel('Adaptive RHS wall-clock hours (mean over seeds)')
   axis.set_ylabel('Final-score delta vs fixed horizon (%)')
   axis.set_title('Compute-performance Pareto view')
@@ -513,7 +516,7 @@ def plot_time_to_parity(pairs: list[dict[str, Any]], rows: list[dict[str, Any]],
   fig, axis = plt.subplots(figsize=(7.0, 4.0))
   x = np.arange(len(grouped))
   vals = [row['mean_step'] if math.isfinite(row['mean_step']) else 520.0 for row in grouped]
-  colors = [REGIME_COLORS.get(row['regime'], '#777777') if math.isfinite(row['mean_step']) else '#D0D0D0' for row in grouped]
+  colors = [ADAPTIVE_COLOR if math.isfinite(row['mean_step']) else '#D0D0D0' for row in grouped]
   axis.bar(x, vals, color=colors, alpha=0.9)
   for xi, row in zip(x, grouped):
     if not math.isfinite(row['mean_step']):
@@ -532,7 +535,7 @@ def plot_horizon_diagnostics(goal: dict[str, Any], rows: list[dict[str, Any]], r
   import matplotlib.pyplot as plt
 
   envs = [item['env_id'] for item in goal['matrix']['envs']]
-  palette = plt.cm.tab10(np.linspace(0, 1, len(envs)))
+  palette = plt.cm.Reds(np.linspace(0.45, 0.90, len(envs)))
   fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.0), sharey=True)
   for axis, regime in zip(axes, ['clean', 'chaos']):
     axis.set_title(regime.title())
