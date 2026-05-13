@@ -1765,6 +1765,8 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   slots_after_repair = max(0, slots - repair_launched)
   active_main = max(0, active - active_repair)
   effective_active_repair = active_repair + repair_launched
+  if repair_needed and not repair_pending and effective_active_repair == 0:
+    lines.append('gate_repair_blocked=no pending repair profiles; inspect repair artifacts or add a safe diagnostic/fix profile')
   if repair_needed and effective_active_repair:
     main_slots = 0
   elif repair_needed and repair_reserved:
@@ -1777,8 +1779,6 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   if not pending and launched == 0:
     if repair_needed and repair_pending:
       lines.append('no_main_launches_pending_gate_repair_first')
-    elif repair_needed and not repair_pending and active_repair == 0:
-      lines.append('gate_repair_blocked=no pending repair profiles; inspect repair artifacts or add a safe diagnostic/fix profile')
     elif pilot_state == 'failed':
       lines.append('launch_blocked=pilot gate failed; no full matrix launch')
     elif gate_blocked_profile_count(goal):
