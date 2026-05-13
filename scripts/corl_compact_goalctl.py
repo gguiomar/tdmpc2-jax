@@ -158,6 +158,17 @@ def steward_owned_paths(goal: dict[str, Any] | None = None) -> list[str]:
       tracking.get('decisions', ''),
       tracking.get('results_dir', ''),
   ]
+  for profile in goal.get('gate_repair', {}).get('profiles', []):
+    for artifact in profile.get('artifacts', []):
+      local_path = artifact.get('local', '')
+      if local_path:
+        paths.append(local_path)
+        for parent in Path(local_path).parents:
+          if parent.as_posix() == '.':
+            break
+          paths.append(parent.as_posix())
+          if parent.parent.as_posix() == 'runs/results':
+            break
   return [repo_path_text(path) for path in paths if path]
 
 
