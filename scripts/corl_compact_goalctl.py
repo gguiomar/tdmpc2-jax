@@ -1535,7 +1535,11 @@ def launch_profile(
       'launcher': profile['script'],
       'git_commit': local_commit,
       'remote_commit': remote_commit,
-      'notes': 'setup smoke' if profile['kind'] == 'setup_smoke' else '500k full profile',
+      'notes': (
+          'setup smoke' if profile['kind'] == 'setup_smoke' else
+          'gate repair diagnostic' if profile['kind'] == 'gate_repair' else
+          '500k full profile'
+      ),
   })
   return f'launched {profile["run_id"]} as job {job_id}'
 
@@ -1738,6 +1742,7 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       lines.append(package_results(goal, goal_path=goal_path))
     return '\n'.join(lines)
   launched = 0
+  repair_launched = 0
   repair_slots = 0
   if repair_needed and repair_reserved:
     repair_slots = min(slots, max(0, repair_reserved - active_repair))
@@ -1753,12 +1758,16 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       )
       lines.append(line)
       launched += 1
+      repair_launched += 1
     except Exception as exc:
       lines.append(f'launch_failed {profile["run_id"]}: {exc}')
       break
-  slots_after_repair = max(0, slots - launched)
+  slots_after_repair = max(0, slots - repair_launched)
   active_main = max(0, active - active_repair)
-  if repair_needed and repair_reserved:
+  effective_active_repair = active_repair + repair_launched
+  if repair_needed and effective_active_repair:
+    main_slots = 0
+  elif repair_needed and repair_reserved:
     main_capacity = max(0, max_active - repair_reserved)
     main_slots = min(slots_after_repair, max(0, main_capacity - active_main))
   else:
