@@ -557,8 +557,9 @@ def validate_goal(goal: dict[str, Any]) -> tuple[bool, list[str]]:
   failed = False
   main_profiles = build_main_profiles(goal)
   run_ids = [profile['run_id'] for profile in main_profiles]
-  if len(main_profiles) != 72:
-    messages.append(f'expected 72 main profiles, found {len(main_profiles)}')
+  expected_main = expected_main_profile_count(goal)
+  if len(main_profiles) != expected_main:
+    messages.append(f'expected {expected_main} main profiles, found {len(main_profiles)}')
     failed = True
   if len(run_ids) != len(set(run_ids)):
     messages.append('duplicate main profile run_ids detected')
@@ -574,16 +575,22 @@ def validate_goal(goal: dict[str, Any]) -> tuple[bool, list[str]]:
         f"paper_horizon is {goal['constraints']['paper_horizon']}, expected 3"
     )
     failed = True
-  for env in goal['matrix']['envs']:
-    gate = env.get('gate', '')
-    if gate == 'built_in':
-      continue
-    gate_path = relpath(gate)
-    if not gate_path.exists():
-      messages.append(f'missing MJX gate for {env["env_id"]}: {gate}')
+  gate_statuses = env_gate_statuses(goal)
+  for env_id, (status, message) in gate_statuses.items():
+    if status == 'failed':
+      messages.append(f'env gate failed for {env_id}: {message}')
       failed = True
-  if not messages:
-    messages.append('goal validation passed: 72 main profiles, no duplicates')
+    elif status == 'pending':
+      messages.append(f'env gate pending for {env_id}: {message}')
+  for gate in goal.get('profile_gates', []):
+    status, message = gate_file_status(gate['path'])
+    if status == 'failed':
+      messages.append(f'profile gate failed for {gate.get("name", gate["path"])}: {message}')
+      failed = True
+    elif status == 'pending':
+      messages.append(f'profile gate pending for {gate.get("name", gate["path"])}: {message}')
+  if not failed:
+    messages.insert(0, f'goal validation passed: {expected_main} main profiles, no duplicates')
   return not failed, messages
 
 
@@ -610,6 +617,23 @@ def is_complete(row: dict[str, str] | None) -> bool:
   return bool(row and row.get('event') in TERMINAL_EVENTS and row.get('status') in GOOD_TERMINAL_STATUSES)
 
 
+def finite_float(value: Any) -> float | None:
+  try:
+    parsed = float(value)
+  except (TypeError, ValueError):
+    return None
+  return parsed if math.isfinite(parsed) else None
+
+
+def has_finite_scores(row: dict[str, Any] | None) -> bool:
+  if row is None:
+    return False
+  return (
+      finite_float(row.get('final_score')) is not None and
+      finite_float(row.get('best_score')) is not None
+  )
+
+
 def should_retry(
     goal: dict[str, Any],
     rows: list[dict[str, str]],
@@ -625,12 +649,150 @@ def should_retry(
   return slurm_state in RETRYABLE_STATES or latest.get('status') == 'retryable'
 
 
+def selector_value_matches(value: Any, expected: Any) -> bool:
+  if isinstance(expected, (list, tuple, set)):
+    return any(selector_value_matches(value, item) for item in expected)
+  return str(value) == str(expected)
+
+
 def profile_matches_selector(profile: dict[str, Any],
                              selector: dict[str, Any]) -> bool:
   for key in ('env_id', 'regime', 'method', 'seed'):
-    if key in selector and str(profile.get(key)) != str(selector[key]):
+    if key in selector and not selector_value_matches(profile.get(key), selector[key]):
       return False
   return True
+
+
+def expected_main_profile_count(goal: dict[str, Any]) -> int:
+  configured = goal.get('constraints', {}).get('expected_main_profiles')
+  if configured is not None:
+    return int(configured)
+  return (
+      len(goal['matrix']['envs']) *
+      len(goal['matrix']['regimes']) *
+      len(goal['matrix']['methods']) *
+      len(goal['matrix']['seeds'])
+  )
+
+
+def gate_file_status(path_text: str) -> tuple[str, str]:
+  path = relpath(path_text)
+  if not path.exists():
+    return 'pending', f'missing gate artifact {path_text}'
+  try:
+    payload = json.loads(path.read_text())
+  except Exception as exc:
+    return 'failed', f'invalid gate artifact {path_text}: {exc}'
+  if payload.get('passed') is True:
+    return 'passed', f'passed gate {path_text}'
+  return 'failed', f'gate did not pass {path_text}: {payload.get("error", payload)}'
+
+
+def env_gate_statuses(goal: dict[str, Any]) -> dict[str, tuple[str, str]]:
+  statuses: dict[str, tuple[str, str]] = {}
+  for env in goal['matrix']['envs']:
+    env_id = env['env_id']
+    gate = env.get('gate', '')
+    if gate == 'built_in':
+      statuses[env_id] = ('passed', 'built-in gate')
+    elif gate:
+      statuses[env_id] = gate_file_status(gate)
+    else:
+      statuses[env_id] = ('passed', 'no gate configured')
+  return statuses
+
+
+def profile_gate_statuses(
+    goal: dict[str, Any],
+    profile: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+  statuses: list[tuple[str, str, str]] = []
+  env_status, env_message = env_gate_statuses(goal).get(
+      profile['env_id'],
+      ('failed', f'no env gate status for {profile["env_id"]}'),
+  )
+  statuses.append((f'env:{profile["env_id"]}', env_status, env_message))
+  for gate in goal.get('profile_gates', []):
+    selectors = gate.get('selectors', [])
+    if selectors and not any(profile_matches_selector(profile, selector) for selector in selectors):
+      continue
+    status, message = gate_file_status(gate['path'])
+    statuses.append((gate.get('name', gate['path']), status, message))
+  return statuses
+
+
+def profile_gate_blockers(goal: dict[str, Any], profile: dict[str, Any]) -> list[str]:
+  return [
+      f'{name}={status}: {message}'
+      for name, status, message in profile_gate_statuses(goal, profile)
+      if status != 'passed'
+  ]
+
+
+def phase_profiles(goal: dict[str, Any], phase: dict[str, Any]) -> list[dict[str, Any]]:
+  selectors = phase.get('selectors', [])
+  profiles = build_main_profiles(goal)
+  if not selectors:
+    return profiles
+  return [
+      profile for profile in profiles
+      if any(profile_matches_selector(profile, selector) for selector in selectors)
+  ]
+
+
+def phase_status(
+    goal: dict[str, Any],
+    rows: list[dict[str, str]],
+    phase: dict[str, Any],
+) -> tuple[str, str]:
+  profiles = phase_profiles(goal, phase)
+  if not profiles:
+    return 'failed', 'phase selects no profiles'
+  latest = latest_rows(rows)
+  pending = 0
+  gate_pending = 0
+  for profile in profiles:
+    gate_blockers = profile_gate_blockers(goal, profile)
+    if gate_blockers:
+      if any('=failed:' in blocker for blocker in gate_blockers):
+        return 'failed', '; '.join(gate_blockers)
+      gate_pending += 1
+      continue
+    row = latest.get(profile['run_id'])
+    if row is None or row.get('event') == 'launch' or should_retry(goal, rows, profile):
+      pending += 1
+      continue
+    if not is_complete(row):
+      return 'failed', f'{profile["run_id"]}: {row.get("event", "missing")}/{row.get("status", "")}'
+    if not has_finite_scores(row):
+      return 'failed', f'{profile["run_id"]}: non-finite final/best score'
+  if gate_pending:
+    return 'pending', f'waiting on gated profiles={gate_pending}/{len(profiles)}'
+  if pending:
+    return 'pending', f'pending profiles={pending}/{len(profiles)}'
+  return 'passed', f'passed profiles={len(profiles)}'
+
+
+def phase_statuses(
+    goal: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> list[tuple[str, str, str]]:
+  phases = goal.get('launch_phases', [])
+  return [
+      (phase['name'], *phase_status(goal, rows, phase))
+      for phase in phases
+  ]
+
+
+def active_launch_phase(
+    goal: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> tuple[dict[str, Any] | None, str, str]:
+  for phase in goal.get('launch_phases', []):
+    status, message = phase_status(goal, rows, phase)
+    if status != 'passed':
+      return phase, status, message
+  return None, 'passed', 'all launch phases passed'
 
 
 def pilot_profiles(goal: dict[str, Any]) -> list[dict[str, Any]]:
@@ -726,8 +888,19 @@ def pending_profiles(goal: dict[str, Any], rows: list[dict[str, str]]) -> list[d
         pending_pilot.append(profile)
     return sorted(pending_pilot, key=lambda item: int(item['priority']))
 
+  active_phase, phase_state, _ = active_launch_phase(goal, rows)
+  if active_phase is not None and phase_state == 'failed':
+    return []
+  candidate_profiles = (
+      phase_profiles(goal, active_phase)
+      if active_phase is not None
+      else build_main_profiles(goal)
+  )
+
   pending: list[dict[str, Any]] = []
-  for profile in build_main_profiles(goal):
+  for profile in candidate_profiles:
+    if profile_gate_blockers(goal, profile):
+      continue
     state = profile_latest_status(rows, profile)
     latest = state['latest']
     if latest is None:
@@ -1055,6 +1228,13 @@ def process_terminal_jobs(goal: dict[str, Any], rows: list[dict[str, str]]) -> i
       event = 'failed'
       status = 'blocked'
       notes = f'completed but metrics missing: {summary.get("error", "")}'
+    elif (
+        finite_float(summary.get('final_score')) is None or
+        finite_float(summary.get('best_score')) is None
+    ):
+      event = 'failed'
+      status = 'blocked'
+      notes = 'completed with non-finite final/best score'
     else:
       final_step = int(summary.get('final_step') or 0)
       if final_step < int(max_steps * 0.9):
@@ -1182,6 +1362,35 @@ def launch_profile(
   return f'launched {profile["run_id"]} as job {job_id}'
 
 
+def eta_summary(
+    goal: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> str:
+  latest = latest_rows(rows)
+  main_profiles = build_main_profiles(goal)
+  remaining = [
+      profile for profile in main_profiles
+      if not is_complete(latest.get(profile['run_id']))
+  ]
+  wall_hours = [
+      finite_float(row.get('wall_hours'))
+      for row in latest.values()
+      if row.get('method') != 'checkpoint_resume_smoke' and is_complete(row)
+  ]
+  wall_hours = [value for value in wall_hours if value is not None]
+  if not wall_hours:
+    return f'eta_remaining_jobs={len(remaining)} eta_unavailable=no_completed_wall_hours'
+  avg_wall = sum(wall_hours) / len(wall_hours)
+  max_active = int(goal['constraints']['max_active_gpus'])
+  observed_efficiency = float(goal.get('eta', {}).get('observed_parallel_efficiency', 0.80))
+  eta_hours = len(remaining) * avg_wall / max(max_active * observed_efficiency, 1e-6)
+  return (
+      f'eta_remaining_jobs={len(remaining)} '
+      f'eta_avg_wall_hours={avg_wall:.2f} '
+      f'eta_observed_eff_hours={eta_hours:.1f}'
+  )
+
+
 def status_report(goal: dict[str, Any]) -> str:
   rows = read_ledger(goal)
   ok, messages = validate_goal(goal)
@@ -1191,6 +1400,7 @@ def status_report(goal: dict[str, Any]) -> str:
   gpu = ncc_status(goal)
   main_profiles = build_main_profiles(goal)
   pilot_state, pilot_message = pilot_gate_status(goal, rows)
+  active_phase, phase_state, phase_message = active_launch_phase(goal, rows)
   latest = latest_rows(rows)
   complete_main = sum(
       1 for profile in main_profiles
@@ -1212,9 +1422,24 @@ def status_report(goal: dict[str, Any]) -> str:
       f'remote_commit={remote.get("commit", "")[:12]} dirty={remote.get("dirty")} ok={remote.get("ok")}',
       f'setup_checkpoint_resume_passed={setup_gate_passed(goal, rows)}',
       f'pilot_gate={pilot_state}: {pilot_message}',
+      'launch_phase=' + (
+          f'{active_phase["name"]} {phase_state}: {phase_message}'
+          if active_phase is not None else
+          f'{phase_state}: {phase_message}'
+      ),
       f'main_completed={complete_main}/{len(main_profiles)} blocked={blocked_main} open_launches={launched_open}',
       f'pending={len(pending)} next={pending[0]["run_id"] if pending else "none"}',
+      eta_summary(goal, rows),
+      f'ledger={goal["tracking"]["ledger"]}',
+      f'results_dir={goal["tracking"]["results_dir"]}',
   ]
+  if goal.get('launch_phases'):
+    lines.append(
+        'phase_statuses=' + '; '.join(
+            f'{name}:{status}({message})'
+            for name, status, message in phase_statuses(goal, rows)
+        )
+    )
   if gpu.get('ok'):
     lines.append(
         f'ncc_free_physical_gpus={gpu["free_gpu_count"]} '
@@ -1254,8 +1479,14 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   ok, messages = validate_goal(goal)
   local = local_git_state()
   remote = remote_git_state(goal)
+  if not dry_run:
+    sync_message = sync_remote_to_local_if_safe(goal, local, remote)
+    if sync_message != 'remote sync already current':
+      sync_messages.append(sync_message)
+      remote = remote_git_state(goal)
   gpu = ncc_status(goal)
   pilot_state, pilot_message = pilot_gate_status(goal, rows)
+  active_phase, phase_state, phase_message = active_launch_phase(goal, rows)
   blockers = [] if ok else messages
   blockers.extend(launch_blockers(goal, local, remote, gpu))
   pending = pending_profiles(goal, rows)
@@ -1271,7 +1502,22 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
       f'free_physical_gpus={free_physical}',
       f'launch_slots={slots}',
       f'pilot_gate={pilot_state}: {pilot_message}',
+      'launch_phase=' + (
+          f'{active_phase["name"]} {phase_state}: {phase_message}'
+          if active_phase is not None else
+          f'{phase_state}: {phase_message}'
+      ),
+      eta_summary(goal, rows),
+      f'ledger={goal["tracking"]["ledger"]}',
+      f'results_dir={goal["tracking"]["results_dir"]}',
   ]
+  if goal.get('launch_phases'):
+    lines.append(
+        'phase_statuses=' + '; '.join(
+            f'{name}:{status}({message})'
+            for name, status, message in phase_statuses(goal, rows)
+        )
+    )
   lines.extend(sync_messages)
   if blockers:
     lines.append('launch_blocked=' + '; '.join(blockers))
@@ -1295,6 +1541,10 @@ def tick(goal: dict[str, Any], *, goal_path: Path, dry_run: bool = False) -> str
   if not pending:
     if pilot_state == 'failed':
       lines.append('launch_blocked=pilot gate failed; no full matrix launch')
+    elif active_phase is not None and phase_state == 'failed':
+      lines.append(f'launch_blocked=phase gate failed: {active_phase["name"]}: {phase_message}')
+    elif active_phase is not None and phase_state == 'pending':
+      lines.append(f'launch_blocked=phase gate pending: {active_phase["name"]}: {phase_message}')
     else:
       lines.append('no_pending_profiles')
     return '\n'.join(lines)
@@ -1324,16 +1574,35 @@ def cache_remote_file(
     remote_file: str,
     local_file: Path,
 ) -> bool:
+  begin = '__TD_CACHE_BEGIN__'
+  end = '__TD_CACHE_END__'
   command = (
       f'if test -f {shlex.quote(remote_file)}; then '
+      f'printf {shlex.quote(begin + chr(10))}; '
       f'(base64 -w 0 {shlex.quote(remote_file)} 2>/dev/null || base64 {shlex.quote(remote_file)}); '
+      f'printf {shlex.quote(chr(10) + end + chr(10))}; '
       'fi'
   )
   result = run_remote(goal, command, timeout=180)
   if result.returncode != 0 or not result.stdout.strip():
     return False
+  stdout_lines = result.stdout.splitlines()
+  begin_idx = -1
+  for idx, line in enumerate(stdout_lines):
+    if line.strip() == begin:
+      begin_idx = idx
+  if begin_idx < 0:
+    return False
+  end_idx = -1
+  for idx in range(begin_idx + 1, len(stdout_lines)):
+    if stdout_lines[idx].strip() == end:
+      end_idx = idx
+      break
+  if end_idx < 0:
+    return False
   local_file.parent.mkdir(parents=True, exist_ok=True)
-  payload = ''.join(result.stdout.split())
+  payload = ''.join(''.join(stdout_lines[begin_idx + 1:end_idx]).split())
+  payload += '=' * (-len(payload) % 4)
   local_file.write_bytes(base64.b64decode(payload))
   return True
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,9 +76,10 @@ def float_or_none(value: Any) -> float | None:
   if value in (None, ''):
     return None
   try:
-    return float(value)
+    parsed = float(value)
   except (TypeError, ValueError):
     return None
+  return parsed if math.isfinite(parsed) else None
 
 
 def int_or_none(value: Any) -> int | None:
@@ -268,6 +270,114 @@ def write_parity_table(goal: dict[str, Any], rows: list[dict[str, Any]], tables_
   write_latex_table(tables_dir / 'parity_times.tex', parity_rows, fields)
 
 
+def comparison_key(row: dict[str, Any]) -> tuple[str, str, str]:
+  return (row.get('env_id', ''), row.get('regime', ''), str(row.get('seed', '')))
+
+
+def write_rhs_percent_delta_tables(
+    goal: dict[str, Any],
+    rows: list[dict[str, Any]],
+    tables_dir: Path,
+) -> None:
+  del goal
+  by_key: dict[tuple[str, str, str], dict[str, dict[str, Any]]] = defaultdict(dict)
+  for row in rows:
+    if row.get('method') in {'paper_horizon', 'adaptive_rhs'}:
+      by_key[comparison_key(row)][row['method']] = row
+
+  pair_fields = [
+      'env_id', 'regime', 'seed', 'baseline_score', 'rhs_score',
+      'pct_delta_vs_baseline', 'rhs_won', 'baseline_run_dir', 'rhs_run_dir',
+  ]
+  pair_rows: list[dict[str, Any]] = []
+  excluded_rows: list[dict[str, Any]] = []
+  for key, methods in sorted(by_key.items()):
+    env_id, regime, seed = key
+    baseline = methods.get('paper_horizon')
+    rhs = methods.get('adaptive_rhs')
+    baseline_score = float_or_none(baseline.get('final_score') if baseline else None)
+    rhs_score = float_or_none(rhs.get('final_score') if rhs else None)
+    if baseline_score is None or rhs_score is None or baseline_score == 0:
+      excluded_rows.append({
+          'env_id': env_id,
+          'regime': regime,
+          'seed': seed,
+          'reason': 'missing_or_nonfinite_score_or_zero_baseline',
+      })
+      continue
+    pct_delta = 100.0 * (rhs_score - baseline_score) / abs(baseline_score)
+    pair_rows.append({
+        'env_id': env_id,
+        'regime': regime,
+        'seed': seed,
+        'baseline_score': format_value(baseline_score),
+        'rhs_score': format_value(rhs_score),
+        'pct_delta_vs_baseline': format_value(pct_delta),
+        'rhs_won': rhs_score > baseline_score,
+        'baseline_run_dir': baseline.get('run_dir', '') if baseline else '',
+        'rhs_run_dir': rhs.get('run_dir', '') if rhs else '',
+        '_pct_delta': pct_delta,
+    })
+
+  write_csv(
+      tables_dir / 'rhs_percent_delta_by_seed.csv',
+      pair_rows,
+      pair_fields,
+  )
+  write_latex_table(
+      tables_dir / 'rhs_percent_delta_by_seed.tex',
+      pair_rows,
+      pair_fields,
+  )
+  write_csv(
+      tables_dir / 'rhs_percent_delta_excluded_pairs.csv',
+      excluded_rows,
+      ['env_id', 'regime', 'seed', 'reason'],
+  )
+
+  def aggregate(label: str, subset: list[dict[str, Any]]) -> dict[str, Any]:
+    values = np.asarray([row['_pct_delta'] for row in subset], dtype=np.float64)
+    rhs_wins = sum(1 for row in subset if str(row.get('rhs_won')) == 'True' or row.get('rhs_won') is True)
+    variance = float(np.var(values, ddof=1)) if values.size > 1 else 0.0
+    std = float(np.sqrt(variance))
+    return {
+        'scope': label,
+        'n': int(values.size),
+        'mean_pct_delta_vs_baseline': format_value(float(np.mean(values))) if values.size else '',
+        'var_pct_delta_vs_baseline': format_value(variance) if values.size else '',
+        'std_pct_delta_vs_baseline': format_value(std) if values.size else '',
+        'rhs_wins': rhs_wins,
+        'rhs_win_rate': format_value(rhs_wins / values.size) if values.size else '',
+    }
+
+  summary_rows: list[dict[str, Any]] = []
+  if pair_rows:
+    summary_rows.append(aggregate('all_valid_pairs', pair_rows))
+    for regime in sorted({row['regime'] for row in pair_rows}):
+      summary_rows.append(aggregate(
+          f'regime={regime}',
+          [row for row in pair_rows if row['regime'] == regime],
+      ))
+    for env_id in sorted({row['env_id'] for row in pair_rows}):
+      summary_rows.append(aggregate(
+          f'env={env_id}',
+          [row for row in pair_rows if row['env_id'] == env_id],
+      ))
+    for env_id, regime in sorted({(row['env_id'], row['regime']) for row in pair_rows}):
+      summary_rows.append(aggregate(
+          f'env={env_id},regime={regime}',
+          [row for row in pair_rows if row['env_id'] == env_id and row['regime'] == regime],
+      ))
+
+  summary_fields = [
+      'scope', 'n', 'mean_pct_delta_vs_baseline',
+      'var_pct_delta_vs_baseline', 'std_pct_delta_vs_baseline',
+      'rhs_wins', 'rhs_win_rate',
+  ]
+  write_csv(tables_dir / 'rhs_percent_delta_summary.csv', summary_rows, summary_fields)
+  write_latex_table(tables_dir / 'rhs_percent_delta_summary.tex', summary_rows, summary_fields)
+
+
 def crossing_step(curve: Curve | None, threshold: Any) -> int | None:
   threshold_value = float_or_none(threshold)
   if curve is None or threshold_value is None:
@@ -296,10 +406,13 @@ def plot_learning_curves(goal: dict[str, Any], rows: list[dict[str, Any]], figur
   import matplotlib.pyplot as plt
 
   envs = [item['env_id'] for item in goal['matrix']['envs']]
-  fig, axes = plt.subplots(2, 3, figsize=(16, 8), constrained_layout=True)
+  ncols = 3
+  nrows = max(1, int(math.ceil(len(envs) / ncols)))
+  fig, axes = plt.subplots(nrows, ncols, figsize=(16, 3.8 * nrows), constrained_layout=True)
+  axes_flat = np.asarray(axes).reshape(-1)
   colors = {'paper_horizon': '#2F5D62', 'adaptive_rhs': '#B85C38'}
   labels = {'paper_horizon': 'Fixed paper horizon', 'adaptive_rhs': 'Adaptive RHS'}
-  for axis, env_id in zip(axes.ravel(), envs):
+  for axis, env_id in zip(axes_flat, envs):
     axis.set_title(env_id)
     axis.grid(alpha=0.25, linestyle='--')
     for method in ('paper_horizon', 'adaptive_rhs'):
@@ -319,7 +432,9 @@ def plot_learning_curves(goal: dict[str, Any], rows: list[dict[str, Any]], figur
         axis.fill_between(grid / 1000.0, mean - std, mean + std, color=colors[method], alpha=0.12)
     axis.set_xlabel('Environment steps (k)')
     axis.set_ylabel('Clean eval return')
-  handles, labels_out = axes.ravel()[0].get_legend_handles_labels()
+  for axis in axes_flat[len(envs):]:
+    axis.set_axis_off()
+  handles, labels_out = axes_flat[0].get_legend_handles_labels()
   if handles:
     fig.legend(handles, labels_out, loc='upper center', ncol=2, frameon=False)
   fig.suptitle(f'{regime.title()} training: fixed horizon vs adaptive RHS', fontsize=16, fontweight='bold')
@@ -435,7 +550,7 @@ Seeds: {', '.join(str(seed) for seed in goal['matrix']['seeds'])}. Training budg
 
 ## Main Results
 
-See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, and `tables/main_auc_scores.*`.
+See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, `tables/main_auc_scores.*`, and the NaN-excluded percent-delta summaries in `tables/rhs_percent_delta_summary.*`.
 
 Clean completed rows: {len(clean_rows)}. Chaos completed rows: {len(chaos_rows)}.
 
@@ -515,6 +630,7 @@ def main() -> int:
   rows = enrich_rows(goal, ledger_rows)
   write_main_tables(goal, rows, tables_dir)
   write_parity_table(goal, rows, tables_dir)
+  write_rhs_percent_delta_tables(goal, rows, tables_dir)
   plot_learning_curves(goal, rows, figures_dir, 'clean', 'fig1_clean_learning_curves')
   plot_learning_curves(goal, rows, figures_dir, 'chaos', 'fig2_chaos_learning_curves')
   plot_time_to_parity(tables_dir, figures_dir)
