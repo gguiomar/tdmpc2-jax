@@ -1,0 +1,4 @@
+env_id,regime,seed,reason
+fish-swim,chaos,1,"missing, nonfinite, or zero baseline score"
+fish-swim,chaos,15,"missing, nonfinite, or zero baseline score"
+fish-swim,chaos,7,"missing, nonfinite, or zero baseline score"

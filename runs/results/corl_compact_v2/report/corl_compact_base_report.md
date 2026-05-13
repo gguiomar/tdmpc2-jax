@@ -21,7 +21,7 @@ Seeds: 1, 7, 15. Training budget: 500000 environment steps.
 
 ## Main Results
 
-See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, and `tables/main_auc_scores.*`.
+See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, `tables/main_auc_scores.*`, and the NaN-excluded percent-delta summaries in `tables/rhs_percent_delta_summary.*`.
 
 Clean completed rows: 36. Chaos completed rows: 36.
 

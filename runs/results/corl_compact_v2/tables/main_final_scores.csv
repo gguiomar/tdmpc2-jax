@@ -17,9 +17,9 @@ finger-turn_hard,chaos,paper_horizon,15,3,500000,510.1,761.15,2033,1.9692,True,/
 fish-swim,clean,paper_horizon,15,3,500000,645.431,744.201,2035,1.3894,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/paper_horizon/s15
 finger-turn_hard,chaos,adaptive_rhs,15,3,500000,753.45,773.7,2034,2.0622,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/finger-turn_hard/chaos/adaptive_rhs/s15
 fish-swim,clean,adaptive_rhs,15,3,500000,543.236,758.993,2036,1.5189,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/adaptive_rhs/s15
-fish-swim,chaos,paper_horizon,15,3,500000,nan,nan,2037,1.8586,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s15
+fish-swim,chaos,paper_horizon,15,3,500000,,,2037,1.8586,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s15
 cartpole-swingup,clean,paper_horizon,15,3,500000,864.486,865.74,2039,1.3714,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/paper_horizon/s15
-fish-swim,chaos,adaptive_rhs,15,3,500000,nan,nan,2038,1.8678,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s15
+fish-swim,chaos,adaptive_rhs,15,3,500000,,,2038,1.8678,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s15
 cartpole-swingup,clean,adaptive_rhs,15,3,500000,879.807,882.779,2040,1.8614,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/adaptive_rhs/s15
 cartpole-swingup,chaos,paper_horizon,15,3,500000,859.191,859.191,2041,1.8119,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/chaos/paper_horizon/s15
 quadruped-run,clean,paper_horizon,1,3,500000,881.836,886.147,2043,1.9267,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/quadruped-run/clean/paper_horizon/s1
@@ -41,8 +41,8 @@ finger-turn_hard,chaos,paper_horizon,1,3,500000,651,651,2057,1.9503,True,/home/g
 fish-swim,clean,paper_horizon,1,3,500000,648.558,731.555,2059,1.4044,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/paper_horizon/s1
 finger-turn_hard,chaos,adaptive_rhs,1,3,500000,448.7,741.85,2058,2.0511,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/finger-turn_hard/chaos/adaptive_rhs/s1
 fish-swim,clean,adaptive_rhs,1,3,500000,658.269,712.947,2060,1.5214,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/adaptive_rhs/s1
-fish-swim,chaos,paper_horizon,1,3,500000,nan,nan,2061,1.8300,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s1
-fish-swim,chaos,adaptive_rhs,1,3,500000,nan,nan,2062,1.8769,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s1
+fish-swim,chaos,paper_horizon,1,3,500000,,,2061,1.8300,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s1
+fish-swim,chaos,adaptive_rhs,1,3,500000,,,2062,1.8769,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s1
 cartpole-swingup,clean,paper_horizon,1,3,500000,882.118,882.315,2064,1.3750,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/paper_horizon/s1
 cartpole-swingup,clean,adaptive_rhs,1,3,500000,864.924,867.651,2065,1.9489,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/adaptive_rhs/s1
 cartpole-swingup,chaos,paper_horizon,1,3,500000,814.092,857.027,2066,1.7642,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/chaos/paper_horizon/s1
@@ -65,9 +65,9 @@ finger-turn_hard,chaos,paper_horizon,7,3,500000,580.45,778.55,2088,1.9353,True,/
 fish-swim,clean,paper_horizon,7,3,500000,723.557,773.738,2090,1.4208,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/paper_horizon/s7
 finger-turn_hard,chaos,adaptive_rhs,7,3,500000,838.75,838.75,2089,2.2081,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/finger-turn_hard/chaos/adaptive_rhs/s7
 fish-swim,clean,adaptive_rhs,7,3,500000,674.227,749.367,2091,1.5108,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/clean/adaptive_rhs/s7
-fish-swim,chaos,paper_horizon,7,3,500000,nan,nan,2092,1.8397,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s7
+fish-swim,chaos,paper_horizon,7,3,500000,,,2092,1.8397,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/paper_horizon/s7
 cartpole-swingup,clean,paper_horizon,7,3,500000,878.423,882.838,2094,1.3653,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/paper_horizon/s7
-fish-swim,chaos,adaptive_rhs,7,3,500000,nan,nan,2093,1.9403,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s7
+fish-swim,chaos,adaptive_rhs,7,3,500000,,,2093,1.9403,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/fish-swim/chaos/adaptive_rhs/s7
 cartpole-swingup,clean,adaptive_rhs,7,3,500000,882.384,882.384,2095,1.6233,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/clean/adaptive_rhs/s7
 cartpole-swingup,chaos,paper_horizon,7,3,500000,856.469,859.344,2096,1.7828,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/chaos/paper_horizon/s7
 cartpole-swingup,chaos,adaptive_rhs,7,3,500000,861.539,861.539,2097,2.1478,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v2/cartpole-swingup/chaos/adaptive_rhs/s7
