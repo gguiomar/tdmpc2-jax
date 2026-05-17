@@ -32,21 +32,27 @@ DEFAULT_VALUE_AT_MARGIN = 0.1
 
 
 TASK_DOMAIN = {
+    'cup-catch': ('ball_in_cup', 'catch'),
     'cheetah-run': ('cheetah', 'run'),
     'walker-run': ('walker', 'run'),
     'hopper-hop': ('hopper', 'hop'),
+    'pendulum-swingup': ('pendulum', 'swingup'),
     'cartpole-swingup': ('cartpole', 'swingup'),
     'acrobot-swingup': ('acrobot', 'swingup'),
+    'reacher-hard': ('reacher', 'hard'),
     'finger-turn_hard': ('finger', 'turn_hard'),
     'fish-swim': ('fish', 'swim'),
 }
 
 CONTROL_TIMESTEP = {
+    'cup-catch': 0.02,
     'cheetah-run': 0.02,
     'walker-run': 0.025,
     'hopper-hop': 0.02,
+    'pendulum-swingup': 0.02,
     'cartpole-swingup': 0.01,
     'acrobot-swingup': 0.01,
+    'reacher-hard': 0.02,
     'finger-turn_hard': 0.02,
     'fish-swim': 0.04,
 }
@@ -66,10 +72,15 @@ class DMCMJXMetadata:
   physics_substeps_per_control: int
   force_body_id: int
   body_torso_id: int
+  body_pole_id: int
+  body_ball_id: int
   body_foot_id: int
   body_upper_arm_id: int
   body_lower_arm_id: int
   geom_mouth_id: int
+  geom_ball_id: int
+  geom_finger_id: int
+  geom_target_id: int
   site_tip_id: int
   site_target_id: int
   sensor_torso_velocity_slice: slice
@@ -83,8 +94,10 @@ class DMCMJXMetadata:
   sensor_spinner_slice: slice
   fish_joint_qpos_adr: np.ndarray
   target_default_pos: np.ndarray
+  target_default_size_xz: np.ndarray
   target_default_radius: float
   mouth_radius: float
+  ball_radius: float
 
 
 @struct.dataclass
@@ -173,20 +186,34 @@ def _target_defaults(model, task: str) -> Tuple[np.ndarray, float]:
     if site_id >= 0:
       target_pos = np.asarray(model.site_pos[site_id], dtype=np.float32)
       target_radius = float(model.site_size[site_id, 0])
+  elif task == 'reacher-hard':
+    target_geom_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'target')
+    finger_geom_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'finger')
+    if target_geom_id >= 0:
+      target_pos = np.asarray(model.geom_pos[target_geom_id], dtype=np.float32)
+      target_radius = float(model.geom_size[target_geom_id, 0])
+    if finger_geom_id >= 0:
+      target_radius += float(model.geom_size[finger_geom_id, 0])
   return target_pos, target_radius
 
 
 def _observation_dim(model, task: str) -> int:
+  if task == 'cup-catch':
+    return int(model.nq + model.nv)
   if task == 'cheetah-run':
     return int(model.nq - 1 + model.nv)
   if task == 'walker-run':
     return int((model.nbody - 1) * 2 + 1 + model.nv)
   if task == 'hopper-hop':
     return int(model.nq - 1 + model.nv + 2)
+  if task == 'pendulum-swingup':
+    return int(2 + model.nv)
   if task == 'cartpole-swingup':
     return int(1 + (model.nbody - 2) * 2 + model.nv)
   if task == 'acrobot-swingup':
     return int(4 + model.nv)
+  if task == 'reacher-hard':
+    return int(model.nq + 2 + model.nv)
   if task == 'finger-turn_hard':
     return 12
   if task == 'fish-swim':
@@ -213,9 +240,21 @@ def _metadata(model,
   target_pos, target_radius = _target_defaults(model, task)
   mouth_geom_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'mouth')
   mouth_radius = float(model.geom_size[mouth_geom_id, 0]) if mouth_geom_id >= 0 else 0.0
+  target_site_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_SITE, 'target')
+  target_default_size_xz = np.zeros((2,), dtype=np.float32)
+  if target_site_id >= 0:
+    target_default_size_xz = np.asarray(model.site_size[target_site_id, [0, 2]], dtype=np.float32)
+  ball_geom_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'ball')
+  ball_radius = float(model.geom_size[ball_geom_id, 0]) if ball_geom_id >= 0 else 0.0
   force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso')
   if force_body_id < 0:
     force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'spinner')
+  if force_body_id < 0:
+    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'ball')
+  if force_body_id < 0:
+    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'finger')
+  if force_body_id < 0:
+    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'pole')
   return DMCMJXMetadata(
       task=task,
       domain=domain,
@@ -229,12 +268,17 @@ def _metadata(model,
       physics_substeps_per_control=int(physics_substeps_per_control),
       force_body_id=int(force_body_id),
       body_torso_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso'),
+      body_pole_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'pole'),
+      body_ball_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'ball'),
       body_foot_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'foot'),
       body_upper_arm_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'upper_arm'),
       body_lower_arm_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'lower_arm'),
       geom_mouth_id=mouth_geom_id,
+      geom_ball_id=ball_geom_id,
+      geom_finger_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'finger'),
+      geom_target_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'target'),
       site_tip_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_SITE, 'tip'),
-      site_target_id=_safe_name_id(model, mujoco.mjtObj.mjOBJ_SITE, 'target'),
+      site_target_id=target_site_id,
       sensor_torso_velocity_slice=_sensor_slice(model, 'torso_subtreelinvel'),
       sensor_touch_slice=slice(
           _sensor_scalar_adr(model, 'touch_toe'),
@@ -261,8 +305,10 @@ def _metadata(model,
           ),
       ),
       target_default_pos=target_pos,
+      target_default_size_xz=target_default_size_xz,
       target_default_radius=float(target_radius),
       mouth_radius=mouth_radius,
+      ball_radius=ball_radius,
   )
 
 
@@ -327,6 +373,14 @@ def _extract_target_from_physics(physics, metadata: DMCMJXMetadata) -> Tuple[np.
     try:
       target_pos = np.asarray(physics.named.data.site_xpos['target'], dtype=np.float32)
       target_radius = float(physics.named.model.site_size['target', 0])
+    except Exception:
+      pass
+  elif metadata.task == 'reacher-hard':
+    try:
+      target_pos = np.asarray(physics.named.model.geom_pos['target'], dtype=np.float32)
+      target_radius = float(
+          physics.named.model.geom_size[['target', 'finger'], 0].sum()
+      )
     except Exception:
       pass
   return target_pos.astype(np.float32), target_radius
@@ -409,6 +463,8 @@ def _compute_observation(data,
                          target_pos: jax.Array,
                          target_radius: jax.Array) -> jax.Array:
   task = metadata.task
+  if task == 'cup-catch':
+    return jnp.concatenate([data.qpos, data.qvel], axis=-1).astype(jnp.float32)
   if task == 'cheetah-run':
     return jnp.concatenate([data.qpos[..., 1:], data.qvel], axis=-1).astype(jnp.float32)
   if task == 'walker-run':
@@ -420,6 +476,10 @@ def _compute_observation(data,
   if task == 'hopper-hop':
     touch = jnp.log1p(data.sensordata[..., metadata.sensor_touch_slice])
     return jnp.concatenate([data.qpos[..., 1:], data.qvel, touch], axis=-1).astype(jnp.float32)
+  if task == 'pendulum-swingup':
+    pole_xmat = data.xmat[..., metadata.body_pole_id, :, :]
+    orientation = jnp.stack([pole_xmat[..., 2, 2], pole_xmat[..., 0, 2]], axis=-1)
+    return jnp.concatenate([orientation, data.qvel], axis=-1).astype(jnp.float32)
   if task == 'cartpole-swingup':
     pole_xmat = data.xmat[..., 2:, :, :]
     pole_orientation = jnp.stack([pole_xmat[..., 2, 2], pole_xmat[..., 0, 2]], axis=-1)
@@ -430,6 +490,9 @@ def _compute_observation(data,
     arms = data.xmat[..., [metadata.body_upper_arm_id, metadata.body_lower_arm_id], :, :]
     orientations = jnp.concatenate([arms[..., 0, 2], arms[..., 2, 2]], axis=-1)
     return jnp.concatenate([orientations, data.qvel], axis=-1).astype(jnp.float32)
+  if task == 'reacher-hard':
+    to_target = target_pos[..., :2] - data.geom_xpos[..., metadata.geom_finger_id, :2]
+    return jnp.concatenate([data.qpos, to_target, data.qvel], axis=-1).astype(jnp.float32)
   if task == 'finger-turn_hard':
     proximal = data.sensordata[..., metadata.sensor_proximal_id:metadata.sensor_proximal_id + 1]
     distal = data.sensordata[..., metadata.sensor_distal_id:metadata.sensor_distal_id + 1]
@@ -456,6 +519,13 @@ def _compute_reward(data,
                     target_pos: jax.Array,
                     target_radius: jax.Array) -> jax.Array:
   task = metadata.task
+  if task == 'cup-catch':
+    ball_to_target = (
+        data.site_xpos[..., metadata.site_target_id, [0, 2]] -
+        data.xpos[..., metadata.body_ball_id, [0, 2]]
+    )
+    target_margin = jnp.asarray(metadata.target_default_size_xz) - metadata.ball_radius
+    return jnp.all(jnp.abs(ball_to_target) < target_margin, axis=-1).astype(jnp.float32)
   if task == 'cheetah-run':
     speed = data.sensordata[..., metadata.sensor_torso_velocity_slice.start]
     return _tolerance(speed, bounds=(10.0, jnp.inf), margin=10.0, value_at_margin=0.0, sigmoid='linear').astype(jnp.float32)
@@ -486,6 +556,12 @@ def _compute_reward(data,
         sigmoid='linear',
     )
     return (standing * hopping).astype(jnp.float32)
+  if task == 'pendulum-swingup':
+    pole_vertical = data.xmat[..., metadata.body_pole_id, 2, 2]
+    return _tolerance(
+        pole_vertical,
+        bounds=(0.9902680687415704, 1.0),
+    ).astype(jnp.float32)
   if task == 'cartpole-swingup':
     cart_position = data.qpos[..., 0]
     pole_cos = data.xmat[..., 2:, 2, 2]
@@ -505,6 +581,10 @@ def _compute_reward(data,
     tip_to_target = target_pos - data.site_xpos[..., metadata.site_tip_id, :]
     dist = jnp.linalg.norm(tip_to_target, axis=-1)
     return _tolerance(dist, bounds=(0.0, target_radius), margin=1.0).astype(jnp.float32)
+  if task == 'reacher-hard':
+    finger_to_target = target_pos[..., :2] - data.geom_xpos[..., metadata.geom_finger_id, :2]
+    dist = jnp.linalg.norm(finger_to_target, axis=-1)
+    return _tolerance(dist, bounds=(0.0, target_radius)).astype(jnp.float32)
   if task == 'finger-turn_hard':
     return (_finger_dist_to_target(data, metadata, target_pos, target_radius) <= 0.0).astype(jnp.float32)
   if task == 'fish-swim':
