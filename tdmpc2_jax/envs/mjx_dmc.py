@@ -246,15 +246,20 @@ def _metadata(model,
     target_default_size_xz = np.asarray(model.site_size[target_site_id, [0, 2]], dtype=np.float32)
   ball_geom_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_GEOM, 'ball')
   ball_radius = float(model.geom_size[ball_geom_id, 0]) if ball_geom_id >= 0 else 0.0
-  force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso')
-  if force_body_id < 0:
-    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'spinner')
-  if force_body_id < 0:
-    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'ball')
-  if force_body_id < 0:
-    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'finger')
-  if force_body_id < 0:
-    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'pole')
+  if task == 'cup-catch':
+    # The ball is the reward object; applying chaos xfrc to it makes catch
+    # dynamics degenerate. Disturb the controlled cup body instead.
+    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'cup')
+  else:
+    force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso')
+    if force_body_id < 0:
+      force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'spinner')
+    if force_body_id < 0:
+      force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'ball')
+    if force_body_id < 0:
+      force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'finger')
+    if force_body_id < 0:
+      force_body_id = _safe_name_id(model, mujoco.mjtObj.mjOBJ_BODY, 'pole')
   return DMCMJXMetadata(
       task=task,
       domain=domain,
