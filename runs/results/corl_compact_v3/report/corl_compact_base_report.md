@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-- Completed main profiles: 66/240.
-- Mean final fixed paper-horizon score: 680.591.
-- Mean final adaptive RHS score: 702.904.
+- Completed main profiles: 203/240.
+- Mean final fixed paper-horizon score: 655.079.
+- Mean final adaptive RHS score: 673.36.
 - Main claim: adaptive RHS is evaluated against the standard TD-MPC2 fixed horizon without a horizon sweep.
 
 ## Method
@@ -13,7 +13,7 @@ The baseline is TD-MPC2-JAX with Dense-RHS disabled and the paper-matched fixed 
 
 ## Experiment Setup
 
-Environments: quadruped-run, cheetah-run, hopper-hop, finger-turn_hard, fish-swim, cartpole-swingup, acrobot-swingup, walker-run, pendulum-swingup, reacher-hard.
+Environments: quadruped-run, cheetah-run, hopper-hop, finger-turn_hard, cup-catch, cartpole-swingup, acrobot-swingup, walker-run, pendulum-swingup, reacher-hard.
 
 Regimes: clean and chaos. Each profile is evaluated in its own regime: clean profiles use clean evaluation, and chaos profiles evaluate with domain randomization, observation noise, and one-step base action delay enabled.
 
@@ -23,7 +23,7 @@ Seeds: 1, 7, 15, 23, 31, 42. Training budget: 500000 environment steps.
 
 See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, `tables/main_auc_scores.*`, and the NaN-excluded percent-delta summaries in `tables/rhs_percent_delta_summary.*`.
 
-Clean completed rows: 36. Chaos completed rows: 30.
+Clean completed rows: 103. Chaos completed rows: 100.
 
 ## Robustness
 
