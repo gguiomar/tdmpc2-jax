@@ -229,3 +229,5 @@ reacher-hard,clean,adaptive_rhs,15,829.558,924.15,1.3933
 reacher-hard,chaos,paper_horizon,15,0.2925,0.6,3.1108
 cup-catch,clean,paper_horizon,1,882.26,976.9,1.9914
 reacher-hard,chaos,adaptive_rhs,15,0.28,0.55,3.7353
+cup-catch,clean,adaptive_rhs,1,883.255,978.4,2.5622
+cup-catch,chaos,paper_horizon,1,724.153,766.75,2.3742
