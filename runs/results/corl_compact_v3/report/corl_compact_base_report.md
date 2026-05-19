@@ -2,8 +2,8 @@
 
 ## Executive Summary
 
-- Completed main profiles: 228/240.
-- Mean final fixed paper-horizon score: 650.113.
+- Completed main profiles: 229/240.
+- Mean final fixed paper-horizon score: 653.084.
 - Mean final adaptive RHS score: 670.592.
 - Main claim: adaptive RHS is evaluated against the standard TD-MPC2 fixed horizon without a horizon sweep.
 
@@ -23,7 +23,7 @@ Seeds: 1, 7, 15, 23, 31, 42. Training budget: 500000 environment steps.
 
 See `figures/fig1_clean_learning_curves.*`, `figures/fig2_chaos_learning_curves.*`, `tables/main_final_scores.*`, `tables/main_auc_scores.*`, and the NaN-excluded percent-delta summaries in `tables/rhs_percent_delta_summary.*`.
 
-Clean completed rows: 115. Chaos completed rows: 113.
+Clean completed rows: 116. Chaos completed rows: 113.
 
 ## Robustness
 
