@@ -1,2 +1,4 @@
 env_id,regime,seed,reason
 pendulum-swingup,clean,31,missing_or_nonfinite_score_or_zero_baseline
+reacher-hard,chaos,42,missing_or_nonfinite_score_or_zero_baseline
+reacher-hard,clean,15,missing_or_nonfinite_score_or_zero_baseline
