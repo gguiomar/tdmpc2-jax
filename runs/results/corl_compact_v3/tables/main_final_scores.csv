@@ -226,3 +226,4 @@ reacher-hard,clean,paper_horizon,15,3,500000,854.3,974.65,2350,1.2472,True,/home
 pendulum-swingup,chaos,paper_horizon,15,3,500000,43.5,58.75,2348,1.6392,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v3/pendulum-swingup/chaos/paper_horizon/s15
 pendulum-swingup,chaos,adaptive_rhs,15,3,500000,14.85,60.3,2349,1.8208,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v3/pendulum-swingup/chaos/adaptive_rhs/s15
 reacher-hard,clean,adaptive_rhs,15,3,500000,924.15,972.65,2353,1.3933,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v3/reacher-hard/clean/adaptive_rhs/s15
+reacher-hard,chaos,paper_horizon,15,3,500000,0.6,1.2,2354,3.1108,True,/home/goncalo/git/horizonsearch/tdmpc2-jax-codex/outputs/corl_pub_500k_v3/reacher-hard/chaos/paper_horizon/s15
