@@ -233,3 +233,4 @@ cup-catch,clean,adaptive_rhs,1,883.255,978.4,2.5622
 cup-catch,chaos,paper_horizon,1,724.153,766.75,2.3742
 pendulum-swingup,clean,paper_horizon,1,1.765,0,1.2036
 cup-catch,chaos,adaptive_rhs,1,740.395,772.15,2.6172
+pendulum-swingup,clean,adaptive_rhs,1,1.99,0,1.8219
