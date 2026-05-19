@@ -1,6 +1,6 @@
 scope,n,mean_pct_delta_vs_baseline,var_pct_delta_vs_baseline,std_pct_delta_vs_baseline,rhs_wins,rhs_win_rate
-all_valid_pairs,106,2.90921,390.023,19.749,58,0.54717
-regime=chaos,51,4.52966,638.514,25.2688,30,0.588235
+all_valid_pairs,107,2.26649,430.544,20.7496,58,0.542056
+regime=chaos,52,3.17598,721.283,26.8567,30,0.576923
 regime=clean,55,1.40661,162.381,12.7429,28,0.509091
 env=acrobot-swingup,12,5.63237,324.245,18.0068,9,0.75
 env=cartpole-swingup,12,-0.104741,1.42622,1.19425,7,0.583333
@@ -9,7 +9,7 @@ env=cup-catch,8,-2.97064,39.0302,6.24742,2,0.25
 env=finger-turn_hard,12,14.8716,555.625,23.5717,9,0.75
 env=fish-swim,3,-7.05135,75.1301,8.66776,1,0.333333
 env=hopper-hop,12,1.67943,1149.05,33.8976,5,0.416667
-env=pendulum-swingup,6,-0.249518,1777.03,42.1549,1,0.166667
+env=pendulum-swingup,7,-9.62274,2095.86,45.7806,1,0.142857
 env=quadruped-run,12,3.5862,182.398,13.5055,7,0.583333
 env=reacher-hard,5,-6.53118,239.03,15.4606,2,0.4
 env=walker-run,12,1.45245,15.4791,3.93435,6,0.5
@@ -26,7 +26,7 @@ env=walker-run,12,1.45245,15.4791,3.93435,6,0.5
 "env=fish-swim,regime=clean",3,-7.05135,75.1301,8.66776,1,0.333333
 "env=hopper-hop,regime=chaos",6,5.50594,1518.36,38.9661,2,0.333333
 "env=hopper-hop,regime=clean",6,-2.14707,974.403,31.2154,3,0.5
-"env=pendulum-swingup,regime=chaos",3,-0.15414,4442.26,66.6503,1,0.333333
+"env=pendulum-swingup,regime=chaos",4,-16.5811,4040.89,63.568,1,0.25
 "env=pendulum-swingup,regime=clean",3,-0.344896,0.293264,0.541538,0,0
 "env=quadruped-run,regime=chaos",6,7.00169,363.35,19.0618,4,0.666667
 "env=quadruped-run,regime=clean",6,0.17072,9.92773,3.15083,3,0.5
