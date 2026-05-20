@@ -1,11 +1,11 @@
 scope,n,mean_pct_delta_vs_baseline,var_pct_delta_vs_baseline,std_pct_delta_vs_baseline,rhs_wins,rhs_win_rate
-all_valid_pairs,116,4.11269,906.194,30.1031,62,0.534483
-regime=chaos,56,7.17797,1713.59,41.3956,32,0.571429
+all_valid_pairs,117,4.08462,898.474,29.9746,63,0.538462
+regime=chaos,57,7.06657,1683.7,41.0329,33,0.578947
 regime=clean,60,1.25177,151.65,12.3146,30,0.5
 env=acrobot-swingup,12,5.63237,324.245,18.0068,9,0.75
 env=cartpole-swingup,12,-0.104741,1.42622,1.19425,7,0.583333
 env=cheetah-run,12,5.17002,279.261,16.7111,9,0.75
-env=cup-catch,11,-2.09265,29.617,5.44215,4,0.363636
+env=cup-catch,12,-1.84924,27.6355,5.25695,5,0.416667
 env=finger-turn_hard,12,14.8716,555.625,23.5717,9,0.75
 env=fish-swim,3,-7.05135,75.1301,8.66776,1,0.333333
 env=hopper-hop,12,1.67943,1149.05,33.8976,5,0.416667
@@ -19,7 +19,7 @@ env=walker-run,12,1.45245,15.4791,3.93435,6,0.5
 "env=cartpole-swingup,regime=clean",6,0.0110334,2.44868,1.56482,4,0.666667
 "env=cheetah-run,regime=chaos",6,7.92887,583.898,24.164,5,0.833333
 "env=cheetah-run,regime=clean",6,2.41116,12.2086,3.49407,4,0.666667
-"env=cup-catch,regime=chaos",5,-4.58791,59.7621,7.7306,2,0.4
+"env=cup-catch,regime=chaos",6,-3.68521,52.6989,7.2594,3,0.5
 "env=cup-catch,regime=clean",6,-0.013274,0.00945474,0.0972355,2,0.333333
 "env=finger-turn_hard,regime=chaos",6,23.9337,946.095,30.7587,5,0.833333
 "env=finger-turn_hard,regime=clean",6,5.80954,79.1889,8.89881,4,0.666667
