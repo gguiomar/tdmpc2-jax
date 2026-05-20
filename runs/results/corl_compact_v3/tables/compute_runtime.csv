@@ -250,3 +250,4 @@ pendulum-swingup,chaos,paper_horizon,7,2384,1.6503,COMPLETED,True
 reacher-hard,clean,paper_horizon,7,2386,1.2575,COMPLETED,True
 reacher-hard,clean,adaptive_rhs,7,2387,1.3686,COMPLETED,True
 pendulum-swingup,chaos,adaptive_rhs,7,2385,2.2636,COMPLETED,True
+reacher-hard,chaos,paper_horizon,7,2388,3.1378,COMPLETED,True
