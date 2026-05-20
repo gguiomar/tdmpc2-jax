@@ -238,3 +238,4 @@ pendulum-swingup,chaos,paper_horizon,1,32.7675,13.05,1.6619
 reacher-hard,clean,paper_horizon,1,852.083,976.2,1.2517
 pendulum-swingup,chaos,adaptive_rhs,1,42.9825,44.95,2.1861
 reacher-hard,clean,adaptive_rhs,1,847.938,880.2,1.5025
+cup-catch,clean,paper_horizon,7,883.532,983.15,2.0178
