@@ -240,3 +240,4 @@ pendulum-swingup,chaos,adaptive_rhs,1,2373,2.1861,COMPLETED,True
 reacher-hard,clean,adaptive_rhs,1,2375,1.5025,COMPLETED,True
 cup-catch,clean,paper_horizon,7,2378,2.0178,COMPLETED,True
 reacher-hard,chaos,paper_horizon,1,2376,3.1567,COMPLETED,True
+cup-catch,clean,adaptive_rhs,7,2379,2.3417,COMPLETED,True
