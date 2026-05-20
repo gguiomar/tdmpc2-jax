@@ -1,7 +1,7 @@
 scope,n,mean_pct_delta_vs_baseline,var_pct_delta_vs_baseline,std_pct_delta_vs_baseline,rhs_wins,rhs_win_rate
-all_valid_pairs,117,4.08462,898.474,29.9746,63,0.538462
+all_valid_pairs,118,3.99585,891.725,29.8618,63,0.533898
 regime=chaos,57,7.06657,1683.7,41.0329,33,0.578947
-regime=clean,60,1.25177,151.65,12.3146,30,0.5
+regime=clean,61,1.12648,150.08,12.2507,30,0.491803
 env=acrobot-swingup,12,5.63237,324.245,18.0068,9,0.75
 env=cartpole-swingup,12,-0.104741,1.42622,1.19425,7,0.583333
 env=cheetah-run,12,5.17002,279.261,16.7111,9,0.75
@@ -11,7 +11,7 @@ env=fish-swim,3,-7.05135,75.1301,8.66776,1,0.333333
 env=hopper-hop,12,1.67943,1149.05,33.8976,5,0.416667
 env=pendulum-swingup,9,19.6049,8689.71,93.2186,2,0.222222
 env=quadruped-run,12,3.5862,182.398,13.5055,7,0.583333
-env=reacher-hard,9,-4.73856,150.04,12.2491,3,0.333333
+env=reacher-hard,10,-4.90374,133.642,11.5604,3,0.3
 env=walker-run,12,1.45245,15.4791,3.93435,6,0.5
 "env=acrobot-swingup,regime=chaos",6,0.386395,217.789,14.7577,4,0.666667
 "env=acrobot-swingup,regime=clean",6,10.8783,429.502,20.7244,5,0.833333
@@ -31,6 +31,6 @@ env=walker-run,12,1.45245,15.4791,3.93435,6,0.5
 "env=quadruped-run,regime=chaos",6,7.00169,363.35,19.0618,4,0.666667
 "env=quadruped-run,regime=clean",6,0.17072,9.92773,3.15083,3,0.5
 "env=reacher-hard,regime=chaos",4,-10.4167,248.843,15.7747,0,0
-"env=reacher-hard,regime=clean",5,-0.196068,55.4149,7.44412,3,0.6
+"env=reacher-hard,regime=clean",6,-1.22846,50.7269,7.12228,3,0.5
 "env=walker-run,regime=chaos",6,3.5393,23.0744,4.80359,5,0.833333
 "env=walker-run,regime=clean",6,-0.634413,0.527656,0.726399,1,0.166667
