@@ -111,6 +111,19 @@ def scientific_dirty_paths() -> list[str]:
   return dirty
 
 
+def clean_remote_stdout(output: str) -> str:
+  """Remove local Expect chatter while preserving the remote command output."""
+  cleaned = []
+  for line in output.splitlines():
+    stripped = line.strip()
+    if stripped.startswith("spawn ssh "):
+      continue
+    if re.fullmatch(r".+@.+['’]s password:\s*", stripped):
+      continue
+    cleaned.append(line)
+  return "\n".join(cleaned).strip()
+
+
 def remote(command: str, *, attempts: int = 3) -> str:
   last: Optional[subprocess.CompletedProcess] = None
   for attempt in range(attempts):
@@ -121,8 +134,7 @@ def remote(command: str, *, attempts: int = 3) -> str:
         check=False,
     )
     if last.returncode == 0:
-      # ssh_host.sh may print connection diagnostics on stderr, never stdout.
-      return last.stdout.strip()
+      return clean_remote_stdout(last.stdout)
     if attempt + 1 < attempts:
       time.sleep(1.0 + attempt)
   assert last is not None

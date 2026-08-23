@@ -27,3 +27,10 @@ This append-only log records launch gates, job failures, controlled fixes, retri
 - Bound acceptance to the resolved Hydra configuration as well as the commit/profile identity. Each Slurm job uses a detached exact-commit source snapshot so a later diagnosed fix cannot mutate a running job's scripts.
 - Hardened the steward with attempt-specific Slurm identities, single-attempt non-idempotent submission, durable lost-response reconciliation, normalized terminal states, and launch-revision validation. The intended four-then-three launch transition passed a synthetic controller test.
 - Raised the wall-time request to 24 hours for the calibration arm; this does not reserve additional GPUs and avoids losing a nearly complete run to the heavier reference and rendering stages.
+
+## 2026-08-23 — Exact smoke and transport-only correction
+
+- Exact-revision smoke job 4375 at commit `989b63b5382fd9da9d0d90e7b90872faea0987d3` completed 0:0 in 16:59. It passed all 59 NCC CPU tests, the online horizon query, every frozen timing/reference grid, two EGL GIF anchors, and terminal artifact validation.
+- The first controller tick submitted no jobs because the local password-helper transcript appeared on stdout and was conservatively mistaken for a pre-existing Slurm record. The ledger remained empty.
+- The follow-up revision filters only the local Expect `spawn` and password-prompt lines. No file under `tdmpc2_jax/`, no Slurm experiment script, configuration, finalizer, renderer, or data-producing path changed.
+- The 4375 GPU/EGL evidence is therefore carried forward across this orchestration-only revision by an explicit exception. CPU/controller tests and a live read-only NCC transport check must pass at the new revision before launch; the gate records both the launch revision and the evidence revision.

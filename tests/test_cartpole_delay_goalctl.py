@@ -39,6 +39,18 @@ class StewardIdentityTest(unittest.TestCase):
     )
     self.assertEqual(self.goalctl.normalize_slurm_state('COMPLETED+'), 'COMPLETED')
 
+  def test_expect_transcript_is_removed_from_remote_stdout(self):
+    transcript = (
+        'spawn ssh -o ConnectTimeout=8 ncc-gpu1 bash -lc squeue\n'
+        '\n'
+        "goncalo@ncc-gpu1.ini.uzh.ch's password: \n"
+        '4376|RUNNING\n'
+    )
+    self.assertEqual(
+        self.goalctl.clean_remote_stdout(transcript),
+        '4376|RUNNING',
+    )
+
   def test_job_names_are_attempt_specific(self):
     profile = {'run_id': 'cpdelay__additive__s1'}
     self.assertEqual(
