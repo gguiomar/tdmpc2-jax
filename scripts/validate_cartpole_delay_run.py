@@ -52,6 +52,14 @@ def csv_rows(path: Path) -> list[dict[str, str]]:
     return list(csv.DictReader(handle))
 
 
+def csv_integral(value: str) -> int:
+  """Parse an integer-valued CSV field, including pandas-style ``0.0``."""
+  numeric = float(value)
+  if not math.isfinite(numeric) or not numeric.is_integer():
+    raise ValueError(f"expected an integer-valued CSV field, got {value!r}")
+  return int(numeric)
+
+
 def require_grid(errors: list[str], *,
                  label: str,
                  actual: set[tuple],
@@ -265,7 +273,7 @@ def validate_adaptive_coverage(run_dir: Path, args) -> list[str]:
           errors,
           label="probe timing grid",
           actual={
-              (int(row["step"]), int(row["probe_count"]))
+              (csv_integral(row["step"]), csv_integral(row["probe_count"]))
               for row in timing_rows
           },
           expected={
