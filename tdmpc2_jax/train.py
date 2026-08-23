@@ -1,7 +1,10 @@
 import csv
+import hashlib
+import json
 import os
 import time
 from collections import defaultdict
+from contextlib import ExitStack
 from functools import partial
 from pathlib import Path
 
@@ -18,6 +21,7 @@ from flax.training.train_state import TrainState
 from omegaconf import OmegaConf
 
 from tdmpc2_jax import (
+    benchmark_dense_model_stage_probe_counts,
     HorizonSearchState,
     TDMPC2,
     WorldModel,
@@ -70,22 +74,81 @@ class _NullSummaryWriter:
     return None
 
 
+_DEFAULT_ARTIFACT_ANCHOR_STEPS = (
+    0,
+    100_000,
+    150_000,
+    250_000,
+    350_000,
+    450_000,
+    500_000,
+)
+
+
+def _open_csv_for_append(path: Path, fieldnames):
+  """Open a CSV without truncating prior rows or duplicating its header."""
+  path = Path(path)
+  fieldnames = [str(fieldname) for fieldname in fieldnames]
+  has_content = path.exists() and path.stat().st_size > 0
+  if has_content:
+    with path.open('r', newline='') as existing_file:
+      existing_header = next(csv.reader(existing_file), None)
+    if existing_header != fieldnames:
+      raise ValueError(
+          f'Cannot append to {path}: expected CSV header {fieldnames}, '
+          f'found {existing_header}.'
+      )
+    # A killed writer can leave the final row without a newline. Preserve the
+    # row and ensure the next append cannot merge into it.
+    with path.open('rb') as existing_file:
+      existing_file.seek(-1, os.SEEK_END)
+      has_trailing_newline = existing_file.read(1) in (b'\n', b'\r')
+    if not has_trailing_newline:
+      with path.open('ab') as existing_file:
+        existing_file.write(b'\n')
+
+  output_file = path.open('a', newline='')
+  writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+  if not has_content:
+    writer.writeheader()
+    output_file.flush()
+  return output_file, writer
+
+
+def _next_episode_indices(path: Path, num_envs: int) -> np.ndarray:
+  """Return per-environment episode counters continued from an existing CSV."""
+  next_indices = np.zeros(int(num_envs), dtype=int)
+  path = Path(path)
+  if not path.exists() or path.stat().st_size == 0:
+    return next_indices
+  with path.open('r', newline='') as episode_file:
+    for row in csv.DictReader(episode_file):
+      try:
+        env_index = int(row['env_index'])
+        episode_index = int(row['episode_index'])
+      except (KeyError, TypeError, ValueError):
+        continue
+      if 0 <= env_index < int(num_envs):
+        next_indices[env_index] = max(
+            next_indices[env_index],
+            episode_index + 1,
+        )
+  return next_indices
+
+
 class _ArtifactWriter:
   def __init__(self, output_dir: str):
     metrics_dir = Path(output_dir) / 'metrics'
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    self._scalar_file = (metrics_dir / 'scalars.csv').open('w', newline='')
-    self._scalar_writer = csv.DictWriter(
-        self._scalar_file,
-        fieldnames=['step', 'tag', 'value'],
+    self._episodes_path = metrics_dir / 'episodes.csv'
+    self._scalar_file, self._scalar_writer = _open_csv_for_append(
+        metrics_dir / 'scalars.csv',
+        ['step', 'tag', 'value'],
     )
-    self._scalar_writer.writeheader()
-
-    self._episode_file = (metrics_dir / 'episodes.csv').open('w', newline='')
-    self._episode_writer = csv.DictWriter(
-        self._episode_file,
-        fieldnames=[
+    self._episode_file, self._episode_writer = _open_csv_for_append(
+        self._episodes_path,
+        [
             'step',
             'env_index',
             'episode_index',
@@ -94,12 +157,9 @@ class _ArtifactWriter:
             'selected_horizon',
         ],
     )
-    self._episode_writer.writeheader()
-
-    self._query_file = (metrics_dir / 'horizon_queries.csv').open('w', newline='')
-    self._query_writer = csv.DictWriter(
-        self._query_file,
-        fieldnames=[
+    self._query_file, self._query_writer = _open_csv_for_append(
+        metrics_dir / 'horizon_queries.csv',
+        [
             'step',
             'previous_horizon',
             'selected_horizon',
@@ -147,10 +207,12 @@ class _ArtifactWriter:
             'query_env_eval_s',
         ],
     )
-    self._query_writer.writeheader()
     self._pending_scalars = []
     self._pending_episodes = []
     self._pending_queries = []
+
+  def next_episode_indices(self, num_envs: int) -> np.ndarray:
+    return _next_episode_indices(self._episodes_path, num_envs)
 
   def scalar(self, tag: str, value: float, step: int):
     self._pending_scalars.append(
@@ -231,6 +293,9 @@ class _CompositeSummaryWriter:
   def horizon_query(self, **kwargs):
     self._artifact_writer.horizon_query(kwargs)
 
+  def next_episode_indices(self, num_envs: int) -> np.ndarray:
+    return self._artifact_writer.next_episode_indices(num_envs)
+
   def flush(self):
     self._artifact_writer.flush()
     if self._wandb_run is not None:
@@ -257,6 +322,312 @@ def _make_zero_plan(agent: TDMPC2, batch_shape):
       jnp.zeros(plan_shape, dtype=jnp.float32),
       jnp.full(plan_shape, agent.max_plan_std, dtype=jnp.float32),
   )
+
+
+def _artifact_anchor_steps(cfg) -> tuple[int, ...]:
+  configured_steps = cfg.get(
+      'artifact_anchor_steps',
+      _DEFAULT_ARTIFACT_ANCHOR_STEPS,
+  )
+  max_steps = int(cfg.max_steps)
+  return tuple(
+      sorted({
+          int(step)
+          for step in configured_steps
+          if 0 <= int(step) <= max_steps
+      })
+  )
+
+
+def _next_artifact_anchor(global_step: int,
+                          anchor_steps: tuple[int, ...],
+                          fallback_step: int) -> int:
+  return next(
+      (int(step) for step in anchor_steps if int(step) > int(global_step)),
+      int(fallback_step),
+  )
+
+
+def _json_safe_config(cfg):
+  return OmegaConf.to_container(cfg, resolve=True)
+
+
+def _anchor_metadata(cfg,
+                     *,
+                     global_step: int,
+                     selected_horizon: int,
+                     trajectory_seed: int | None = None):
+  resolved_config_yaml = OmegaConf.to_yaml(cfg, resolve=True)
+  env_config = cfg['env']
+  mjx_config = env_config.get('mjx_dmc', {})
+  metadata = {
+      'schema_version': 1,
+      'global_step': int(global_step),
+      'training_seed': int(cfg.seed),
+      'controller': str(cfg.get('controller', 'unknown')),
+      'score_mode': str(cfg.get('score_mode', 'none')),
+      'trajectory_seed': (
+          None if trajectory_seed is None else int(trajectory_seed)
+      ),
+      'selected_horizon': int(selected_horizon),
+      'environment': {
+          'backend': str(env_config.backend),
+          'env_id': str(env_config.env_id),
+          'task': str(mjx_config.get('task', env_config.env_id)),
+          'num_envs': int(env_config.num_envs),
+          'base_action_delay': int(mjx_config.get('base_action_delay', 0)),
+          'action_repeat': int(mjx_config.get('action_repeat', 1)),
+          'action_repeat_dt': float(mjx_config.get('action_repeat_dt', 0.02)),
+          'episode_length': int(mjx_config.get('episode_length', 500)),
+      },
+      'config_sha256': hashlib.sha256(
+          resolved_config_yaml.encode('utf-8')
+      ).hexdigest(),
+      'resolved_config': _json_safe_config(cfg),
+  }
+  return metadata
+
+
+def build_mjx_inspection_rollout_fn(env, *, steps_per_episode: int):
+  """Build a deterministic, independent rollout used only for inspection."""
+
+  @partial(jax.jit, static_argnames=('horizon',))
+  def _run(agent, key, global_transition_step, *, horizon: int):
+    batch_shape = (int(env.num_envs),)
+    state = env._make_state(
+        key,
+        batch_shape,
+        global_transition_step=global_transition_step,
+    )
+    if int(env.reset_pool_size) >= int(env.num_envs):
+      # Use the first two seeded DMC reset states, without replacement, at every
+      # anchor and in both conditions. This makes cross-run visual comparisons
+      # independent of the trajectory PRNG stream.
+      state = state.replace(
+          data=jax.tree.map(
+              lambda value: value[:int(env.num_envs)],
+              env._reset_pool['data'],
+          ),
+          target_pos=env._reset_pool['target_pos'][:int(env.num_envs)],
+          target_radius=env._reset_pool['target_radius'][:int(env.num_envs)],
+      )
+    plan = _make_zero_plan(agent, batch_shape)
+    initial = {
+        'qpos': state.data.qpos,
+        'qvel': state.data.qvel,
+        'ctrl': state.data.ctrl,
+        'target_pos': state.target_pos,
+        'target_radius': state.target_radius,
+        'effective_action_delay': state.effective_action_delay,
+        'global_transition_step': state.global_transition_step,
+    }
+
+    def rollout_step(carry, _):
+      state, plan, rng = carry
+      rng, observation_key, action_key = jax.random.split(rng, 3)
+      observation = env._observation(
+          state.replace(rng=observation_key),
+          key=observation_key,
+      )
+      action, next_plan = agent.act(
+          observation,
+          prev_plan=plan,
+          mpc=True,
+          deterministic=True,
+          train=False,
+          horizon=int(horizon),
+          key=action_key,
+      )
+      next_state, reward, terminated, truncated = env._step_state(state, action)
+      done = jnp.logical_or(terminated, truncated)
+      logs = {
+          'qpos': next_state.data.qpos,
+          'qvel': next_state.data.qvel,
+          'ctrl': next_state.data.ctrl,
+          'observation': observation,
+          'commanded_action': action,
+          'applied_action': next_state.last_action,
+          'delayed_actions': next_state.delayed_actions,
+          'reward': reward,
+          'done': done,
+          'episode_step': next_state.episode_step,
+          'target_pos': next_state.target_pos,
+          'target_radius': next_state.target_radius,
+          'effective_action_delay': next_state.effective_action_delay,
+          'global_transition_step': next_state.global_transition_step,
+      }
+      return (next_state, next_plan, rng), logs
+
+    (_, _, _), trajectory = jax.lax.scan(
+        rollout_step,
+        (state, plan, key),
+        xs=None,
+        length=int(steps_per_episode),
+    )
+    trajectory = dict(trajectory)
+    for name in (
+        'qpos',
+        'qvel',
+        'ctrl',
+        'target_pos',
+        'target_radius',
+        'effective_action_delay',
+        'global_transition_step',
+    ):
+      trajectory[name] = jnp.concatenate(
+          [initial[name][None, ...], trajectory[name]],
+          axis=0,
+      )
+    return trajectory
+
+  return _run
+
+
+def _atomic_write_json(path: Path, value):
+  path = Path(path)
+  temporary_path = path.with_suffix(path.suffix + '.tmp')
+  with temporary_path.open('w') as output_file:
+    json.dump(value, output_file, indent=2, sort_keys=True)
+    output_file.write('\n')
+  os.replace(temporary_path, path)
+
+
+def _atomic_write_npz(path: Path, arrays):
+  path = Path(path)
+  temporary_path = path.with_suffix(path.suffix + '.tmp')
+  with temporary_path.open('wb') as output_file:
+    np.savez_compressed(
+        output_file,
+        **{name: np.asarray(value) for name, value in arrays.items()},
+    )
+  os.replace(temporary_path, path)
+
+
+def _save_anchor_artifacts(*,
+                           cfg,
+                           output_dir: str,
+                           anchor_mngr,
+                           agent,
+                           global_step: int,
+                           selected_horizon: int,
+                           horizon_state=None,
+                           inspection_rollout_fns=None):
+  """Save an immutable model anchor and deterministic inspection trajectory."""
+  global_step = int(global_step)
+  anchor_root = Path(output_dir) / 'artifacts' / 'anchor_checkpoints'
+  checkpoint_step_path = anchor_root / str(global_step)
+  # Freeze both reset pool and planner randomness across runs and anchors so
+  # visual differences are attributable to the learned controller.
+  trajectory_seed = 271_828
+  metadata = _anchor_metadata(
+      cfg,
+      global_step=global_step,
+      selected_horizon=selected_horizon,
+      trajectory_seed=trajectory_seed,
+  )
+  all_steps = getattr(anchor_mngr, 'all_steps', None)
+  checkpoint_exists = (
+      global_step in {int(step) for step in all_steps()}
+      if callable(all_steps) else checkpoint_step_path.exists()
+  )
+  if not checkpoint_exists:
+    save_args = {
+        'agent': ocp.args.StandardSave(agent),
+        'metadata': ocp.args.JsonSave(metadata),
+    }
+    if horizon_state is not None:
+      save_args['horizon_state'] = ocp.args.StandardSave(horizon_state)
+    anchor_mngr.save(
+        global_step,
+        args=ocp.args.Composite(**save_args),
+    )
+    anchor_mngr.wait_until_finished()
+
+  run_id = str(
+      cfg.get('artifact_run_id') or
+      cfg.get('run_id', Path(output_dir).name)
+  )
+  rollout_dir = (
+      Path(output_dir) / 'artifacts' / 'rollouts' / run_id /
+      f'step_{global_step:06d}'
+  )
+  rollout_dir.mkdir(parents=True, exist_ok=True)
+  metadata_path = rollout_dir / 'metadata.json'
+  trajectory_records = {}
+  for condition, inspection_rollout_fn in sorted(
+      (inspection_rollout_fns or {}).items()
+  ):
+    trajectory_path = rollout_dir / f'trajectory_{condition}.npz'
+    evaluation_global_step = 0
+    if not trajectory_path.exists():
+      trajectory_key = jax.random.PRNGKey(trajectory_seed)
+      trajectory = inspection_rollout_fn(
+          agent,
+          trajectory_key,
+          jnp.asarray(evaluation_global_step, dtype=jnp.int32),
+          horizon=int(selected_horizon),
+      )
+      trajectory_arrays = {
+          name: np.asarray(value) for name, value in trajectory.items()
+      }
+      frame_dt_seconds = float(
+          metadata['environment']['action_repeat'] *
+          metadata['environment']['action_repeat_dt']
+      )
+      num_action_steps = int(trajectory_arrays['done'].shape[0])
+      trajectory_arrays['frame_timestamp_seconds'] = (
+          np.arange(num_action_steps + 1, dtype=np.float64) *
+          frame_dt_seconds
+      )
+      _atomic_write_npz(trajectory_path, trajectory_arrays)
+    with np.load(trajectory_path, allow_pickle=False) as trajectory_arrays:
+      done = np.asarray(trajectory_arrays['done'], dtype=bool)
+      if done.ndim == 1:
+        done = done[:, None]
+      completed_lengths = []
+      for env_done in done.T:
+        completed = np.flatnonzero(env_done)
+        completed_lengths.append(
+            int(completed[0]) + 1
+            if completed.size else int(env_done.shape[0])
+        )
+      num_action_steps = max(completed_lengths)
+      delay_values = np.asarray(
+          trajectory_arrays['effective_action_delay']
+      )
+      effective_delay = int(delay_values.reshape(delay_values.shape[0], -1)[0, 0])
+      num_initial_states = int(done.shape[1])
+    trajectory_records[condition] = {
+        'format': 'tdmpc2_mjx_inspection_v1',
+        'path': trajectory_path.name,
+        'num_action_steps': num_action_steps,
+        'num_frames': num_action_steps + 1,
+        'num_initial_states': num_initial_states,
+        'frame_dt_seconds': float(
+            metadata['environment']['action_repeat'] *
+            metadata['environment']['action_repeat_dt']
+        ),
+        'evaluation_global_step': int(evaluation_global_step),
+        'effective_action_delay_at_reset': effective_delay,
+        'deterministic_policy': False,
+        'fixed_planner_seed': True,
+        'reproducible_seeded_planner': True,
+        'training_state_mutated': False,
+    }
+  metadata.update({
+      'run_id': run_id,
+      'checkpoint': {
+          'format': 'orbax_composite_model_anchor_v1',
+          'relative_path': os.path.relpath(
+              checkpoint_step_path,
+              Path(output_dir),
+          ),
+          'contains_replay_buffer': False,
+      },
+      'trajectories': trajectory_records,
+      'expected_gif': 'cartpole_delay0_vs_delay4.gif',
+  })
+  _atomic_write_json(metadata_path, metadata)
 
 
 def _init_deployment_utility_state(horizons, dense_rhs_config):
@@ -529,6 +900,172 @@ def _make_training_horizon_agent(agent: TDMPC2,
   return agent.replace(horizon=bucket_horizon, planning_hmax=bucket_horizon)
 
 
+def _make_full_horizon_deployed_planner_agent(agent: TDMPC2,
+                                               hmax: int) -> TDMPC2:
+  """Expands only the plan buffer for an all-horizon deployed-planner audit."""
+  return agent.replace(planning_hmax=int(hmax))
+
+
+def _scripted_horizon_schedule(cfg) -> tuple[tuple[int, int], ...]:
+  """Returns a validated piecewise-constant scripted horizon schedule."""
+  scripted = cfg.get('scripted_horizon', None)
+  if scripted is None or not bool(scripted.get('enabled', False)):
+    return ()
+  steps = tuple(int(step) for step in scripted.get('schedule_steps', ()))
+  values = tuple(int(value) for value in scripted.get('schedule_values', ()))
+  if not steps or len(steps) != len(values):
+    raise ValueError(
+        'scripted_horizon.schedule_steps and schedule_values must be '
+        'non-empty and have equal length.'
+    )
+  if steps[0] != 0 or any(right <= left for left, right in zip(steps, steps[1:])):
+    raise ValueError(
+        'scripted_horizon.schedule_steps must start at zero and be strictly '
+        'increasing.'
+    )
+  if any(value < 1 for value in values):
+    raise ValueError('scripted horizons must be positive integers.')
+  return tuple(zip(steps, values))
+
+
+def _scripted_horizon_at_step(schedule: tuple[tuple[int, int], ...],
+                              global_step: int,
+                              fallback: int) -> int:
+  selected = int(fallback)
+  for start_step, horizon in schedule:
+    if int(global_step) < int(start_step):
+      break
+    selected = int(horizon)
+  return selected
+
+
+def _next_scripted_horizon_step(schedule: tuple[tuple[int, int], ...],
+                                global_step: int,
+                                fallback: int) -> int:
+  return next(
+      (int(step) for step, _ in schedule if int(step) > int(global_step)),
+      int(fallback),
+  )
+
+
+def _probe_timing_steps(cfg) -> tuple[int, ...]:
+  timing = cfg.get('probe_timing', None)
+  if timing is None or not bool(timing.get('enabled', False)):
+    return ()
+  return tuple(sorted({int(step) for step in timing.get('anchor_steps', ())}))
+
+
+def _reference_probe_steps(cfg) -> tuple[int, ...]:
+  reference = cfg.get('reference_probe', None)
+  if reference is None or not bool(reference.get('enabled', False)):
+    return ()
+  return tuple(sorted({int(step) for step in reference.get('anchor_steps', ())}))
+
+
+def _append_probe_timing_records(output_dir: str,
+                                 *,
+                                 global_step: int,
+                                 candidate_slots: int,
+                                 batch_size: int,
+                                 hmax: int,
+                                 records) -> None:
+  path = Path(output_dir) / 'metrics' / 'probe_timing.csv'
+  path.parent.mkdir(parents=True, exist_ok=True)
+  fieldnames = [
+      'step',
+      'probe_count',
+      'compile_plus_first_s',
+      'warmup_calls',
+      'repetitions',
+      'wall_time_s',
+      'median_wall_time_s',
+      'p95_wall_time_s',
+      'std_wall_time_s',
+      'candidate_slots',
+      'batch_size',
+      'hmax',
+  ]
+  existing_rows = []
+  if path.exists() and path.stat().st_size > 0:
+    with path.open(newline='') as existing_file:
+      for row in csv.DictReader(existing_file):
+        try:
+          if int(row['step']) != int(global_step):
+            existing_rows.append(row)
+        except (KeyError, TypeError, ValueError):
+          continue
+  new_rows = []
+  for record in records:
+    new_rows.append({
+        'step': int(global_step),
+        **record,
+        'candidate_slots': int(candidate_slots),
+        'batch_size': int(batch_size),
+        'hmax': int(hmax),
+    })
+  temporary = path.with_suffix(path.suffix + '.tmp')
+  with temporary.open('w', newline='') as output_file:
+    writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(existing_rows)
+    writer.writerows(new_rows)
+    output_file.flush()
+    os.fsync(output_file.fileno())
+  os.replace(temporary, path)
+
+
+def _existing_probe_timing_steps(output_dir: str,
+                                 expected_probe_counts) -> set[int]:
+  """Returns completed timing anchors so resumed runs do not benchmark twice."""
+  path = Path(output_dir) / 'metrics' / 'probe_timing.csv'
+  completed = set()
+  if not path.exists() or path.stat().st_size == 0:
+    return completed
+  observed = defaultdict(set)
+  with path.open(newline='') as timing_file:
+    for row in csv.DictReader(timing_file):
+      try:
+        observed[int(row['step'])].add(int(float(row['probe_count'])))
+      except (KeyError, TypeError, ValueError):
+        continue
+  expected = {int(count) for count in expected_probe_counts}
+  completed.update(
+      step for step, counts in observed.items() if counts == expected
+  )
+  return completed
+
+
+def _existing_scalar_steps(output_dir: str, tag: str) -> set[int]:
+  path = Path(output_dir) / 'metrics' / 'scalars.csv'
+  completed = set()
+  if not path.exists() or path.stat().st_size == 0:
+    return completed
+  with path.open(newline='') as scalar_file:
+    for row in csv.DictReader(scalar_file):
+      if row.get('tag') != str(tag):
+        continue
+      try:
+        completed.add(int(row['step']))
+      except (KeyError, TypeError, ValueError):
+        continue
+  return completed
+
+
+def _save_calibration_replay_batch(output_dir: str,
+                                   global_step: int,
+                                   replay_batch) -> None:
+  root = Path(output_dir) / 'artifacts' / 'calibration_batches'
+  root.mkdir(parents=True, exist_ok=True)
+  path = root / f'step_{int(global_step):06d}.npz'
+  if path.exists() and path.stat().st_size > 0:
+    return
+  arrays = {
+      str(name): np.asarray(value)
+      for name, value in replay_batch.items()
+  }
+  _atomic_write_npz(path, arrays)
+
+
 @partial(jax.jit, static_argnames=('num_updates', 'batch_size', 'sequence_length'))
 def _run_train_chunk(agent,
                      buffer_state,
@@ -796,6 +1333,7 @@ def _run_mjx_training_loop(cfg,
                            env,
                            periodic_eval_env,
                            dense_query_eval_state,
+                           dense_reference_eval_state,
                            agent,
                            buffer_state,
                            writer,
@@ -803,10 +1341,15 @@ def _run_mjx_training_loop(cfg,
                            global_step: int,
                            last_saved_step: int,
                            *,
+                           output_dir: str,
                            seed_steps: int,
                            update_chunk_size: int,
                            horizon_state=None,
-                           dense_query_kernels=None):
+                           dense_query_kernels=None,
+                           dense_reference_kernels=None,
+                           dense_conditional_reference_kernels=None,
+                           artifact_anchor_steps: tuple[int, ...] = (),
+                           artifact_callback=None):
   num_envs = int(env_config.num_envs)
   collect_chunk_steps = int(cfg.get('collect_chunk_steps', 100))
   chunk_global_steps = collect_chunk_steps * num_envs
@@ -821,7 +1364,7 @@ def _run_mjx_training_loop(cfg,
       chunk_steps=collect_chunk_steps,
   )
 
-  ep_count = np.zeros(num_envs, dtype=int)
+  ep_count = writer.next_episode_indices(num_envs)
   prev_logged_step = int(global_step)
   train_info_accumulator = defaultdict(
       lambda: {'sum': 0.0, 'sum_sq': 0.0, 'count': 0}
@@ -832,9 +1375,36 @@ def _run_mjx_training_loop(cfg,
   plan = None
   seed_pretraining_done = bool(global_step > seed_steps)
   rng = jax.random.PRNGKey(cfg.seed + int(global_step))
-  observation, _ = env.reset(seed=cfg.seed)
+  if hasattr(env, 'action_delay_schedule_enabled'):
+    observation, _ = env.reset(
+        seed=cfg.seed,
+        global_transition_step=int(global_step),
+    )
+  else:
+    observation, _ = env.reset(seed=cfg.seed)
   pbar = tqdm.tqdm(initial=global_step, total=cfg.max_steps)
   dense_rhs_enabled = horizon_state is not None
+  probe_timing_steps = (
+      _probe_timing_steps(cfg) if dense_rhs_enabled else ()
+  )
+  timing_config = cfg.get('probe_timing', {})
+  timing_probe_counts = tuple(
+      int(count) for count in timing_config.get(
+          'probe_counts', (0, 2, 4, 8, 16, 32, 64)
+      )
+  )
+  completed_probe_timing_steps = _existing_probe_timing_steps(
+      output_dir,
+      timing_probe_counts,
+  )
+  reference_probe_steps = (
+      _reference_probe_steps(cfg) if dense_rhs_enabled else ()
+  )
+  completed_reference_probe_steps = _existing_scalar_steps(
+      output_dir,
+      'reference_probe/completed',
+  )
+  scripted_schedule = _scripted_horizon_schedule(cfg)
   horizon_buckets = (
       _horizon_buckets_from_config(dense_rhs_config)
       if dense_rhs_enabled else ()
@@ -849,6 +1419,28 @@ def _run_mjx_training_loop(cfg,
       if horizon_state is not None else np.asarray([selected_horizon]),
       dense_rhs_config,
   )
+
+  def apply_scripted_horizon(step: int) -> None:
+    nonlocal agent, plan, selected_horizon
+    if not scripted_schedule:
+      return
+    target_horizon = _scripted_horizon_at_step(
+        scripted_schedule,
+        step,
+        selected_horizon,
+    )
+    if target_horizon == int(selected_horizon):
+      return
+    previous_horizon = int(selected_horizon)
+    selected_horizon = int(target_horizon)
+    agent = _make_training_horizon_agent(agent, selected_horizon, ())
+    plan = None
+    writer.scalar('scripted_horizon/previous_horizon', previous_horizon, step)
+    writer.scalar('scripted_horizon/selected_horizon', selected_horizon, step)
+    writer.scalar('scripted_horizon/switch', 1.0, step)
+    writer.flush()
+
+  apply_scripted_horizon(int(global_step))
 
   def run_update_batches(total_updates: int, *, step_for_logs: int):
     nonlocal agent, buffer_state, rng, train_time_since_log, train_info_accumulator
@@ -1081,11 +1673,23 @@ def _run_mjx_training_loop(cfg,
     next_query_step = cfg.max_steps + chunk_global_steps
     if dense_rhs_enabled and horizon_state is not None:
       next_query_step = max(int(np.asarray(horizon_state.next_query_step)), int(seed_steps))
+    next_anchor_step = _next_artifact_anchor(
+        global_step,
+        artifact_anchor_steps,
+        int(cfg.max_steps) + chunk_global_steps,
+    )
+    next_scripted_step = _next_scripted_horizon_step(
+        scripted_schedule,
+        global_step,
+        int(cfg.max_steps) + chunk_global_steps,
+    )
     next_boundary_step = min(
         next_log_step,
         next_save_step,
         next_eval_step,
         next_query_step,
+        next_anchor_step,
+        next_scripted_step,
         int(cfg.max_steps),
     )
 
@@ -1229,6 +1833,167 @@ def _run_mjx_training_loop(cfg,
       global_step += num_envs
       pbar.update(num_envs)
 
+    # Apply a scripted phase change before checkpoint/evaluation/artifact code
+    # at the boundary, so the 150k and 350k anchors show the incoming policy.
+    apply_scripted_horizon(int(global_step))
+
+    # Apply a due adaptive query at the boundary before checkpoint, evaluation,
+    # calibration, and media capture. Anchor metadata and GIFs therefore show
+    # the horizon selected at that exact query step, not the stale incumbent.
+    if (
+        dense_rhs_enabled and
+        horizon_state is not None and
+        int(global_step) < int(cfg.max_steps) and
+        horizon_state.should_query(int(global_step))
+    ):
+      run_dense_query(int(global_step))
+
+    calibration_batch = None
+
+    if (
+        dense_rhs_enabled and
+        horizon_state is not None and
+        int(global_step) in probe_timing_steps and
+        int(global_step) not in completed_probe_timing_steps
+    ):
+      # Benchmark from a pure replay-state copy. This preserves the training
+      # sampler's RNG stream and makes the timing instrumentation observational.
+      timing_state = dict(buffer_state)
+      timing_state['rng_key'] = jax.random.PRNGKey(
+          int(cfg.seed) + int(global_step) + 70_000
+      )
+      _, timing_batch = sample_from_state(
+          timing_state,
+          batch_size=int(agent.batch_size),
+          sequence_length=int(horizon_state.hmax),
+      )
+      calibration_batch = timing_batch
+      _save_calibration_replay_batch(
+          output_dir,
+          int(global_step),
+          calibration_batch,
+      )
+      current_phase = int(np.asarray(horizon_state.phase_id))
+      candidate_slots = int(horizon_state.candidate_budget[current_phase])
+      timing_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
+      timing_records = benchmark_dense_model_stage_probe_counts(
+          agent=timing_agent,
+          replay_batch=timing_batch,
+          horizon_state=horizon_state,
+          key=jax.random.PRNGKey(
+              int(cfg.seed) + int(global_step) + 80_000
+          ),
+          candidate_slots=candidate_slots,
+          probe_counts=timing_probe_counts,
+          warmup_calls=int(timing_config.get('warmup_calls', 5)),
+          repetitions=int(timing_config.get('repetitions', 30)),
+      )
+      _append_probe_timing_records(
+          output_dir,
+          global_step=int(global_step),
+          candidate_slots=candidate_slots,
+          batch_size=int(agent.batch_size),
+          hmax=int(horizon_state.hmax),
+          records=timing_records,
+      )
+      for record in timing_records:
+        probe_count = int(record['probe_count'])
+        writer.scalar(
+            f'timing/probe_m{probe_count}_mean_s',
+            float(record['wall_time_s']),
+            int(global_step),
+        )
+      writer.flush()
+      completed_probe_timing_steps.add(int(global_step))
+
+    if (
+        dense_rhs_enabled and
+        horizon_state is not None and
+        dense_reference_eval_state is not None and
+        int(global_step) in reference_probe_steps and
+        int(global_step) not in completed_reference_probe_steps
+    ):
+      # This high-precision K=128 shadow query is observational: its replay
+      # sample and posterior update are discarded, while all replica returns
+      # are retained under a separate metric namespace for nested calibration.
+      if calibration_batch is None:
+        reference_state = dict(buffer_state)
+        reference_state['rng_key'] = jax.random.PRNGKey(
+            int(cfg.seed) + int(global_step) + 90_000
+        )
+        _, calibration_batch = sample_from_state(
+            reference_state,
+            batch_size=int(agent.batch_size),
+            sequence_length=int(horizon_state.hmax),
+        )
+        _save_calibration_replay_batch(
+            output_dir,
+            int(global_step),
+            calibration_batch,
+        )
+      reference_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
+      writer.scalar(
+          'reference_probe/incumbent_horizon',
+          float(np.asarray(horizon_state.best_h)),
+          int(global_step),
+      )
+      reference_horizon_state = horizon_state.replace(
+          active_mask=jnp.ones_like(horizon_state.active_mask, dtype=bool),
+          local_window_radius=0,
+          candidate_budget=(
+              int(horizon_state.horizons.shape[0]),
+          ) * 5,
+      )
+      _, _, reference_metrics = dense_checkpoint_eval(
+          agent=reference_agent,
+          replay_batch=calibration_batch,
+          eval_state=dense_reference_eval_state,
+          horizon_state=reference_horizon_state,
+          rng=jax.random.PRNGKey(
+              int(cfg.seed) + int(global_step) + 100_000
+          ),
+          env_eval_steps=int(cfg.reference_probe.env_eval_steps),
+          query_step=int(global_step),
+          dense_query_kernels=dense_reference_kernels,
+      )
+      for metric_name, metric_value in reference_metrics.items():
+        if isinstance(metric_value, str):
+          continue
+        writer.scalar(
+            f'reference_probe/{metric_name}',
+            float(metric_value),
+            int(global_step),
+        )
+      conditional_reference_agent = _make_full_horizon_deployed_planner_agent(
+          agent,
+          int(horizon_state.hmax),
+      )
+      _, _, conditional_reference_metrics = dense_checkpoint_eval(
+          agent=conditional_reference_agent,
+          replay_batch=calibration_batch,
+          eval_state=dense_query_eval_state,
+          horizon_state=reference_horizon_state,
+          rng=jax.random.PRNGKey(
+              int(cfg.seed) + int(global_step) + 110_000
+          ),
+          env_eval_steps=int(
+              cfg.reference_probe.conditional_reference_env_eval_steps
+          ),
+          query_step=int(global_step),
+          dense_query_kernels=dense_conditional_reference_kernels,
+      )
+      for metric_name, metric_value in conditional_reference_metrics.items():
+        if isinstance(metric_value, str):
+          continue
+        writer.scalar(
+            f'conditional_reference_probe/{metric_name}',
+            float(metric_value),
+            int(global_step),
+        )
+      writer.scalar('reference_probe/completed', 1.0, int(global_step))
+      writer.flush()
+      completed_reference_probe_steps.add(int(global_step))
+
     if global_step >= seed_steps and global_step >= next_log_step:
       for k, stats in train_info_accumulator.items():
         mean = stats['sum'] / max(stats['count'], 1)
@@ -1290,6 +2055,7 @@ def _run_mjx_training_loop(cfg,
           horizon=int(selected_horizon),
           num_episodes=int(eval_config.num_episodes),
           steps_per_episode=int(periodic_eval_env._metadata.episode_length),
+          global_transition_step=int(global_step),
           key=jax.random.PRNGKey(global_step + 20_000 + cfg.seed),
       )
       utility_eval_metrics = _update_deployment_utility_from_eval(
@@ -1306,6 +2072,17 @@ def _run_mjx_training_loop(cfg,
       writer.scalar('system/heartbeat', 1.0, global_step)
       writer.flush()
       last_eval_step = int(global_step)
+
+    if (
+        artifact_callback is not None and
+        int(global_step) in artifact_anchor_steps
+    ):
+      artifact_callback(
+          agent=agent,
+          global_step=int(global_step),
+          selected_horizon=int(selected_horizon),
+          horizon_state=horizon_state,
+      )
 
   pbar.close()
   writer.flush()
@@ -1359,13 +2136,17 @@ def _run_periodic_eval(eval_env,
                        horizon: int,
                        num_episodes: int,
                        steps_per_episode: int,
-                       key: jax.Array):
-  returns = eval_env.run_eval_chunk(
-      agent=agent,
-      horizon=int(horizon),
-      key=key,
-      steps_per_episode=int(steps_per_episode),
-  )
+                       key: jax.Array,
+                       global_transition_step: int = 0):
+  eval_kwargs = {
+      'agent': agent,
+      'horizon': int(horizon),
+      'key': key,
+      'steps_per_episode': int(steps_per_episode),
+  }
+  if hasattr(eval_env, 'action_delay_schedule_enabled'):
+    eval_kwargs['global_transition_step'] = int(global_transition_step)
+  returns = eval_env.run_eval_chunk(**eval_kwargs)
   returns_np = np.asarray(returns, dtype=np.float32).reshape(-1)[:int(num_episodes)]
   return {
       'eval/return_mean': float(np.mean(returns_np)),
@@ -1388,6 +2169,19 @@ def train(cfg: dict):
   # Logger setup
   ##############################
   output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+  default_artifact_capture = (
+      str(cfg['env'].backend) == 'mjx_dmc' and
+      str(cfg['env'].mjx_dmc.task) == 'cartpole-swingup'
+  )
+  artifact_capture_enabled = bool(
+      cfg.get('artifact_capture_enabled', default_artifact_capture)
+  )
+  artifact_anchor_enabled = bool(
+      cfg.get('artifact_anchor_enabled', default_artifact_capture)
+  )
+  artifact_anchor_steps = (
+      _artifact_anchor_steps(cfg) if artifact_anchor_enabled else ()
+  )
   tb_writer = None
   if tensorboard is not None:
     tb_writer = tensorboard.SummaryWriter(os.path.join(output_dir, 'tensorboard'))
@@ -1422,6 +2216,9 @@ def train(cfg: dict):
   # Environment setup
   ##############################
   periodic_eval_env = None
+  inspection_delay0_env = None
+  inspection_delay4_env = None
+  dense_reference_eval_env = None
 
   def make_env(env_config, seed):
     def make_gym_env(env_id, seed):
@@ -1456,6 +2253,22 @@ def train(cfg: dict):
           cfg.seed + 10_000,
           num_envs=dense_rhs_config.num_env_eval_replicas,
       )
+    reference_probe_config = cfg.get('reference_probe', None)
+    if (
+        dense_rhs_config.enabled and
+        reference_probe_config is not None and
+        bool(reference_probe_config.get('enabled', False))
+    ):
+      dense_reference_eval_config = _make_mjx_eval_env_config(
+          env_config,
+          num_envs=int(reference_probe_config.num_env_eval_replicas),
+          clean=True,
+      )
+      dense_reference_eval_env = make_mjx_dmc_env(
+          dense_reference_eval_config,
+          cfg.seed + 11_000,
+          num_envs=int(reference_probe_config.num_env_eval_replicas),
+      )
     if eval_config is not None and bool(eval_config.enabled):
       periodic_eval_env_config = _make_mjx_eval_env_config(
           env_config,
@@ -1466,6 +2279,36 @@ def train(cfg: dict):
           periodic_eval_env_config,
           cfg.seed + 20_000,
           num_envs=int(eval_config.num_episodes),
+      )
+    if artifact_capture_enabled and artifact_anchor_steps:
+      inspection_delay0_env_config = _make_mjx_eval_env_config(
+          env_config,
+          num_envs=2,
+          clean=True,
+      )
+      inspection_delay4_env_config = OmegaConf.create(
+          OmegaConf.to_container(
+              inspection_delay0_env_config,
+              resolve=True,
+          )
+      )
+      for challenge_config, delay in (
+          (inspection_delay0_env_config, 0),
+          (inspection_delay4_env_config, 4),
+      ):
+        challenge_config.mjx_dmc.base_action_delay = delay
+        challenge_config.mjx_dmc.action_delay_schedule_enabled = False
+        challenge_config.mjx_dmc.action_delay_observation_enabled = True
+        challenge_config.mjx_dmc.reset_pool_size = 2
+      inspection_delay0_env = make_mjx_dmc_env(
+          inspection_delay0_env_config,
+          314_159,
+          num_envs=2,
+      )
+      inspection_delay4_env = make_mjx_dmc_env(
+          inspection_delay4_env_config,
+          314_159,
+          num_envs=2,
       )
   else:
     if env_config.asynchronous:
@@ -1479,6 +2322,7 @@ def train(cfg: dict):
         ]
     )
     dense_rhs_eval_env = None
+    dense_reference_eval_env = None
   dense_query_eval_state = None
   if dense_rhs_config.enabled:
     dense_query_eval_state = dense_rhs_eval_env if bool(dense_rhs_config.env_eval_enabled) else None
@@ -1570,11 +2414,22 @@ def train(cfg: dict):
   initial_horizon = int(tdmpc_config.horizon)
   if dense_rhs_config.enabled:
     initial_horizon = int(dense_rhs_config.get('initial_horizon', initial_horizon))
+  scripted_schedule = _scripted_horizon_schedule(cfg)
+  if scripted_schedule:
+    if dense_rhs_config.enabled:
+      raise ValueError('scripted_horizon and dense_rhs cannot both be enabled.')
+    initial_horizon = _scripted_horizon_at_step(
+        scripted_schedule,
+        0,
+        initial_horizon,
+    )
   horizon_buckets = (
       _horizon_buckets_from_config(dense_rhs_config)
       if dense_rhs_config.enabled else ()
   )
   planning_hmax = _bucket_for_horizon(initial_horizon, horizon_buckets)
+  if scripted_schedule:
+    planning_hmax = max(horizon for _, horizon in scripted_schedule)
   agent = TDMPC2.create(
       world_model=model,
       planning_hmax=planning_hmax,
@@ -1586,6 +2441,8 @@ def train(cfg: dict):
   horizon_state = None
   selected_horizon = int(tdmpc_config.horizon)
   dense_query_kernels = None
+  dense_reference_kernels = None
+  dense_conditional_reference_kernels = None
   if dense_rhs_config.enabled:
     horizon_state = HorizonSearchState.create(
         horizons=dense_rhs_config.horizons,
@@ -1594,7 +2451,33 @@ def train(cfg: dict):
         start_query_step=dense_rhs_config.get('start_query_step', None),
         initial_horizon=initial_horizon,
         roughness_probe=str(dense_rhs_config.roughness_probe),
+        num_roughness_probes=int(
+            dense_rhs_config.get('num_roughness_probes', 2)
+        ),
+        score_mode=str(
+            dense_rhs_config.get('score_mode', 'legacy_multiplicative')
+        ),
+        additive_return_scale=float(
+            dense_rhs_config.get('additive_return_scale', 1.0)
+        ),
+        additive_return_std_scale=float(
+            dense_rhs_config.get('additive_return_std_scale', 1.0)
+        ),
+        additive_log_roughness_scale=float(
+            dense_rhs_config.get('additive_log_roughness_scale', 1.0)
+        ),
+        score_evidence_floor=float(
+            dense_rhs_config.get('score_evidence_floor', 1e-6)
+        ),
+        decision_rule=str(dense_rhs_config.get('decision_rule', 'legacy')),
+        confidence_z=float(dense_rhs_config.get('confidence_z', 1.6448536)),
+        switch_threshold=float(
+            dense_rhs_config.get('switch_threshold', 0.0)
+        ),
         robust_return=str(dense_rhs_config.robust_return),
+        phase_pruning_enabled=bool(
+            dense_rhs_config.get('phase_pruning_enabled', True)
+        ),
         phase_min_samples_to_drop=int(dense_rhs_config.phase_min_samples_to_drop),
         candidate_budget=dense_rhs_config.candidate_budget,
         selection_return_power=float(dense_rhs_config.selection_return_power),
@@ -1642,7 +2525,31 @@ def train(cfg: dict):
         env_eval_steps=int(dense_rhs_config.env_eval_steps),
         candidate_budgets=horizon_state.candidate_budget,
     )
+    if dense_reference_eval_env is not None:
+      reference_candidate_slots = int(horizon_state.horizons.shape[0])
+      dense_reference_kernels = build_dense_query_kernels(
+          eval_state=dense_reference_eval_env,
+          env_eval_steps=int(cfg.reference_probe.env_eval_steps),
+          candidate_budgets=(reference_candidate_slots,),
+      )
+      dense_conditional_reference_kernels = build_dense_query_kernels(
+          eval_state=dense_query_eval_state,
+          env_eval_steps=int(
+              cfg.reference_probe.conditional_reference_env_eval_steps
+          ),
+          candidate_budgets=(reference_candidate_slots,),
+      )
   global_step = 0
+  inspection_rollout_fns = {}
+  for condition, inspection_env in (
+      ('delay0', inspection_delay0_env),
+      ('delay4', inspection_delay4_env),
+  ):
+    if inspection_env is not None:
+      inspection_rollout_fns[condition] = build_mjx_inspection_rollout_fn(
+          inspection_env,
+          steps_per_episode=int(inspection_env._metadata.episode_length),
+      )
 
   options = ocp.CheckpointManagerOptions(
       max_to_keep=1, save_interval_steps=cfg['save_interval_steps']
@@ -1654,11 +2561,50 @@ def train(cfg: dict):
     item_names.append('buffer_state')
   if horizon_state is not None:
     item_names.append('horizon_state')
-  with ocp.CheckpointManager(
-      checkpoint_path,
-      options=options,
-      item_names=tuple(item_names)
-  ) as mngr:
+  anchor_item_names = ['agent', 'metadata']
+  if horizon_state is not None:
+    anchor_item_names.append('horizon_state')
+  anchor_options = ocp.CheckpointManagerOptions(
+      max_to_keep=None,
+      save_interval_steps=1,
+  )
+  anchor_checkpoint_path = os.path.join(
+      output_dir,
+      'artifacts',
+      'anchor_checkpoints',
+  )
+  with ExitStack() as checkpoint_stack:
+    mngr = checkpoint_stack.enter_context(
+        ocp.CheckpointManager(
+            checkpoint_path,
+            options=options,
+            item_names=tuple(item_names),
+        )
+    )
+    anchor_mngr = checkpoint_stack.enter_context(
+        ocp.CheckpointManager(
+            anchor_checkpoint_path,
+            options=anchor_options,
+            item_names=tuple(anchor_item_names),
+        )
+    )
+
+    def save_artifact_anchor(*,
+                             agent,
+                             global_step: int,
+                             selected_horizon: int,
+                             horizon_state=None):
+      _save_anchor_artifacts(
+          cfg=cfg,
+          output_dir=output_dir,
+          anchor_mngr=anchor_mngr,
+          agent=agent,
+          global_step=global_step,
+          selected_horizon=selected_horizon,
+          horizon_state=horizon_state,
+          inspection_rollout_fns=inspection_rollout_fns,
+      )
+
     buffer_state = replay_buffer.get_state()
     if mngr.latest_step() is not None:
       print('Checkpoint folder found, restoring from', mngr.latest_step())
@@ -1697,14 +2643,30 @@ def train(cfg: dict):
       mngr.save(global_step, args=ocp.args.Composite(**save_args))
       mngr.wait_until_finished()
     last_saved_step = int(global_step)
+    if int(global_step) in artifact_anchor_steps:
+      save_artifact_anchor(
+          agent=agent,
+          global_step=int(global_step),
+          selected_horizon=int(selected_horizon),
+          horizon_state=horizon_state,
+      )
 
     ##############################
     # Training loop
     ##############################
-    ep_count = np.zeros(env_config.num_envs, dtype=int)
+    ep_count = writer.next_episode_indices(env_config.num_envs)
     prev_logged_step = global_step
     plan = None
-    observation, _ = env.reset(seed=cfg.seed)
+    if env_config.backend == 'mjx_dmc':
+      if hasattr(env, 'action_delay_schedule_enabled'):
+        observation, _ = env.reset(
+            seed=cfg.seed,
+            global_transition_step=int(global_step),
+        )
+      else:
+        observation, _ = env.reset(seed=cfg.seed)
+    else:
+      observation, _ = env.reset(seed=cfg.seed)
 
     T = 500
     seed_steps_override = cfg.get('seed_steps_override', None)
@@ -1774,16 +2736,24 @@ def train(cfg: dict):
           env,
           periodic_eval_env,
           dense_query_eval_state,
+          dense_reference_eval_env,
           agent,
           buffer_state,
           writer,
           mngr,
           global_step,
           last_saved_step,
+          output_dir=output_dir,
           seed_steps=seed_steps,
           update_chunk_size=update_chunk_size,
           horizon_state=horizon_state,
           dense_query_kernels=dense_query_kernels,
+          dense_reference_kernels=dense_reference_kernels,
+          dense_conditional_reference_kernels=(
+              dense_conditional_reference_kernels
+          ),
+          artifact_anchor_steps=artifact_anchor_steps,
+          artifact_callback=save_artifact_anchor,
       )
       writer.close()
       return

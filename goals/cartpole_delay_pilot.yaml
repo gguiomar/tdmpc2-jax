@@ -1,0 +1,197 @@
+{
+  "name": "cartpole_delay_pilot",
+  "description": "Seven-profile MJX Cartpole pilot: six delay-intervention runs comparing additive, multiplicative, and scripted horizon control across two seeds, plus one matched fixed-h3 delay-intervention control.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-cartpole-delay",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-cartpole-delay-pilot",
+    "branch": "ggmar/cartpole-delay-pilot"
+  },
+  "tracking": {
+    "ledger": "experiments/cartpole_delay_pilot_ledger.csv",
+    "decisions": "experiments/cartpole_delay_pilot_decisions.md",
+    "results_dir": "runs/results/cartpole_delay_pilot",
+    "remote_run_dir_prefix": "outputs/cartpole_delay_pilot"
+  },
+  "constraints": {
+    "expected_profiles": 7,
+    "max_active_gpus": 4,
+    "physical_gpu_free_util_pct": 10,
+    "physical_gpu_free_mem_mib": 1024,
+    "max_retries": 2,
+    "active_job_name_filter": "cpdelay-",
+    "require_clean_local_git": true,
+    "require_clean_remote_git": true,
+    "require_remote_commit_match": true,
+    "require_cpu_tests": true,
+    "require_gpu_smoke": true,
+    "require_egl_render_smoke": true,
+    "full_run_steps": 500000
+  },
+  "shared": {
+    "env_id": "cartpole-swingup",
+    "max_steps": 500000,
+    "save_interval_steps": 50000,
+    "checkpoint_anchor_steps": [0, 100000, 150000, 250000, 350000, 450000, 500000],
+    "eval_interval_steps": 50000,
+    "eval_num_episodes": 20,
+    "train_num_envs": 8,
+    "task": "cartpole-swingup",
+    "action_repeat": 2,
+    "episode_length": 500,
+    "domain_randomization": false,
+    "observation_noise": false,
+    "base_action_delay": 0,
+    "action_delay_schedule_enabled": true,
+    "action_delay_observation_enabled": true,
+    "seed_steps_override": 4000,
+    "update_chunk_size": 128,
+    "collect_chunk_steps": 100,
+    "utd_ratio": 1.0,
+    "reset_pool_size": 64,
+    "horizons": [2, 3, 4, 5, 6, 7, 8],
+    "initial_adaptive_horizon": 8,
+    "query_start_step": 20000,
+    "query_interval_steps": 20000,
+    "roughness_probes": 64,
+    "roughness_nested_counts": [2, 4, 8, 16, 32, 64],
+    "return_replicas": 32,
+    "return_reference_replicas": 128,
+    "return_reference_eval_steps": 256,
+    "conditional_return_reference_replicas": 32,
+    "conditional_return_reference_eval_steps": 500,
+    "return_nested_counts": [8, 16, 32, 64, 128],
+    "score_scales": {
+      "additive_return": 50.0,
+      "additive_return_std": 50.0,
+      "additive_log_roughness": 1.0
+    },
+    "decision_rule": "paired_lcb",
+    "confidence_z": 1.6448536,
+    "switch_threshold": 0.02,
+    "phase_pruning_enabled": false,
+    "local_window_radius": 1,
+    "max_transition_delta": 1,
+    "candidate_budget": {"A": 3, "B1": 3, "B2": 3, "B3": 3, "B4": 3},
+    "robust_return": "mean",
+    "score_weights": {"return": 1.0, "roughness": 1.0, "return_std": 1.0},
+    "transition_cost_scale": 0.0,
+    "env_eval_steps": 256,
+    "query_planner": {
+      "population": 256,
+      "policy_prior": 12,
+      "elites": 32,
+      "mppi_iterations": 4,
+      "temperature": 0.5
+    },
+    "training_planner": {
+      "population": 512,
+      "policy_prior": 24,
+      "elites": 64,
+      "mppi_iterations": 6,
+      "temperature": 0.5
+    },
+    "delay_max": 4,
+    "delay_schedule_steps": [0, 150000, 350000, 500001],
+    "delay_schedule_values": [0, 4, 0],
+    "gif_anchor_steps": [0, 100000, 150000, 250000, 350000, 450000, 500000]
+  },
+  "gates": {
+    "status_file": "runs/results/cartpole_delay_pilot/gates.json",
+    "required": ["cpu_tests", "gpu_smoke", "egl_render_smoke"],
+    "full_launch_ready": false
+  },
+  "profiles": [
+    {
+      "priority": 1,
+      "run_id": "cpdelay__additive__s1",
+      "controller": "adaptive",
+      "score_mode": "additive",
+      "seed": 1,
+      "initial_horizon": 8,
+      "probe_timing": true,
+      "reference_probe": true,
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 2,
+      "run_id": "cpdelay__multiplicative__s1",
+      "controller": "adaptive",
+      "score_mode": "multiplicative",
+      "seed": 1,
+      "initial_horizon": 8,
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 3,
+      "run_id": "cpdelay__scripted__s1",
+      "controller": "scripted",
+      "score_mode": "none",
+      "seed": 1,
+      "initial_horizon": 3,
+      "horizon_schedule": "0:3,150000:7,350000:3",
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 4,
+      "run_id": "cpdelay__additive__s23",
+      "controller": "adaptive",
+      "score_mode": "additive",
+      "seed": 23,
+      "initial_horizon": 8,
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 5,
+      "run_id": "cpdelay__multiplicative__s23",
+      "controller": "adaptive",
+      "score_mode": "multiplicative",
+      "seed": 23,
+      "initial_horizon": 8,
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 6,
+      "run_id": "cpdelay__scripted__s23",
+      "controller": "scripted",
+      "score_mode": "none",
+      "seed": 23,
+      "initial_horizon": 3,
+      "horizon_schedule": "0:3,150000:7,350000:3",
+      "delay_schedule": "0:0,150000:4,350000:0"
+    },
+    {
+      "priority": 7,
+      "run_id": "cpdelay__fixed_h3_delay__s1",
+      "controller": "fixed",
+      "score_mode": "none",
+      "seed": 1,
+      "initial_horizon": 3,
+      "delay_schedule": "0:0,150000:4,350000:0",
+      "augment_delay_observation": true
+    }
+  ],
+  "success": {
+    "reference_fixed_h3_mean": 873.402,
+    "reference_fixed_h3_sample_sd": 8.648,
+    "reference_source": "retained six-seed JAX Cartpole fixed-h3 results",
+    "required_terminal_profiles": 7,
+    "required_artifacts_per_profile": [
+      "metrics/scalars.csv",
+      "metrics/episodes.csv",
+      "artifacts/run_manifest.json",
+      "artifacts/gifs/index.json"
+    ],
+    "adaptive_required_artifacts": [
+      "metrics/horizon_queries.csv",
+      "metrics/probe_calibration.csv",
+      "metrics/paired_returns.npz"
+    ],
+    "calibration_profile_required_artifacts": [
+      "metrics/probe_timing.csv",
+      "metrics/return_probe_calibration.csv",
+      "metrics/roughness_bootstrap.csv",
+      "metrics/conditional_return_reference.csv"
+    ]
+  }
+}

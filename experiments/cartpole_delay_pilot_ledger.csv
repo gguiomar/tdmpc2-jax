@@ -1,0 +1,1 @@
+timestamp,event_type,run_id,controller,score_mode,seed,job_id,attempt,status,slurm_state,exit_code,failure_class,git_commit,config_hash,remote_run_dir,final_eval_mean,final_eval_std,gifs_valid,probe_artifacts_valid,notes

@@ -165,3 +165,5 @@ cython_debug/
 .history/
 .hydra/
 outputs/
+runs/results/cartpole_delay_pilot/gates.json
+runs/results/cartpole_delay_pilot/.steward.lock

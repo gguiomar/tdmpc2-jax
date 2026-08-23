@@ -30,6 +30,138 @@ except Exception:  # pragma: no cover - runtime dependency
 EPS = 1e-6
 DEFAULT_VALUE_AT_MARGIN = 0.1
 
+# Cartpole delay-pilot constants. The queue shape is intentionally fixed so a
+# phase change does not trigger a JAX recompilation or change the observation
+# shape. Queue rows are ordered from oldest to newest:
+# (a_{t-4}, a_{t-3}, a_{t-2}, a_{t-1}).
+CARTPOLE_ACTION_DELAY_MAX = 4
+CARTPOLE_ACTION_DELAY_START_STEP = 150_000
+CARTPOLE_ACTION_DELAY_END_STEP = 350_000
+
+
+def cartpole_action_delay(global_transition_step: jax.Array) -> jax.Array:
+  """Returns the pilot's 0 -> 4 -> 0 delay at a collected-transition step."""
+  step = jnp.asarray(global_transition_step, dtype=jnp.int32)
+  delayed_phase = jnp.logical_and(
+      step >= CARTPOLE_ACTION_DELAY_START_STEP,
+      step < CARTPOLE_ACTION_DELAY_END_STEP,
+  )
+  return jnp.where(
+      delayed_phase,
+      jnp.asarray(CARTPOLE_ACTION_DELAY_MAX, dtype=jnp.int32),
+      jnp.asarray(0, dtype=jnp.int32),
+  )
+
+
+def make_action_delay_queue(leading_shape: Tuple[int, ...],
+                            action_dim: int) -> jax.Array:
+  """Creates an empty, statically shaped d_max=4 action history."""
+  return jnp.zeros(
+      tuple(leading_shape) + (CARTPOLE_ACTION_DELAY_MAX, int(action_dim)),
+      dtype=jnp.float32,
+  )
+
+
+def make_global_transition_steps(global_transition_step: jax.Array,
+                                 leading_shape: Tuple[int, ...],
+                                 num_envs: int) -> jax.Array:
+  """Maps a batch's first global step to one transition index per replica."""
+  leading_shape = tuple(leading_shape)
+  step = jnp.asarray(global_transition_step, dtype=jnp.int32)
+  if step.shape == leading_shape:
+    return step
+  if step.ndim != 0:
+    return jnp.broadcast_to(step, leading_shape)
+  if not leading_shape:
+    return step
+  if leading_shape[-1] != int(num_envs):
+    return jnp.full(leading_shape, step, dtype=jnp.int32)
+  offsets = jnp.arange(int(num_envs), dtype=jnp.int32).reshape(
+      (1,) * (len(leading_shape) - 1) + (int(num_envs),)
+  )
+  return jnp.broadcast_to(step + offsets, leading_shape)
+
+
+def action_delay_queue_step(delayed_actions: jax.Array,
+                            issued_action: jax.Array,
+                            effective_delay: jax.Array) -> Tuple[jax.Array, jax.Array]:
+  """Selects a delayed action and appends the issued action to the FIFO.
+
+  ``delayed_actions`` has shape ``(4, action_dim)`` and contains the four
+  commands preceding ``issued_action``. Delay zero therefore applies the
+  current command, while delay ``d`` in ``1..4`` applies row ``-d``. The queue
+  advances for every delay, including zero, so switching to delay four exposes
+  the actual action history instead of four artificial zero-action steps.
+  """
+  delay = jnp.clip(
+      jnp.asarray(effective_delay, dtype=jnp.int32),
+      0,
+      CARTPOLE_ACTION_DELAY_MAX,
+  )
+  safe_delay = jnp.maximum(delay, 1)
+  queued_index = CARTPOLE_ACTION_DELAY_MAX - safe_delay
+  queued_action = jax.lax.dynamic_index_in_dim(
+      delayed_actions,
+      queued_index,
+      axis=0,
+      keepdims=False,
+  )
+  applied_action = jnp.where(delay == 0, issued_action, queued_action)
+  next_queue = jnp.concatenate(
+      [delayed_actions[1:], issued_action[None, :]],
+      axis=0,
+  )
+  return applied_action, next_queue
+
+
+def augment_observation_with_action_delay(observation: jax.Array,
+                                          delayed_actions: jax.Array,
+                                          effective_delay: jax.Array) -> jax.Array:
+  """Appends the full action history and normalized current delay."""
+  queue = delayed_actions.reshape(observation.shape[:-1] + (-1,))
+  normalized_delay = (
+      jnp.asarray(effective_delay, dtype=observation.dtype) /
+      float(CARTPOLE_ACTION_DELAY_MAX)
+  )
+  return jnp.concatenate(
+      [observation, queue, normalized_delay[..., None]],
+      axis=-1,
+  )
+
+
+def action_delay_observation_dim(observation_dim: int,
+                                 action_dim: int,
+                                 enabled: bool) -> int:
+  """Returns the stable observation size for pilot or canonical control."""
+  if not enabled:
+    return int(observation_dim)
+  return int(observation_dim) + CARTPOLE_ACTION_DELAY_MAX * int(action_dim) + 1
+
+
+def broadcast_candidate_axis(value: jax.Array,
+                             num_candidates: int) -> jax.Array:
+  """Adds a candidate axis without changing any replica values."""
+  return jnp.broadcast_to(
+      value,
+      (int(num_candidates),) + value.shape,
+  )
+
+
+def paired_candidate_keys(key: jax.Array,
+                          num_candidates: int) -> jax.Array:
+  """Returns identical PRNG keys so horizon candidates use common draws."""
+  return broadcast_candidate_axis(key, num_candidates)
+
+
+def mask_paired_candidate_returns(candidate_returns: jax.Array,
+                                  candidate_mask: jax.Array) -> jax.Array:
+  """Zeros padded candidate slots while preserving active replica order."""
+  return jnp.where(
+      jnp.asarray(candidate_mask, dtype=bool)[:, None],
+      candidate_returns,
+      0.0,
+  )
+
 
 TASK_DOMAIN = {
     'cup-catch': ('ball_in_cup', 'catch'),
@@ -108,6 +240,8 @@ class MJXDMCBatchState:
   episode_step: jax.Array
   return_so_far: jax.Array
   length_so_far: jax.Array
+  global_transition_step: jax.Array
+  effective_action_delay: jax.Array
   delayed_actions: jax.Array
   last_action: jax.Array
   obs_noise_scale: jax.Array
@@ -613,6 +747,8 @@ class MJXDMCBatchEnv:
                enable_domain_randomization: bool = True,
                enable_observation_noise: bool = True,
                base_action_delay: int = 1,
+               action_delay_schedule_enabled: bool = False,
+               action_delay_observation_enabled: bool = False,
                action_repeat_dt: Optional[float] = None,
                wind_scale: float = 5.0,
                push_scale: float = 25.0,
@@ -632,11 +768,31 @@ class MJXDMCBatchEnv:
     self.enable_observation_noise = bool(enable_observation_noise)
     self.observation_noise_scale = float(observation_noise_scale)
     self.base_action_delay = int(base_action_delay)
+    self.action_delay_schedule_enabled = bool(action_delay_schedule_enabled)
+    self.action_delay_observation_enabled = bool(action_delay_observation_enabled)
     self.wind_scale = float(wind_scale)
     self.push_scale = float(push_scale)
     self.slip_scale = float(slip_scale)
     self.jitter_prob = float(jitter_prob)
     self.reset_pool_size = int(reset_pool_size)
+    if not 0 <= self.base_action_delay <= CARTPOLE_ACTION_DELAY_MAX:
+      raise ValueError(
+          'base_action_delay must be in '
+          f'[0, {CARTPOLE_ACTION_DELAY_MAX}], got {self.base_action_delay}.'
+      )
+    if self.action_delay_schedule_enabled and task != 'cartpole-swingup':
+      raise ValueError(
+          'The 0 -> 4 -> 0 action-delay schedule is defined only for '
+          "task='cartpole-swingup'."
+      )
+    if (
+        self.action_delay_schedule_enabled and
+        not self.action_delay_observation_enabled
+    ):
+      raise ValueError(
+          'action_delay_observation_enabled must be true when the dynamic '
+          'action-delay schedule is enabled, so the process remains Markov.'
+      )
 
     domain, _ = _parse_task(task)
     self._mj_model = _load_model(domain)
@@ -660,10 +816,15 @@ class MJXDMCBatchEnv:
         dtype=np.float32,
     )
     self.single_action_space = self.action_space
+    observation_dim = action_delay_observation_dim(
+        self._metadata.observation_dim,
+        self._metadata.action_dim,
+        self.action_delay_observation_enabled,
+    )
     self.observation_space = gym.spaces.Box(
         low=-np.inf,
         high=np.inf,
-        shape=(self._metadata.observation_dim,),
+        shape=(observation_dim,),
         dtype=np.float32,
     )
     self.single_observation_space = self.observation_space
@@ -741,10 +902,28 @@ class MJXDMCBatchEnv:
         'target_radius': jnp.take(self._reset_pool['target_radius'], indices, axis=0),
     }
 
-  def _make_state(self, key: jax.Array, leading_shape: Tuple[int, ...]) -> MJXDMCBatchState:
+  def _effective_action_delay(self,
+                              global_transition_step: jax.Array) -> jax.Array:
+    if self.action_delay_schedule_enabled:
+      return cartpole_action_delay(global_transition_step)
+    return jnp.full_like(
+        jnp.asarray(global_transition_step, dtype=jnp.int32),
+        self.base_action_delay,
+        dtype=jnp.int32,
+    )
+
+  def _make_state(self,
+                  key: jax.Array,
+                  leading_shape: Tuple[int, ...],
+                  global_transition_step: jax.Array = 0) -> MJXDMCBatchState:
     reset_key, data_key, noise_key = jax.random.split(key, 3)
     reset_params = self._sample_reset_params_jax(reset_key, leading_shape)
     reset = self._sample_reset(data_key, leading_shape)
+    global_transition_steps = make_global_transition_steps(
+        global_transition_step,
+        leading_shape,
+        self.num_envs,
+    )
     zeros_action = jnp.zeros(leading_shape + (self._metadata.action_dim,), dtype=jnp.float32)
     return MJXDMCBatchState(
         model=self._mjx_model,
@@ -753,9 +932,13 @@ class MJXDMCBatchEnv:
         episode_step=jnp.zeros(leading_shape, dtype=jnp.int32),
         return_so_far=jnp.zeros(leading_shape, dtype=jnp.float32),
         length_so_far=jnp.zeros(leading_shape, dtype=jnp.int32),
-        delayed_actions=jnp.zeros(
-            leading_shape + (max(self.base_action_delay, 1), self._metadata.action_dim),
-            dtype=jnp.float32,
+        global_transition_step=global_transition_steps,
+        effective_action_delay=self._effective_action_delay(
+            global_transition_steps
+        ),
+        delayed_actions=make_action_delay_queue(
+            leading_shape,
+            self._metadata.action_dim,
         ),
         last_action=zeros_action,
         obs_noise_scale=reset_params['obs_noise_scale'],
@@ -766,6 +949,35 @@ class MJXDMCBatchEnv:
         target_pos=reset['target_pos'],
         target_radius=reset['target_radius'],
         done=jnp.zeros(leading_shape, dtype=bool),
+    )
+
+  @staticmethod
+  def _broadcast_state_across_candidates(
+      state: MJXDMCBatchState,
+      num_candidates: int,
+  ) -> MJXDMCBatchState:
+    """Replicates one environment batch exactly across horizon candidates."""
+    repeat = partial(
+        broadcast_candidate_axis,
+        num_candidates=num_candidates,
+    )
+    return state.replace(
+        data=jax.tree.map(repeat, state.data),
+        episode_step=repeat(state.episode_step),
+        return_so_far=repeat(state.return_so_far),
+        length_so_far=repeat(state.length_so_far),
+        global_transition_step=repeat(state.global_transition_step),
+        effective_action_delay=repeat(state.effective_action_delay),
+        delayed_actions=repeat(state.delayed_actions),
+        last_action=repeat(state.last_action),
+        obs_noise_scale=repeat(state.obs_noise_scale),
+        actuator_strength=repeat(state.actuator_strength),
+        wind_force=repeat(state.wind_force),
+        push_force=repeat(state.push_force),
+        jitter_mask=repeat(state.jitter_mask),
+        target_pos=repeat(state.target_pos),
+        target_radius=repeat(state.target_radius),
+        done=repeat(state.done),
     )
 
   @staticmethod
@@ -787,6 +999,14 @@ class MJXDMCBatchEnv:
         episode_step=choose(old_state.episode_step, new_state.episode_step),
         return_so_far=choose(old_state.return_so_far, new_state.return_so_far),
         length_so_far=choose(old_state.length_so_far, new_state.length_so_far),
+        global_transition_step=choose(
+            old_state.global_transition_step,
+            new_state.global_transition_step,
+        ),
+        effective_action_delay=choose(
+            old_state.effective_action_delay,
+            new_state.effective_action_delay,
+        ),
         delayed_actions=choose(old_state.delayed_actions, new_state.delayed_actions),
         last_action=choose(old_state.last_action, new_state.last_action),
         obs_noise_scale=choose(old_state.obs_noise_scale, new_state.obs_noise_scale),
@@ -799,9 +1019,16 @@ class MJXDMCBatchEnv:
         done=choose(old_state.done, new_state.done),
     )
 
-  def reset(self, seed: Optional[int] = None):
+  def reset(self,
+            seed: Optional[int] = None,
+            *,
+            global_transition_step: int = 0):
     rng_key = jax.random.PRNGKey(self.seed if seed is None else int(seed))
-    self.state = self._make_state(rng_key, (self.num_envs,))
+    self.state = self._make_state(
+        rng_key,
+        (self.num_envs,),
+        global_transition_step=global_transition_step,
+    )
     obs_key, next_rng = jax.random.split(self.state.rng)
     self.state = self.state.replace(rng=next_rng)
     obs = self._observation(self.state, key=obs_key)
@@ -809,20 +1036,36 @@ class MJXDMCBatchEnv:
 
   def _observation(self,
                    state: MJXDMCBatchState,
-                   key: Optional[jax.Array] = None) -> jax.Array:
+                   key: Optional[jax.Array] = None,
+                   *,
+                   pair_candidate_noise: bool = False) -> jax.Array:
     obs = _compute_observation(
         state.data,
         self._metadata,
         state.target_pos,
         state.target_radius,
     )
-    if not self.enable_observation_noise:
-      return obs
-    noise_scale = jnp.reshape(state.obs_noise_scale, state.obs_noise_scale.shape + (1,))
-    if key is None:
-      key = state.rng
-    noise = jax.random.normal(key, shape=obs.shape) * noise_scale
-    return obs + noise
+    if self.enable_observation_noise:
+      noise_scale = jnp.reshape(
+          state.obs_noise_scale,
+          state.obs_noise_scale.shape + (1,),
+      )
+      if key is None:
+        key = state.rng
+      if pair_candidate_noise:
+        shared_noise = jax.random.normal(key, shape=obs.shape[1:])
+        noise = broadcast_candidate_axis(shared_noise, obs.shape[0])
+      else:
+        noise = jax.random.normal(key, shape=obs.shape)
+      noise = noise * noise_scale
+      obs = obs + noise
+    if self.action_delay_observation_enabled:
+      obs = augment_observation_with_action_delay(
+          obs,
+          state.delayed_actions,
+          state.effective_action_delay,
+      )
+    return obs
 
   def sample_actions(self) -> jax.Array:
     if self.state is None:
@@ -845,12 +1088,11 @@ class MJXDMCBatchEnv:
       return data, env_state, jnp.array(0.0, dtype=jnp.float32), jnp.array(False), jnp.array(True)
 
     def active_branch(_):
-      delayed_actions = env_state['delayed_actions']
-      if self.base_action_delay > 0:
-        action_to_apply = delayed_actions[0]
-        delayed_actions = jnp.concatenate([delayed_actions[1:], action[None, :]], axis=0)
-      else:
-        action_to_apply = action
+      action_to_apply, delayed_actions = action_delay_queue_step(
+          env_state['delayed_actions'],
+          action,
+          env_state['effective_action_delay'],
+      )
       raw_action_to_apply = jnp.where(env_state['jitter_mask'], env_state['last_action'], action_to_apply)
       ctrl_to_apply = _scale_action_to_ctrl(
           raw_action_to_apply * env_state['actuator_strength'],
@@ -893,10 +1135,17 @@ class MJXDMCBatchEnv:
       )
       step = env_state['episode_step'] + 1
       truncated = step >= self._metadata.episode_length
+      next_global_transition_step = (
+          env_state['global_transition_step'] + self.num_envs
+      )
       next_env_state = {
           'episode_step': step,
           'return_so_far': env_state['return_so_far'] + reward,
           'length_so_far': env_state['length_so_far'] + 1,
+          'global_transition_step': next_global_transition_step,
+          'effective_action_delay': self._effective_action_delay(
+              next_global_transition_step
+          ),
           'delayed_actions': delayed_actions,
           'last_action': raw_action_to_apply,
           'obs_noise_scale': env_state['obs_noise_scale'],
@@ -920,6 +1169,8 @@ class MJXDMCBatchEnv:
         'episode_step': state.episode_step.reshape((flat_size,)),
         'return_so_far': state.return_so_far.reshape((flat_size,)),
         'length_so_far': state.length_so_far.reshape((flat_size,)),
+        'global_transition_step': state.global_transition_step.reshape((flat_size,)),
+        'effective_action_delay': state.effective_action_delay.reshape((flat_size,)),
         'delayed_actions': state.delayed_actions.reshape((flat_size,) + state.delayed_actions.shape[len(leading_shape):]),
         'last_action': state.last_action.reshape((flat_size,) + state.last_action.shape[len(leading_shape):]),
         'obs_noise_scale': state.obs_noise_scale.reshape((flat_size,)),
@@ -944,6 +1195,12 @@ class MJXDMCBatchEnv:
         episode_step=next_state['episode_step'].reshape(leading_shape),
         return_so_far=next_state['return_so_far'].reshape(leading_shape),
         length_so_far=next_state['length_so_far'].reshape(leading_shape),
+        global_transition_step=next_state['global_transition_step'].reshape(
+            leading_shape
+        ),
+        effective_action_delay=next_state['effective_action_delay'].reshape(
+            leading_shape
+        ),
         delayed_actions=next_state['delayed_actions'].reshape(leading_shape + next_state['delayed_actions'].shape[1:]),
         last_action=next_state['last_action'].reshape(leading_shape + next_state['last_action'].shape[1:]),
         obs_noise_scale=next_state['obs_noise_scale'].reshape(leading_shape),
@@ -967,7 +1224,11 @@ class MJXDMCBatchEnv:
                            done_mask: jax.Array,
                            reset_key: jax.Array) -> MJXDMCBatchState:
     def do_reset(_):
-      reset_state = self._make_state(reset_key, tuple(done_mask.shape))
+      reset_state = self._make_state(
+          reset_key,
+          tuple(done_mask.shape),
+          global_transition_step=state.global_transition_step,
+      )
       return self._masked_replace(state, reset_state, done_mask)
 
     return jax.lax.cond(jnp.any(done_mask), do_reset, lambda _: state, operand=None)
@@ -1025,10 +1286,28 @@ class MJXDMCBatchEnv:
                          agent,
                          candidate_horizons: jax.Array,
                          key: jax.Array,
-                         steps_per_episode: int):
+                         steps_per_episode: int,
+                         global_transition_step: jax.Array = 0):
     num_candidates = int(candidate_horizons.shape[0])
     leading_shape = (num_candidates, self.num_envs)
-    init_state = self._make_state(key, leading_shape)
+    init_key, rollout_key = jax.random.split(key)
+    # Candidate evaluation is conditional on the intervention active at the
+    # supplied training step. Evaluation replicas do not themselves advance
+    # the training schedule, so every replica receives the same index here.
+    eval_global_steps = jnp.full(
+        (self.num_envs,),
+        jnp.asarray(global_transition_step, dtype=jnp.int32),
+        dtype=jnp.int32,
+    )
+    shared_init_state = self._make_state(
+        init_key,
+        (self.num_envs,),
+        global_transition_step=eval_global_steps,
+    )
+    init_state = self._broadcast_state_across_candidates(
+        shared_init_state,
+        num_candidates,
+    )
     init_plan = (
         jnp.zeros(
             leading_shape + (agent.planning_hmax, self._metadata.action_dim),
@@ -1056,8 +1335,12 @@ class MJXDMCBatchEnv:
       del step_idx
       state, plan, rng = carry
       rng, obs_key, action_key = jax.random.split(rng, 3)
-      obs = self._observation(state.replace(rng=obs_key))
-      candidate_keys = jax.random.split(action_key, num_candidates)
+      obs = self._observation(
+          state.replace(rng=obs_key),
+          key=obs_key,
+          pair_candidate_noise=True,
+      )
+      candidate_keys = paired_candidate_keys(action_key, num_candidates)
       actions, next_plan = jax.vmap(act_one_candidate, in_axes=(0, 0, 0, 0))(
           obs,
           plan,
@@ -1065,11 +1348,15 @@ class MJXDMCBatchEnv:
           candidate_keys,
       )
       next_state, reward, _, _ = self._step_state(state, actions)
+      next_state = next_state.replace(
+          global_transition_step=state.global_transition_step,
+          effective_action_delay=state.effective_action_delay,
+      )
       return (next_state, next_plan, rng), reward
 
     (_, _, _), rewards = jax.lax.scan(
         rollout_step,
-        (init_state, init_plan, key),
+        (init_state, init_plan, rollout_key),
         jnp.arange(steps_per_episode, dtype=jnp.int32),
     )
     returns = jnp.sum(rewards, axis=0)
@@ -1079,7 +1366,8 @@ class MJXDMCBatchEnv:
                                   agent,
                                   candidate_horizons: Sequence[int],
                                   key: jax.Array,
-                                  steps_per_episode: Optional[int] = None) -> Dict[int, Dict[str, float]]:
+                                  steps_per_episode: Optional[int] = None,
+                                  global_transition_step: int = 0) -> Dict[int, Dict[str, float]]:
     steps = int(steps_per_episode or self._metadata.episode_length)
     candidate_horizons = jnp.asarray(candidate_horizons, dtype=jnp.int32)
     return_mean, return_std = self.evaluate_candidate_horizons_dense(
@@ -1088,6 +1376,7 @@ class MJXDMCBatchEnv:
         candidate_mask=jnp.ones_like(candidate_horizons, dtype=bool),
         key=key,
         steps_per_episode=steps,
+        global_transition_step=global_transition_step,
     )
     return {
         int(horizon): {
@@ -1102,31 +1391,73 @@ class MJXDMCBatchEnv:
                                         candidate_horizons: jax.Array,
                                         candidate_mask: jax.Array,
                                         key: jax.Array,
-                                        steps_per_episode: Optional[int] = None):
+                                        steps_per_episode: Optional[int] = None,
+                                        global_transition_step: int = 0):
+    return_mean, return_std, _ = self.evaluate_candidate_horizons_dense_paired(
+        agent=agent,
+        candidate_horizons=candidate_horizons,
+        candidate_mask=candidate_mask,
+        key=key,
+        steps_per_episode=steps_per_episode,
+        global_transition_step=global_transition_step,
+    )
+    return return_mean, return_std
+
+  def evaluate_candidate_horizons_dense_paired(
+      self,
+      agent,
+      candidate_horizons: jax.Array,
+      candidate_mask: jax.Array,
+      key: jax.Array,
+      steps_per_episode: Optional[int] = None,
+      global_transition_step: int = 0,
+  ):
+    """Returns paired candidate statistics and replica-level returns.
+
+    The final array has shape ``(candidate_slots, num_envs)``. Masked padding
+    slots are zeroed in all three outputs; active slots preserve their paired
+    replica ordering for nested estimates and paired comparisons. The supplied
+    global step selects the action-delay phase, which remains fixed throughout
+    this conditional evaluation rollout.
+    """
     steps = int(steps_per_episode or self._metadata.episode_length)
     candidate_returns = self._candidate_rollout(
         agent=agent,
         candidate_horizons=jnp.asarray(candidate_horizons, dtype=jnp.int32),
         key=key,
         steps_per_episode=steps,
+        global_transition_step=jnp.asarray(
+            global_transition_step,
+            dtype=jnp.int32,
+        ),
     )
     return_mean = jnp.mean(candidate_returns, axis=-1)
     return_std = jnp.std(candidate_returns, axis=-1)
+    masked_returns = mask_paired_candidate_returns(
+        candidate_returns,
+        candidate_mask,
+    )
     return (
         jnp.where(candidate_mask, return_mean, 0.0),
         jnp.where(candidate_mask, return_std, 0.0),
+        masked_returns,
     )
 
   def run_eval_chunk(self,
                      agent,
                      horizon: int,
                      key: jax.Array,
-                     steps_per_episode: Optional[int] = None) -> jax.Array:
+                     steps_per_episode: Optional[int] = None,
+                     global_transition_step: int = 0) -> jax.Array:
     returns = self._candidate_rollout(
         agent=agent,
         candidate_horizons=jnp.asarray([horizon], dtype=jnp.int32),
         key=key,
         steps_per_episode=int(steps_per_episode or self._metadata.episode_length),
+        global_transition_step=jnp.asarray(
+            global_transition_step,
+            dtype=jnp.int32,
+        ),
     )
     return returns[0]
 
@@ -1163,6 +1494,12 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
       enable_domain_randomization=bool(cfg.enable_domain_randomization),
       enable_observation_noise=bool(cfg.enable_observation_noise),
       base_action_delay=int(cfg.base_action_delay),
+      action_delay_schedule_enabled=bool(
+          getattr(cfg, 'action_delay_schedule_enabled', False)
+      ),
+      action_delay_observation_enabled=bool(
+          getattr(cfg, 'action_delay_observation_enabled', False)
+      ),
       action_repeat_dt=getattr(cfg, 'action_repeat_dt', None),
       wind_scale=float(cfg.wind_scale),
       push_scale=float(cfg.push_scale),

@@ -14,6 +14,29 @@ update_chunk_size: 32
 collect_chunk_steps: 100
 seed_steps_override: null
 seed_pretrain_log_interval_updates: 512
+artifact_capture_enabled: false
+artifact_anchor_enabled: false
+artifact_anchor_steps: [0, 100000, 150000, 250000, 350000, 450000, 500000]
+artifact_run_id: null
+
+scripted_horizon:
+  enabled: false
+  schedule_steps: [0, 150000, 350000]
+  schedule_values: [3, 7, 3]
+
+probe_timing:
+  enabled: false
+  anchor_steps: [100000, 250000, 450000]
+  probe_counts: [0, 2, 4, 8, 16, 32, 64]
+  warmup_calls: 5
+  repetitions: 30
+
+reference_probe:
+  enabled: false
+  anchor_steps: [100000, 250000, 450000]
+  num_env_eval_replicas: 128
+  env_eval_steps: 256
+  conditional_reference_env_eval_steps: 500
 
 wandb:
   enabled: false
@@ -56,6 +79,17 @@ dense_rhs:
   horizons: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
   hmax: 30
   roughness_probe: projected_jvp
+  # Existing campaigns used two directions and the legacy normalised product.
+  # The Cartpole Delay pilot overrides the probe count and score/decision modes.
+  num_roughness_probes: 2
+  score_mode: legacy_multiplicative
+  additive_return_scale: 1.0
+  additive_return_std_scale: 1.0
+  additive_log_roughness_scale: 1.0
+  score_evidence_floor: 1e-6
+  decision_rule: legacy
+  confidence_z: 1.6448536
+  switch_threshold: 0.0
   robust_return: mean_minus_std
   selection_return_power: 1.0
   roughness_weight: 1.0
@@ -86,6 +120,7 @@ dense_rhs:
   transition_return_std_weight: 1.0
   transition_uncertainty_floor: 0.05
   horizon_buckets: []
+  phase_pruning_enabled: true
   phase_min_samples_to_drop: 3
   num_env_eval_replicas: 16
   env_eval_enabled: true
