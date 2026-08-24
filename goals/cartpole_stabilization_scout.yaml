@@ -1,0 +1,48 @@
+{
+  "name": "cartpole_stabilization_scout",
+  "description": "One clean 50k fixed-h3 Cartpole run with evaluations every 2.5k transitions to estimate when learning performance stabilizes before designing delay perturbations.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-cartpole-stabilization",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-cartpole-stabilization-scout",
+    "branch": "ggmar/cartpole-stabilization-scout"
+  },
+  "constraints": {
+    "expected_profiles": 1,
+    "max_active_gpus": 1,
+    "full_run_steps": 50000,
+    "slurm_only": true,
+    "require_clean_local_git": true,
+    "require_clean_remote_git": true,
+    "require_remote_commit_match": true
+  },
+  "profile": {
+    "run_id": "cpstability__fixed_h3_d0__s1",
+    "controller": "fixed",
+    "score_mode": "none",
+    "seed": 1,
+    "initial_horizon": 3,
+    "max_steps": 50000,
+    "seed_steps": 4000,
+    "evaluation_interval_steps": 2500,
+    "evaluation_episodes": 10,
+    "training_delay": 0,
+    "action_delay_schedule_enabled": false,
+    "artifact_anchor_steps": [0, 50000]
+  },
+  "analysis": {
+    "episode_equivalent": "transition_step / 500",
+    "final_window_points": 5,
+    "sustained_fraction_of_final": 0.95,
+    "sustained_points": 4,
+    "rolling_points": 5,
+    "max_window_cv": 0.02,
+    "max_relative_slope_per_1000": 0.005
+  },
+  "tracking": {
+    "ledger": "experiments/cartpole_stabilization_scout_ledger.csv",
+    "decisions": "experiments/cartpole_stabilization_scout_decisions.md",
+    "results_dir": "runs/results/cartpole_stabilization_scout",
+    "remote_run_dir": "outputs/cartpole_stabilization_scout/cpstability__fixed_h3_d0__s1/attempt_1"
+  }
+}
