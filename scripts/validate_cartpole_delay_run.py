@@ -21,6 +21,52 @@ ROUGHNESS_COUNTS = PROBE_COUNTS[1:]
 RETURN_COUNTS = (8, 16, 32, 64, 128)
 
 
+def contract_expectations(contract: str, min_steps: int) -> dict[str, object]:
+  """Return launcher settings that distinguish full, smoke, and scout runs."""
+  if contract == "auto":
+    contract = "smoke" if int(min_steps) < 500_000 else "full"
+  if contract not in {"full", "smoke", "stabilization"}:
+    raise ValueError(f"unsupported validation contract {contract!r}")
+  if contract == "smoke":
+    return {
+        "name": contract,
+        "save_interval_steps": 24_000,
+        "calibration_anchors": [20_000],
+        "timing_warmup_calls": 1,
+        "timing_repetitions": 2,
+        "reference_eval_steps": 32,
+        "conditional_reference_eval_steps": 32,
+        "action_delay_schedule_enabled": True,
+        "evaluation_interval_steps": 24_000,
+        "evaluation_num_episodes": 4,
+    }
+  if contract == "stabilization":
+    return {
+        "name": contract,
+        "save_interval_steps": 50_000,
+        "calibration_anchors": [100_000, 250_000, 450_000],
+        "timing_warmup_calls": 5,
+        "timing_repetitions": 30,
+        "reference_eval_steps": 256,
+        "conditional_reference_eval_steps": 500,
+        "action_delay_schedule_enabled": False,
+        "evaluation_interval_steps": 2_500,
+        "evaluation_num_episodes": 10,
+    }
+  return {
+      "name": contract,
+      "save_interval_steps": 50_000,
+      "calibration_anchors": [100_000, 250_000, 450_000],
+      "timing_warmup_calls": 5,
+      "timing_repetitions": 30,
+      "reference_eval_steps": 256,
+      "conditional_reference_eval_steps": 500,
+      "action_delay_schedule_enabled": True,
+      "evaluation_interval_steps": 50_000,
+      "evaluation_num_episodes": 20,
+  }
+
+
 def nonempty(path: Path) -> bool:
   return path.is_file() and path.stat().st_size > 0
 
@@ -80,7 +126,8 @@ def validate_resolved_config(config_path: Path,
                              min_steps: int,
                              anchors: tuple[int, ...],
                              require_probe_timing: bool,
-                             require_reference_probe: bool) -> list[str]:
+                             require_reference_probe: bool,
+                             contract: str = "auto") -> list[str]:
   """Checks the resolved Hydra config against the frozen pilot contract."""
   errors: list[str] = []
   if not nonempty(config_path):
@@ -91,14 +138,14 @@ def validate_resolved_config(config_path: Path,
   except Exception as exc:
     return [f"cannot load resolved Hydra config {config_path}: {exc}"]
 
-  smoke = int(min_steps) < 500_000
-  calibration_anchors = [20_000] if smoke else [100_000, 250_000, 450_000]
+  contract_values = contract_expectations(contract, min_steps)
+  calibration_anchors = contract_values["calibration_anchors"]
   expected: dict[str, object] = {
       "controller": controller,
       "score_mode": score_mode,
       "seed": seed,
       "max_steps": int(min_steps),
-      "save_interval_steps": 24_000 if smoke else 50_000,
+      "save_interval_steps": contract_values["save_interval_steps"],
       "checkpoint_buffer": True,
       "update_chunk_size": 128,
       "collect_chunk_steps": 100,
@@ -109,14 +156,14 @@ def validate_resolved_config(config_path: Path,
       "probe_timing.enabled": require_probe_timing,
       "probe_timing.anchor_steps": calibration_anchors,
       "probe_timing.probe_counts": list(PROBE_COUNTS),
-      "probe_timing.warmup_calls": 1 if smoke else 5,
-      "probe_timing.repetitions": 2 if smoke else 30,
+      "probe_timing.warmup_calls": contract_values["timing_warmup_calls"],
+      "probe_timing.repetitions": contract_values["timing_repetitions"],
       "reference_probe.enabled": require_reference_probe,
       "reference_probe.anchor_steps": calibration_anchors,
       "reference_probe.num_env_eval_replicas": 128,
-      "reference_probe.env_eval_steps": 32 if smoke else 256,
+      "reference_probe.env_eval_steps": contract_values["reference_eval_steps"],
       "reference_probe.conditional_reference_env_eval_steps": (
-          32 if smoke else 500
+          contract_values["conditional_reference_eval_steps"]
       ),
       "env.backend": "mjx_dmc",
       "env.env_id": "cartpole-swingup",
@@ -130,7 +177,9 @@ def validate_resolved_config(config_path: Path,
       "env.mjx_dmc.enable_observation_noise": False,
       "env.mjx_dmc.observation_noise_scale": 0.0,
       "env.mjx_dmc.base_action_delay": 0,
-      "env.mjx_dmc.action_delay_schedule_enabled": True,
+      "env.mjx_dmc.action_delay_schedule_enabled": (
+          contract_values["action_delay_schedule_enabled"]
+      ),
       "env.mjx_dmc.action_delay_observation_enabled": True,
       "env.mjx_dmc.reset_pool_size": 64,
       "dense_rhs.enabled": controller == "adaptive",
@@ -161,8 +210,8 @@ def validate_resolved_config(config_path: Path,
       "scripted_horizon.schedule_steps": [0, 150_000, 350_000],
       "scripted_horizon.schedule_values": [3, 7, 3],
       "evaluation.enabled": True,
-      "evaluation.interval_steps": 24_000 if smoke else 50_000,
-      "evaluation.num_episodes": 4 if smoke else 20,
+      "evaluation.interval_steps": contract_values["evaluation_interval_steps"],
+      "evaluation.num_episodes": contract_values["evaluation_num_episodes"],
       "evaluation.clean": True,
       "tdmpc2.horizon": 8 if controller == "adaptive" else 3,
       "tdmpc2.population_size": 512,
@@ -468,6 +517,11 @@ def main() -> None:
   parser.add_argument("--expected-seed", type=int)
   parser.add_argument("--expected-commit")
   parser.add_argument("--expected-config-hash")
+  parser.add_argument(
+      "--contract",
+      choices=("auto", "full", "smoke", "stabilization"),
+      default="auto",
+  )
   args = parser.parse_args()
   run_dir = args.run_dir.resolve()
   anchors = tuple(sorted({
@@ -522,6 +576,7 @@ def main() -> None:
       anchors=anchors,
       require_probe_timing=args.require_probe_timing,
       require_reference_probe=args.require_reference_probe,
+      contract=args.contract,
   )
   errors.extend(resolved_config_errors)
   report["resolved_config_errors"] = resolved_config_errors
