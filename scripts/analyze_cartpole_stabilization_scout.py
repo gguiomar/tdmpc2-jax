@@ -30,6 +30,7 @@ def read_eval_means(path: Path) -> list[tuple[int, float]]:
 def plateau_summary(points: list[tuple[int, float]],
                     *,
                     episode_length: int = 500,
+                    num_parallel_envs: int = 8,
                     final_window_points: int = 5,
                     sustained_fraction: float = 0.95,
                     sustained_points: int = 4,
@@ -84,18 +85,76 @@ def plateau_summary(points: list[tuple[int, float]],
       'sustained_plateau_episode_equivalent': (
           None if sustained_step is None else sustained_step / episode_length
       ),
+      'sustained_plateau_episode_cycles_per_env': (
+          None if sustained_step is None
+          else sustained_step / (episode_length * num_parallel_envs)
+      ),
       'rolling_plateau_step': rolling_step,
       'rolling_plateau_episode_equivalent': (
           None if rolling_step is None else rolling_step / episode_length
       ),
+      'rolling_plateau_episode_cycles_per_env': (
+          None if rolling_step is None
+          else rolling_step / (episode_length * num_parallel_envs)
+      ),
       'rolling_diagnostics': rolling_diagnostics,
   }
+
+
+def save_plot(points: list[tuple[int, float]], summary: dict, path: Path) -> None:
+  """Save a compact plot of the learning curve and frozen plateau criteria."""
+  import matplotlib.pyplot as plt
+
+  steps_k = np.asarray([step for step, _ in points], dtype=np.float64) / 1000.0
+  returns = np.asarray([value for _, value in points], dtype=np.float64)
+  sustained_step = summary['sustained_plateau_step']
+  rolling_step = summary['rolling_plateau_step']
+
+  fig, ax = plt.subplots(figsize=(9.0, 5.2), constrained_layout=True)
+  ax.plot(steps_k, returns, marker='o', linewidth=2.2, color='#1769aa')
+  ax.axhline(
+      summary['final_reference_mean'], color='#2e7d32', linewidth=1.8,
+      label=f"final-window mean = {summary['final_reference_mean']:.1f}",
+  )
+  ax.axhline(
+      summary['sustained_threshold'], color='#2e7d32', linewidth=1.2,
+      linestyle='--', label='95% of final-window mean',
+  )
+  if sustained_step is not None:
+    sustained_k = sustained_step / 1000.0
+    ax.axvline(
+        sustained_k, color='#f57c00', linewidth=1.6, linestyle='--',
+        label=f'sustained criterion: {sustained_k:.0f}k',
+    )
+  if rolling_step is not None:
+    rolling_k = rolling_step / 1000.0
+    ax.axvline(
+        rolling_k, color='#7b1fa2', linewidth=1.8, linestyle=':',
+        label=f'strict rolling plateau: {rolling_k:.0f}k',
+    )
+    ax.axvspan(rolling_k, steps_k[-1], color='#7b1fa2', alpha=0.08)
+  ax.set(
+      title='Cartpole fixed-h3 stabilization scout',
+      xlabel='Collected transitions (thousands)',
+      ylabel='Evaluation return (10-episode mean)',
+      xlim=(0, max(52.5, steps_k[-1] + 2.5)),
+  )
+  ax.grid(alpha=0.22)
+  ax.legend(loc='lower right', frameon=False)
+  secondary = ax.secondary_xaxis(
+      'top', functions=(lambda x: 2.0 * x, lambda x: x / 2.0)
+  )
+  secondary.set_xlabel('Aggregate 500-transition episode equivalents')
+  path.parent.mkdir(parents=True, exist_ok=True)
+  fig.savefig(path, dpi=180)
+  plt.close(fig)
 
 
 def main() -> None:
   parser = argparse.ArgumentParser()
   parser.add_argument('run_dir', type=Path)
   parser.add_argument('--output', type=Path)
+  parser.add_argument('--plot', type=Path)
   args = parser.parse_args()
   points = read_eval_means(args.run_dir / 'metrics' / 'scalars.csv')
   summary = plateau_summary(points)
@@ -105,6 +164,8 @@ def main() -> None:
   else:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(text, encoding='utf-8')
+  if args.plot is not None:
+    save_plot(points, summary, args.plot)
 
 
 if __name__ == '__main__':

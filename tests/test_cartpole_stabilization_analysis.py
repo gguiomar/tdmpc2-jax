@@ -18,6 +18,7 @@ def test_plateau_summary_finds_sustained_and_rolling_plateaus():
   assert summary['sustained_plateau_step'] == 10000
   assert summary['rolling_plateau_step'] == 10000
   assert summary['rolling_plateau_episode_equivalent'] == 20.0
+  assert summary['rolling_plateau_episode_cycles_per_env'] == 2.5
 
 
 def test_plateau_summary_can_report_no_stable_window():

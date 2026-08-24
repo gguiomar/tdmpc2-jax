@@ -1,0 +1,63 @@
+{
+  "evaluation_points": 10,
+  "first_evaluation_step": 5000,
+  "last_evaluation_step": 50000,
+  "final_reference_mean": 763.6321899414063,
+  "sustained_threshold": 725.450580444336,
+  "sustained_plateau_step": 25000,
+  "sustained_plateau_episode_equivalent": 50.0,
+  "sustained_plateau_episode_cycles_per_env": 6.25,
+  "rolling_plateau_step": 30000,
+  "rolling_plateau_episode_equivalent": 60.0,
+  "rolling_plateau_episode_cycles_per_env": 7.5,
+  "rolling_diagnostics": [
+    {
+      "window_start_step": 5000,
+      "window_end_step": 25000,
+      "mean": 516.9193359375,
+      "cv": 0.5122192731116503,
+      "relative_slope_per_1000": 0.06800236560535353,
+      "accepted": false
+    },
+    {
+      "window_start_step": 10000,
+      "window_end_step": 30000,
+      "mean": 633.9342834472657,
+      "cv": 0.3292976960883591,
+      "relative_slope_per_1000": 0.03756891104487201,
+      "accepted": false
+    },
+    {
+      "window_start_step": 15000,
+      "window_end_step": 35000,
+      "mean": 742.1401489257812,
+      "cv": 0.08125635693652059,
+      "relative_slope_per_1000": 0.007222414732676782,
+      "accepted": false
+    },
+    {
+      "window_start_step": 20000,
+      "window_end_step": 40000,
+      "mean": 757.0565795898438,
+      "cv": 0.06973102160778098,
+      "relative_slope_per_1000": 0.003317879505289395,
+      "accepted": false
+    },
+    {
+      "window_start_step": 25000,
+      "window_end_step": 45000,
+      "mean": 776.8236694335938,
+      "cv": 0.03611224378146762,
+      "relative_slope_per_1000": 0.0032783868667157216,
+      "accepted": false
+    },
+    {
+      "window_start_step": 30000,
+      "window_end_step": 50000,
+      "mean": 763.6321899414063,
+      "cv": 0.008758160138695676,
+      "relative_slope_per_1000": 0.00034908783383227914,
+      "accepted": true
+    }
+  ]
+}

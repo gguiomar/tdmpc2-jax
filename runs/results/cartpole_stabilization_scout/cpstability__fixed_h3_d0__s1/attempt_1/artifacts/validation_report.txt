@@ -1,0 +1,64 @@
+{
+  "checkpoint_anchor_steps": [
+    0,
+    50000
+  ],
+  "controller": "fixed",
+  "csv_checks": {
+    "episodes": {
+      "error": "",
+      "rows": 96,
+      "valid": true
+    },
+    "scalars": {
+      "error": "",
+      "rows": 701,
+      "valid": true
+    },
+    "trajectory_summary": {
+      "error": "",
+      "rows": 8,
+      "valid": true
+    }
+  },
+  "errors": [],
+  "gif_anchor_steps": [
+    0,
+    50000
+  ],
+  "manifest": {
+    "artifacts": {
+      "all_horizon_roughness_rows": 0,
+      "conditional_return_reference_rows": 0,
+      "decision_probe_calibration_rows": 0,
+      "gif_count": 2,
+      "paired_return_rows": 0,
+      "probe_calibration_rows": 0,
+      "return_calibration_rows": 0,
+      "return_decision_calibration_rows": 0,
+      "roughness_bootstrap_rows": 0,
+      "roughness_projection_rows": 0,
+      "trajectory_summary_rows": 8
+    },
+    "completed_at_utc": "2026-08-24T17:57:54+00:00",
+    "config_sha256": "6fb9427c999d6503007e03f580233bc344b63e95e76156181b701e8f07812ac2",
+    "controller": "fixed",
+    "final_eval_mean": 765.3822631835938,
+    "final_eval_std": 0.3838851749897003,
+    "final_step": 50000,
+    "git_commit": "5398c238fd4a32764448c8d04b18d51701dbfca3",
+    "max_logged_step": 50000,
+    "profile_config_hash": "4733ce7218c453a285fe749ec2e9d62d9d34e32641927307579c6532e4229bed",
+    "run_id": "cpstability__fixed_h3_d0__s1",
+    "schema_version": 1,
+    "score_mode": "none",
+    "seed": 1,
+    "slurm_job_id": "4437",
+    "slurm_job_name": "cpstability-fixed-h3-d0-s1-a1",
+    "status": "completed"
+  },
+  "resolved_config_errors": [],
+  "run_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-cartpole-stabilization-scout/outputs/cartpole_stabilization_scout/cpstability__fixed_h3_d0__s1/attempt_1",
+  "valid": true
+}
+VALID

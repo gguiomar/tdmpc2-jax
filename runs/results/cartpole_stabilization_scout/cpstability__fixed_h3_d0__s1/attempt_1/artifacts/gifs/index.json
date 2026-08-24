@@ -1,0 +1,26 @@
+{
+  "gifs": [
+    {
+      "conditions": [
+        "delay0",
+        "delay4"
+      ],
+      "metadata_path": "artifacts/rollouts/cpstability__fixed_h3_d0__s1/step_000000/metadata.json",
+      "path": "artifacts/rollouts/cpstability__fixed_h3_d0__s1/step_000000/cartpole_delay0_vs_delay4.gif",
+      "selected_horizon": 3,
+      "step": 0
+    },
+    {
+      "conditions": [
+        "delay0",
+        "delay4"
+      ],
+      "metadata_path": "artifacts/rollouts/cpstability__fixed_h3_d0__s1/step_050000/metadata.json",
+      "path": "artifacts/rollouts/cpstability__fixed_h3_d0__s1/step_050000/cartpole_delay0_vs_delay4.gif",
+      "selected_horizon": 3,
+      "step": 50000
+    }
+  ],
+  "run_id": "cpstability__fixed_h3_d0__s1",
+  "schema_version": 1
+}
