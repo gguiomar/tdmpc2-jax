@@ -1,0 +1,2 @@
+timestamp,event_type,run_id,mode,shard,conditions,job_id,status,slurm_state,exit_code,git_commit,config_hash,remote_run_dir,notes
+

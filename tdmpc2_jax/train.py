@@ -37,6 +37,11 @@ from tdmpc2_jax.data import (
     sample_many_from_state,
 )
 from tdmpc2_jax.envs import make_dm_control_env, make_mjx_dmc_env
+from tdmpc2_jax.frontier_atlas import (
+    ATLAS_VERSION,
+    condition_overrides,
+    shard_conditions,
+)
 from tdmpc2_jax.networks import NormedLinear
 
 try:
@@ -2142,6 +2147,189 @@ def _make_mjx_eval_env_config(env_config, *, num_envs: int, clean: bool):
   return eval_env_config
 
 
+def _frontier_atlas_agent(agent: TDMPC2, atlas_config, horizons) -> TDMPC2:
+  population_size = max(1, int(atlas_config.population_size))
+  return agent.replace(
+      planning_hmax=max(int(horizon) for horizon in horizons),
+      population_size=population_size,
+      policy_prior_samples=min(
+          population_size,
+          max(0, int(atlas_config.policy_prior_samples)),
+      ),
+      num_elites=min(
+          population_size,
+          max(1, int(atlas_config.num_elites)),
+      ),
+      mppi_iterations=max(1, int(atlas_config.mppi_iterations)),
+      temperature=float(atlas_config.temperature),
+  )
+
+
+def _run_frontier_atlas(*,
+                        cfg,
+                        agent: TDMPC2,
+                        output_dir: str,
+                        global_step: int):
+  """Evaluates one deterministic shard of the frozen Pendulum atlas."""
+  atlas_config = cfg.frontier_atlas
+  horizons = tuple(int(horizon) for horizon in atlas_config.horizons)
+  if horizons != tuple(sorted(set(horizons))):
+    raise ValueError('frontier_atlas.horizons must be unique and sorted.')
+  if not horizons or min(horizons) < 1:
+    raise ValueError('frontier_atlas.horizons must contain positive integers.')
+  shard_index = int(atlas_config.shard_index)
+  num_shards = int(atlas_config.num_shards)
+  condition_limit = atlas_config.get('condition_limit', None)
+  conditions = shard_conditions(
+      shard_index,
+      num_shards,
+      limit=(None if condition_limit is None else int(condition_limit)),
+  )
+  if not conditions:
+    raise ValueError(
+        f'Frontier atlas shard {shard_index}/{num_shards} has no conditions.'
+    )
+
+  replicas = int(atlas_config.num_env_eval_replicas)
+  eval_steps = int(atlas_config.env_eval_steps)
+  if replicas <= 1 or eval_steps <= 0:
+    raise ValueError('Frontier atlas requires at least two replicas and one step.')
+
+  atlas_agent = _frontier_atlas_agent(agent, atlas_config, horizons)
+  candidate_horizons = jnp.asarray(horizons, dtype=jnp.int32)
+  candidate_mask = jnp.ones_like(candidate_horizons, dtype=bool)
+  shared_key = jax.random.PRNGKey(int(cfg.seed) + 52_001)
+  artifacts_dir = Path(output_dir) / 'artifacts' / 'frontier_atlas'
+  artifacts_dir.mkdir(parents=True, exist_ok=True)
+  summary_path = artifacts_dir / 'summary.csv'
+  paired_path = artifacts_dir / 'paired_returns.csv'
+  runtime_path = artifacts_dir / 'runtime.json'
+  summary_fields = (
+      'atlas_version', 'source_step', 'shard_index', 'num_shards',
+      'condition_index', 'condition_id', 'axis', 'value', 'horizon',
+      'return_mean', 'return_std', 'return_se', 'replicas', 'eval_steps',
+      'condition_elapsed_s',
+  )
+  paired_fields = (
+      'condition_index', 'condition_id', 'axis', 'value', 'horizon',
+      'replica', 'return',
+  )
+  condition_times = {}
+  total_start = time.perf_counter()
+  with summary_path.open('w', newline='') as summary_handle, paired_path.open(
+      'w', newline=''
+  ) as paired_handle:
+    summary_writer = csv.DictWriter(summary_handle, fieldnames=summary_fields)
+    paired_writer = csv.DictWriter(paired_handle, fieldnames=paired_fields)
+    summary_writer.writeheader()
+    paired_writer.writeheader()
+    for condition in conditions:
+      eval_env_config = _make_mjx_eval_env_config(
+          cfg.env,
+          num_envs=replicas,
+          clean=True,
+      )
+      for name, value in condition_overrides(condition).items():
+        setattr(eval_env_config.mjx_dmc, name, value)
+      eval_env_config.mjx_dmc.reset_pool_size = max(64, replicas)
+      eval_env = make_mjx_dmc_env(
+          eval_env_config,
+          int(cfg.seed) + 50_000,
+          num_envs=replicas,
+      )
+      condition_start = time.perf_counter()
+      return_mean, return_std, paired_returns = (
+          eval_env.evaluate_candidate_horizons_dense_paired(
+              agent=atlas_agent,
+              candidate_horizons=candidate_horizons,
+              candidate_mask=candidate_mask,
+              key=shared_key,
+              steps_per_episode=eval_steps,
+              global_transition_step=int(global_step),
+          )
+      )
+      paired_np = np.asarray(paired_returns, dtype=np.float64)
+      mean_np = np.asarray(return_mean, dtype=np.float64)
+      std_np = np.asarray(return_std, dtype=np.float64)
+      if not (
+          np.all(np.isfinite(paired_np)) and
+          np.all(np.isfinite(mean_np)) and
+          np.all(np.isfinite(std_np))
+      ):
+        raise FloatingPointError(
+            f'Non-finite atlas return in condition {condition.condition_id}.'
+        )
+      elapsed = time.perf_counter() - condition_start
+      condition_times[condition.condition_id] = elapsed
+      for horizon_index, horizon in enumerate(horizons):
+        summary_writer.writerow({
+            'atlas_version': ATLAS_VERSION,
+            'source_step': int(global_step),
+            'shard_index': shard_index,
+            'num_shards': num_shards,
+            'condition_index': condition.index,
+            'condition_id': condition.condition_id,
+            'axis': condition.axis,
+            'value': condition.value,
+            'horizon': horizon,
+            'return_mean': mean_np[horizon_index],
+            'return_std': std_np[horizon_index],
+            'return_se': std_np[horizon_index] / np.sqrt(replicas),
+            'replicas': replicas,
+            'eval_steps': eval_steps,
+            'condition_elapsed_s': elapsed,
+        })
+        for replica, value in enumerate(paired_np[horizon_index]):
+          paired_writer.writerow({
+              'condition_index': condition.index,
+              'condition_id': condition.condition_id,
+              'axis': condition.axis,
+              'value': condition.value,
+              'horizon': horizon,
+              'replica': replica,
+              'return': value,
+          })
+      summary_handle.flush()
+      paired_handle.flush()
+      print(
+          'FRONTIER_ATLAS_CONDITION_COMPLETE '
+          f'shard={shard_index}/{num_shards} '
+          f'condition={condition.condition_id} elapsed_s={elapsed:.3f}',
+          flush=True,
+      )
+      del eval_env
+
+  runtime = {
+      'atlas_version': ATLAS_VERSION,
+      'source_step': int(global_step),
+      'shard_index': shard_index,
+      'num_shards': num_shards,
+      'condition_ids': [condition.condition_id for condition in conditions],
+      'horizons': list(horizons),
+      'replicas': replicas,
+      'eval_steps': eval_steps,
+      'planner': {
+          'population_size': int(atlas_agent.population_size),
+          'policy_prior_samples': int(atlas_agent.policy_prior_samples),
+          'num_elites': int(atlas_agent.num_elites),
+          'mppi_iterations': int(atlas_agent.mppi_iterations),
+          'temperature': float(atlas_agent.temperature),
+          'planning_hmax': int(atlas_agent.planning_hmax),
+      },
+      'condition_elapsed_s': condition_times,
+      'total_elapsed_s': time.perf_counter() - total_start,
+  }
+  runtime_path.write_text(json.dumps(runtime, indent=2, sort_keys=True) + '\n')
+  print(
+      'FRONTIER_ATLAS_SHARD_COMPLETE '
+      f'shard={shard_index}/{num_shards} '
+      f'conditions={len(conditions)} '
+      f'elapsed_s={runtime["total_elapsed_s"]:.3f}',
+      flush=True,
+  )
+  return runtime
+
+
 def _run_periodic_eval(eval_env,
                        agent: TDMPC2,
                        *,
@@ -2654,6 +2842,24 @@ def train(cfg: dict):
         save_args['horizon_state'] = ocp.args.StandardSave(horizon_state)
       mngr.save(global_step, args=ocp.args.Composite(**save_args))
       mngr.wait_until_finished()
+    frontier_atlas_config = cfg.get('frontier_atlas', None)
+    if (
+        frontier_atlas_config is not None and
+        bool(frontier_atlas_config.get('enabled', False))
+    ):
+      if int(global_step) <= 0:
+        raise ValueError(
+            'frontier_atlas requires a restored, trained checkpoint.'
+        )
+      _run_frontier_atlas(
+          cfg=cfg,
+          agent=agent,
+          output_dir=output_dir,
+          global_step=int(global_step),
+      )
+      writer.flush()
+      writer.close()
+      return
     last_saved_step = int(global_step)
     if int(global_step) in artifact_anchor_steps:
       save_artifact_anchor(

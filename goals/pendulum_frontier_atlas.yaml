@@ -1,0 +1,70 @@
+{
+  "name": "pendulum_frontier_atlas",
+  "description": "Frozen-checkpoint one-factor-at-a-time Pendulum atlas that identifies a controllable, horizon-rescuable axis before online adaptation runs.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-h8",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-h8-torque02",
+    "branch": "ggmar/pendulum-h8-torque02"
+  },
+  "constraints": {
+    "expected_scientific_runs": 1,
+    "full_shards": 4,
+    "max_active_gpus": 4,
+    "slurm_only": true,
+    "require_clean_local_git": true,
+    "require_clean_remote_git": true,
+    "require_remote_commit_match": true,
+    "require_valid_source": "pendh8__base_t1p0_h3__s7@30000",
+    "require_gpu_smoke": true,
+    "do_not_launch_online_traversal_before_atlas": true
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "source_checkpoint_step": 30000,
+    "horizons": [2, 3, 4, 5, 6, 7, 8],
+    "paired_replicas": 32,
+    "episode_steps": 500,
+    "planner": {
+      "population_size": 256,
+      "policy_prior_samples": 12,
+      "num_elites": 32,
+      "mppi_iterations": 4,
+      "temperature": 0.5
+    },
+    "axes": {
+      "actuator_strength_scale": [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3],
+      "joint_damping_scale": [0.25, 0.5, 1.0, 2.0, 4.0],
+      "gravity_scale": [0.5, 0.75, 1.0, 1.25, 1.5],
+      "base_action_delay": [0, 1, 2, 3, 4],
+      "observation_noise_scale": [0.0, 0.01, 0.03, 0.06, 0.1]
+    },
+    "unique_one_factor_conditions": 24
+  },
+  "profiles": [
+    {"priority": 1, "run_id": "pendatlas__smoke_nominal__s7", "mode": "smoke", "shard": "0/1", "conditions": 1, "replicas": 4, "episode_steps": 32},
+    {"priority": 2, "run_id": "pendatlas__broad_shard0of4__s7", "mode": "full", "shard": "0/4", "conditions": 6},
+    {"priority": 3, "run_id": "pendatlas__broad_shard1of4__s7", "mode": "full", "shard": "1/4", "conditions": 6},
+    {"priority": 4, "run_id": "pendatlas__broad_shard2of4__s7", "mode": "full", "shard": "2/4", "conditions": 6},
+    {"priority": 5, "run_id": "pendatlas__broad_shard3of4__s7", "mode": "full", "shard": "3/4", "conditions": 6}
+  ],
+  "stage_gate": {
+    "next_runs_if_rescuable_axis_found": [
+      "fixed_h3_online_traversal",
+      "fixed_h8_online_traversal",
+      "full_adaptive_online_traversal"
+    ],
+    "rescuable_rule": "best h in {6,7,8} has positive paired 90% lower confidence bound versus h=3",
+    "otherwise": "do not spend the three online runs; revise intervention or checkpoint"
+  },
+  "tracking": {
+    "ledger": "experiments/pendulum_frontier_atlas_ledger.csv",
+    "decisions": "experiments/pendulum_frontier_atlas_decisions.md",
+    "gate": "experiments/pendulum_frontier_atlas_gates.json",
+    "results_dir": "runs/results/pendulum_frontier_atlas",
+    "remote_source_dir": "outputs/pendulum_h8_torque02/pendh8__base_t1p0_h3__s7/attempt_1",
+    "remote_output_root": "outputs/pendulum_frontier_atlas"
+  }
+}
+

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "design": {
+    "status": "frozen",
+    "atlas_version": "pendulum-frontier-atlas-v1",
+    "source_checkpoint_step": 30000,
+    "conditions": 24,
+    "horizons": [2, 3, 4, 5, 6, 7, 8],
+    "paired_replicas": 32,
+    "episode_steps": 500,
+    "full_shards": 4
+  },
+  "cpu_tests": {
+    "status": "pending",
+    "tested_commit": null,
+    "local_result": null,
+    "remote_result": null
+  },
+  "source_validation": {
+    "status": "pending",
+    "run_id": "pendh8__base_t1p0_h3__s7",
+    "checkpoint_step": 30000
+  },
+  "gpu_smoke": {
+    "status": "pending",
+    "job_id": null,
+    "git_commit": null,
+    "config_hash": null
+  },
+  "full_launch": {
+    "status": "blocked_on_smoke",
+    "array_job_id": null,
+    "reducer_job_id": null,
+    "valid_shards": 0
+  },
+  "online_traversal": {
+    "status": "blocked_on_rescuable_axis",
+    "submitted_jobs": []
+  }
+}
+

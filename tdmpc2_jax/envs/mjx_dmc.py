@@ -747,6 +747,9 @@ class MJXDMCBatchEnv:
                enable_domain_randomization: bool = True,
                enable_observation_noise: bool = True,
                actuator_strength_scale: float = 1.0,
+               joint_damping_scale: float = 1.0,
+               gravity_scale: float = 1.0,
+               fixed_observation_noise_scale: Optional[float] = None,
                base_action_delay: int = 1,
                action_delay_schedule_enabled: bool = False,
                action_delay_observation_enabled: bool = False,
@@ -773,6 +776,33 @@ class MJXDMCBatchEnv:
       raise ValueError(
           'actuator_strength_scale must be in (0, 1], got '
           f'{self.actuator_strength_scale}.'
+      )
+    self.joint_damping_scale = float(joint_damping_scale)
+    self.gravity_scale = float(gravity_scale)
+    if not np.isfinite(self.joint_damping_scale) or self.joint_damping_scale <= 0:
+      raise ValueError(
+          'joint_damping_scale must be finite and positive, got '
+          f'{self.joint_damping_scale}.'
+      )
+    if not np.isfinite(self.gravity_scale) or self.gravity_scale <= 0:
+      raise ValueError(
+          'gravity_scale must be finite and positive, got '
+          f'{self.gravity_scale}.'
+      )
+    self.fixed_observation_noise_scale = (
+        None if fixed_observation_noise_scale is None
+        else float(fixed_observation_noise_scale)
+    )
+    if (
+        self.fixed_observation_noise_scale is not None and
+        (
+            not np.isfinite(self.fixed_observation_noise_scale) or
+            self.fixed_observation_noise_scale < 0
+        )
+    ):
+      raise ValueError(
+          'fixed_observation_noise_scale must be finite and non-negative, got '
+          f'{self.fixed_observation_noise_scale}.'
       )
     self.base_action_delay = int(base_action_delay)
     self.action_delay_schedule_enabled = bool(action_delay_schedule_enabled)
@@ -803,6 +833,8 @@ class MJXDMCBatchEnv:
 
     domain, _ = _parse_task(task)
     self._mj_model = _load_model(domain)
+    self._mj_model.dof_damping[:] *= self.joint_damping_scale
+    self._mj_model.opt.gravity[:] *= self.gravity_scale
     self._metadata = _metadata(
         self._mj_model,
         task=task,
@@ -871,9 +903,17 @@ class MJXDMCBatchEnv:
                                key: jax.Array,
                                leading_shape: Tuple[int, ...]) -> Dict[str, jax.Array]:
     if not self.enable_domain_randomization:
+      fixed_noise = (
+          self.fixed_observation_noise_scale
+          if self.enable_observation_noise and
+          self.fixed_observation_noise_scale is not None
+          else 0.0
+      )
       return {
           'actuator_strength': jnp.ones(leading_shape, dtype=jnp.float32),
-          'obs_noise_scale': jnp.zeros(leading_shape, dtype=jnp.float32),
+          'obs_noise_scale': jnp.full(
+              leading_shape, fixed_noise, dtype=jnp.float32
+          ),
           'wind_force': jnp.zeros(leading_shape + (3,), dtype=jnp.float32),
           'push_force': jnp.zeros(leading_shape + (3,), dtype=jnp.float32),
           'jitter_mask': jnp.zeros(leading_shape, dtype=bool),
@@ -884,7 +924,16 @@ class MJXDMCBatchEnv:
             actuator_key, shape=leading_shape, minval=0.9, maxval=1.1
         ).astype(jnp.float32),
         'obs_noise_scale': (
-            jax.random.uniform(obs_noise_key, shape=leading_shape).astype(jnp.float32) *
+            jnp.full(
+                leading_shape,
+                self.fixed_observation_noise_scale,
+                dtype=jnp.float32,
+            )
+            if self.enable_observation_noise and
+            self.fixed_observation_noise_scale is not None
+            else jax.random.uniform(
+                obs_noise_key, shape=leading_shape
+            ).astype(jnp.float32) *
             (self.observation_noise_scale if self.enable_observation_noise else 0.0)
         ),
         'wind_force': jax.random.normal(
@@ -1502,6 +1551,11 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
       enable_observation_noise=bool(cfg.enable_observation_noise),
       actuator_strength_scale=float(
           getattr(cfg, 'actuator_strength_scale', 1.0)
+      ),
+      joint_damping_scale=float(getattr(cfg, 'joint_damping_scale', 1.0)),
+      gravity_scale=float(getattr(cfg, 'gravity_scale', 1.0)),
+      fixed_observation_noise_scale=getattr(
+          cfg, 'fixed_observation_noise_scale', None
       ),
       base_action_delay=int(cfg.base_action_delay),
       action_delay_schedule_enabled=bool(
