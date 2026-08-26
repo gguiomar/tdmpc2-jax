@@ -1,11 +1,61 @@
 {
   "schema_version": 1,
-  "status": "pending",
-  "expected_commit": null,
-  "cpu_tests": null,
-  "source_validation": null,
-  "gpu_smoke_job": null,
-  "egl_render_smoke": null,
-  "scientific_jobs": [],
-  "reducer_job": null
+  "status": "passed",
+  "expected_commit": "9e5f0187578aaf1f2638f376b81fe5d13a8eaefc",
+  "cpu_tests": {
+    "status": "passed",
+    "remote_tests": 61,
+    "local_pure_tests": 12
+  },
+  "source_validation": {
+    "status": "passed",
+    "run_id": "pendh8__base_t1p0_h3__s7",
+    "checkpoint_step": 30000,
+    "terminal_mean_return": 841.2333,
+    "terminal_cv": 0.062339,
+    "stable": true
+  },
+  "gpu_smoke_job": {
+    "job_id": 4573,
+    "status": "passed",
+    "elapsed": "00:10:53",
+    "config_hash": "e9ba4abeecf340515cdde632e9ac8fc39f88768399cc47aa0c7bdb3401ae84e8"
+  },
+  "egl_render_smoke": {
+    "status": "passed",
+    "job_id": 4573,
+    "anchors": 5,
+    "paired_trajectories": 10,
+    "gifs": 5,
+    "pngs": 5
+  },
+  "scientific_jobs": [
+    {
+      "job_id": 4574,
+      "run_id": "penddelay__fixed_h3__s7",
+      "status": "passed",
+      "elapsed": "00:37:43",
+      "config_hash": "99c67291d8ae4de312dd6e51d0d503f49570493526aa04adb1cc889878f3c4b1"
+    },
+    {
+      "job_id": 4575,
+      "run_id": "penddelay__fixed_h7__s7",
+      "status": "passed",
+      "elapsed": "00:40:20",
+      "config_hash": "85a72233f4d5400ae9bc8486f5e982a62097c20d18c2fa603ae86ae4403d8999"
+    },
+    {
+      "job_id": 4576,
+      "run_id": "penddelay__adaptive_h2to8__s7",
+      "status": "passed",
+      "elapsed": "00:51:11",
+      "config_hash": "fdb254282e7b443ed1d96e533aea63462a8345fa24a6c66dbbb4dc57971b2420"
+    }
+  ],
+  "reducer_job": {
+    "job_id": 4577,
+    "status": "passed",
+    "elapsed": "00:00:02",
+    "aggregate_valid": true
+  }
 }

@@ -270,7 +270,12 @@ def _phase_stats(curve: list[tuple[int, float]]) -> dict[str, float]:
   }
 
 
-def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
+def aggregate(
+    run_dirs: list[Path],
+    output_dir: Path,
+    *,
+    use_validation_summaries: bool = False,
+) -> dict:
   import matplotlib.pyplot as plt
   import numpy as np
   from PIL import Image, ImageDraw
@@ -279,7 +284,14 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
   output_dir.mkdir(parents=True, exist_ok=False)
   runs = {}
   for run_dir in run_dirs:
-    summary = validate(run_dir, require_valid_marker=True)
+    if use_validation_summaries:
+      if not (run_dir / 'RUN_VALID').is_file():
+        raise ValueError(f'RUN_VALID marker missing in compact cache: {run_dir}')
+      summary = json.loads((run_dir / 'validation_summary.json').read_text())
+      if not summary.get('valid'):
+        raise ValueError(f'Invalid cached validation summary: {run_dir}')
+    else:
+      summary = validate(run_dir, require_valid_marker=True)
     if summary['mode'] != 'full':
       raise ValueError('Aggregate accepts only full scientific profiles.')
     profile = summary['profile']
@@ -339,6 +351,19 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
       adaptive_scalars.get('reference_probe/dense_rhs/proposed_horizon', {}).get(step, np.nan)
       for step in query_steps
   ]
+  reference_return_means = {
+      step: {
+          horizon: adaptive_scalars[
+              f'reference_probe/dense_rhs/candidate_{horizon}_env_mean'
+          ][step]
+          for horizon in range(2, 9)
+      }
+      for step in query_steps
+  }
+  reference_return_argmax = [
+      max(reference_return_means[step], key=reference_return_means[step].get)
+      for step in query_steps
+  ]
   fig, ax_h = plt.subplots(figsize=(9.0, 4.6))
   schedule_steps = [SOURCE_STEP, FULL_DELAY_START, FULL_DELAY_END, FULL_FINAL_STEP]
   schedule_values = [0, 4, 0, 0]
@@ -347,6 +372,7 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
   ax_h.step([SOURCE_STEP] + query_steps, [3] + selected, where='post', marker='o', color=colors['adaptive'], linewidth=2.2, label='selected horizon')
   ax_h.scatter(query_steps, proposed, marker='x', s=70, color='#7a5195', label='controller proposal')
   ax_h.scatter(query_steps, reference, marker='D', facecolors='none', edgecolors='black', s=65, label='128-replica shadow proposal')
+  ax_h.scatter(query_steps, reference_return_argmax, marker='P', s=75, color='#eeca3b', edgecolors='black', linewidth=0.5, label='128-replica return argmax')
   ax_h.set_ylim(1.5, 8.5)
   ax_h.set_yticks(range(2, 9))
   ax_d.set_ylim(-0.25, 4.75)
@@ -360,6 +386,34 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
   fig.suptitle('Adaptive control state versus the latent delay intervention')
   fig.tight_layout()
   fig.savefig(output_dir / 'control_delay_trace.png', dpi=200, bbox_inches='tight')
+  plt.close(fig)
+
+  fig, axes = plt.subplots(2, 2, figsize=(9.4, 7.0), sharex=True, sharey=False)
+  for ax, step, score_proposal, return_argmax in zip(
+      axes.flat, query_steps, reference, reference_return_argmax
+  ):
+    values = reference_return_means[step]
+    horizons = list(values)
+    returns = [values[horizon] for horizon in horizons]
+    delay = 4 if FULL_DELAY_START <= step < FULL_DELAY_END else 0
+    ax.plot(horizons, returns, marker='o', color='#4c78a8', linewidth=1.8)
+    ax.scatter([return_argmax], [values[return_argmax]], marker='P', s=100,
+               color='#eeca3b', edgecolor='black', linewidth=0.5,
+               label='return argmax')
+    ax.axvline(score_proposal, color='#7a5195', linestyle='--', linewidth=1.4,
+               label='score proposal')
+    ax.set_title(f'{step // 1000}k transitions (delay {delay})')
+    ax.grid(alpha=0.23)
+    ax.set_xticks(horizons)
+  axes[1, 0].set_xlabel('Candidate horizon')
+  axes[1, 1].set_xlabel('Candidate horizon')
+  axes[0, 0].set_ylabel('128-replica mean return')
+  axes[1, 0].set_ylabel('128-replica mean return')
+  handles, frontier_labels = axes[0, 0].get_legend_handles_labels()
+  fig.legend(handles, frontier_labels, frameon=False, ncol=2, loc='lower center')
+  fig.suptitle('High-precision return frontier versus score-based proposal')
+  fig.tight_layout(rect=(0, 0.06, 1, 0.96))
+  fig.savefig(output_dir / 'high_precision_return_frontier.png', dpi=200, bbox_inches='tight')
   plt.close(fig)
 
   fig, ax = plt.subplots(figsize=(8.4, 4.5))
@@ -377,6 +431,53 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
   fig.suptitle('Controller evidence at each delay phase')
   fig.tight_layout()
   fig.savefig(output_dir / 'query_component_terms.png', dpi=200, bbox_inches='tight')
+  plt.close(fig)
+
+  fig, axes = plt.subplots(2, 2, figsize=(10.2, 7.2), sharex=True, sharey=True)
+  candidate_horizons = np.arange(2, 9)
+  component_width = 0.22
+  for ax, step, query in zip(axes.flat, query_steps, adaptive_queries):
+    return_terms = [
+        adaptive_scalars[f'dense_rhs/candidate_{horizon}_return_term'][step]
+        for horizon in candidate_horizons
+    ]
+    roughness_terms = [
+        adaptive_scalars[f'dense_rhs/candidate_{horizon}_roughness_term'][step]
+        for horizon in candidate_horizons
+    ]
+    spread_terms = [
+        adaptive_scalars[f'dense_rhs/candidate_{horizon}_return_std_term'][step]
+        for horizon in candidate_horizons
+    ]
+    total_scores = [
+        adaptive_scalars[f'dense_rhs/candidate_{horizon}_deployment_score'][step]
+        for horizon in candidate_horizons
+    ]
+    x = np.arange(len(candidate_horizons))
+    ax.bar(x - component_width, return_terms, component_width, color='#4c78a8', label='return')
+    ax.bar(x, roughness_terms, component_width, color='#f58518', label='roughness')
+    ax.bar(x + component_width, spread_terms, component_width, color='#54a24b', label='return spread')
+    ax.plot(x, total_scores, color='black', marker='o', linewidth=1.4, label='total score')
+    selected_index = int(query['selected_horizon']) - 2
+    ax.scatter(
+        [selected_index], [total_scores[selected_index]], marker='*', s=150,
+        facecolor='#e45756', edgecolor='black', linewidth=0.6, zorder=5,
+        label='selected horizon',
+    )
+    delay = 4 if FULL_DELAY_START <= step < FULL_DELAY_END else 0
+    ax.set_title(f'{step // 1000}k transitions (delay {delay})')
+    ax.axhline(0, color='0.3', linewidth=0.8)
+    ax.grid(axis='y', alpha=0.22)
+    ax.set_xticks(x, candidate_horizons)
+  axes[1, 0].set_xlabel('Candidate horizon')
+  axes[1, 1].set_xlabel('Candidate horizon')
+  axes[0, 0].set_ylabel('Normalized score contribution')
+  axes[1, 0].set_ylabel('Normalized score contribution')
+  handles, component_labels = axes[0, 0].get_legend_handles_labels()
+  fig.legend(handles, component_labels, frameon=False, ncol=5, loc='lower center')
+  fig.suptitle('Per-candidate controller decomposition at each adaptive query')
+  fig.tight_layout(rect=(0, 0.06, 1, 0.96))
+  fig.savefig(output_dir / 'candidate_component_decomposition.png', dpi=200, bbox_inches='tight')
   plt.close(fig)
 
   phase_stats = {profile: _phase_stats(curves[profile]['eval']) for profile in runs}
@@ -440,6 +541,16 @@ def aggregate(run_dirs: list[Path], output_dir: Path) -> dict:
       'final_eval_returns': final_scores,
       'adaptive_selected_horizons': {str(row['step']): row['selected_horizon'] for row in adaptive_queries},
       'adaptive_proposed_horizons': {str(row['step']): row['proposed_horizon'] for row in adaptive_queries},
+      'reference_score_proposed_horizons': {
+          str(step): int(proposal) for step, proposal in zip(query_steps, reference)
+      },
+      'reference_return_argmax_horizons': {
+          str(step): int(horizon) for step, horizon in zip(query_steps, reference_return_argmax)
+      },
+      'reference_return_means': {
+          str(step): {str(horizon): value for horizon, value in values.items()}
+          for step, values in reference_return_means.items()
+      },
       'adaptive_moved_long_during_delay': any(value >= 6 for value in delayed_selected),
       'adaptive_recovered_short': bool(recovered_selected and recovered_selected[-1] <= 3),
   }
@@ -464,6 +575,7 @@ def _parser() -> argparse.ArgumentParser:
   validation.add_argument('--require-valid-marker', action='store_true')
   aggregation = sub.add_parser('aggregate')
   aggregation.add_argument('--output-dir', required=True)
+  aggregation.add_argument('--use-validation-summaries', action='store_true')
   aggregation.add_argument('run_dirs', nargs='+')
   return parser
 
@@ -481,6 +593,7 @@ def main() -> None:
     print(json.dumps(aggregate(
         [Path(path) for path in args.run_dirs],
         Path(args.output_dir),
+        use_validation_summaries=args.use_validation_summaries,
     ), indent=2, sort_keys=True))
 
 
