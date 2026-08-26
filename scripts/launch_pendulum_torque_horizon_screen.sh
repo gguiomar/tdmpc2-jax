@@ -8,6 +8,8 @@ PARENT_RUN_DIR="${PARENT_RUN_DIR:-outputs/pendulum_h8_torque02/pendh8__base_t1p0
 OUTPUT_ROOT="${OUTPUT_ROOT:-outputs/pendulum_torque_horizon_screen}"
 ATTEMPT="${ATTEMPT:-1}"
 SBATCH_SCRIPT="scripts/ncc_pendulum_torque_horizon_screen.sbatch"
+VENV_PATH="${VENV_PATH:-$HOME/.venvs/temporalhorizon-jax}"
+PYTHON_BIN="${VENV_PATH}/bin/python"
 
 if [[ "$(git rev-parse HEAD)" != "${EXPECTED_COMMIT}" ]]; then
   echo "Launcher commit mismatch" >&2
@@ -18,7 +20,11 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   git status --short >&2
   exit 3
 fi
-python scripts/analyze_pendulum_h8_torque02.py validate \
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "Missing project Python interpreter ${PYTHON_BIN}" >&2
+  exit 3
+fi
+"${PYTHON_BIN}" scripts/analyze_pendulum_h8_torque02.py validate \
   --phase base --run-dir "${PARENT_RUN_DIR}"
 
 config_hash() {
