@@ -1,0 +1,48 @@
+{
+  "atlas_version": "pendulum-frontier-atlas-v1",
+  "git_commit": "4d1f3ace085a294026fef2a744c86be936f80bad",
+  "source_checkpoint_step": 30000,
+  "slurm": {
+    "smoke_job": 4555,
+    "array_job": 4556,
+    "reducer_job": 4557,
+    "valid_shards": 4,
+    "wall_clock_makespan": "00:05:58"
+  },
+  "coverage": {
+    "conditions": 24,
+    "horizons": [2, 3, 4, 5, 6, 7, 8],
+    "paired_replicas": 32,
+    "summary_rows": 168,
+    "paired_rows": 5376
+  },
+  "rescuable_conditions": [
+    {
+      "condition_id": "base_action_delay__3",
+      "best_horizon": 2,
+      "best_long_horizon": 6,
+      "best_return_mean": 106.8125,
+      "h3_return_mean": 66.0625,
+      "long_minus_h3_mean": 19.6875,
+      "long_minus_h3_lcb90": 10.413208350299474
+    },
+    {
+      "condition_id": "base_action_delay__4",
+      "best_horizon": 7,
+      "best_long_horizon": 7,
+      "best_return_mean": 71.46875,
+      "h3_return_mean": 54.90625,
+      "long_minus_h3_mean": 16.5625,
+      "long_minus_h3_lcb90": 7.777677621721928
+    }
+  ],
+  "recommended_online_endpoint": {
+    "axis": "base_action_delay",
+    "nominal_value": 0,
+    "perturbed_value": 4,
+    "short_oracle_horizon": 3,
+    "long_oracle_horizon": 7,
+    "adaptive_candidates": [2, 3, 4, 5, 6, 7, 8]
+  },
+  "remote_aggregate_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-h8-torque02/outputs/pendulum_frontier_atlas/aggregate/attempt_2"
+}
