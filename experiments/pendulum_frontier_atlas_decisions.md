@@ -18,3 +18,8 @@ A condition is called horizon-rescuable when the best horizon in `{6,7,8}` has a
 
 Only after that gate passes do we launch the matched online trio from the same 30k checkpoint: fixed h=3, fixed h=8, and the full adaptive controller. If no condition is rescuable, those jobs remain unsubmitted and we revise the intervention or source checkpoint rather than interpreting another failed switch.
 
+## First smoke failure and minimal repair
+
+Revision `c02bffadfbac6c789e0b112cd0a37043d56f6970` passed 48 authoritative CPU tests on NCC and revalidated the stable 30k source. Smoke job 4552 then failed before checkpoint restore or GPU evaluation because the new analyzer was invoked as a file under `scripts/`; that makes `scripts/`, rather than the repository root, Python's import root and prevented importing `tdmpc2_jax.frontier_atlas`. The `afterok` gate correctly kept array 4553 and reducer 4554 from running, so no scientific result or GPU atlas artifact was produced.
+
+The smallest repair changes only the four analyzer invocations in the GPU and reducer batch scripts to module form: `python -m scripts.analyze_pendulum_frontier_atlas`. The frozen checkpoint, conditions, paired resets, horizons, planner budget, and statistical rule are unchanged. The failed attempt remains preserved as attempt 1; the repaired chain will use attempt 2.

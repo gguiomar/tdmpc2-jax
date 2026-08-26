@@ -38,8 +38,7 @@ RUN_DIRS=()
 for shard in 0 1 2 3; do
   RUN_DIRS+=("${OUTPUT_ROOT}/pendatlas__broad_shard${shard}of4__s7/attempt_${ATTEMPT}")
 done
-python scripts/analyze_pendulum_frontier_atlas.py aggregate \
+python -m scripts.analyze_pendulum_frontier_atlas aggregate \
   --output-dir "${OUTPUT_ROOT}/aggregate/attempt_${ATTEMPT}" \
   "${RUN_DIRS[@]}"
 echo "PENDULUM_FRONTIER_ATLAS_AGGREGATE_VALID OUTPUT_ROOT=${OUTPUT_ROOT}"
-

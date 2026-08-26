@@ -102,7 +102,7 @@ MANIFEST_ARGS=(
 if [[ -n "${CONDITION_LIMIT}" ]]; then
   MANIFEST_ARGS+=(--condition-limit "${CONDITION_LIMIT}")
 fi
-python scripts/analyze_pendulum_frontier_atlas.py "${MANIFEST_ARGS[@]}"
+python -m scripts.analyze_pendulum_frontier_atlas "${MANIFEST_ARGS[@]}"
 cp -a "${SOURCE_RUN_DIR}/checkpoint" "${RUN_DIR}/checkpoint"
 
 echo "HOST=$(hostname) SLURM_JOB_ID=${SLURM_JOB_ID:-unset} CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
@@ -199,10 +199,9 @@ fi
 
 python -m tdmpc2_jax.train "${PY_ARGS[@]}"
 touch "${RUN_DIR}/ATLAS_COMPLETE"
-python scripts/analyze_pendulum_frontier_atlas.py validate \
+python -m scripts.analyze_pendulum_frontier_atlas validate \
   --run-dir "${RUN_DIR}" \
   --allow-missing-valid-marker
 touch "${RUN_DIR}/RUN_VALID"
-python scripts/analyze_pendulum_frontier_atlas.py validate --run-dir "${RUN_DIR}"
+python -m scripts.analyze_pendulum_frontier_atlas validate --run-dir "${RUN_DIR}"
 echo "PENDULUM_FRONTIER_ATLAS_RUN_VALID RUN_DIR=${RUN_DIR}"
-

@@ -11,26 +11,30 @@
     "full_shards": 4
   },
   "cpu_tests": {
-    "status": "pending",
-    "tested_commit": null,
-    "local_result": null,
-    "remote_result": null
+    "status": "passed",
+    "tested_commit": "c02bffadfbac6c789e0b112cd0a37043d56f6970",
+    "local_result": "syntax, shell, and git diff checks passed; local mess3 lacks JAX/Flax",
+    "remote_result": "48 passed in 13.26s with JAX_PLATFORMS=cpu"
   },
   "source_validation": {
-    "status": "pending",
+    "status": "passed",
     "run_id": "pendh8__base_t1p0_h3__s7",
-    "checkpoint_step": 30000
+    "checkpoint_step": 30000,
+    "terminal_eval_mean": 841.2333,
+    "terminal_eval_cv": 0.062339
   },
   "gpu_smoke": {
-    "status": "pending",
-    "job_id": null,
-    "git_commit": null,
-    "config_hash": null
+    "status": "failed_before_evaluation",
+    "job_id": 4552,
+    "git_commit": "c02bffadfbac6c789e0b112cd0a37043d56f6970",
+    "config_hash": "f690e3e94578c3cf9c1570230c2c9abf4588e2b2980218510cf91b4062a0a9b9",
+    "diagnosis": "direct script execution omitted the repository root from Python's import path",
+    "repair": "invoke the analyzer as python -m scripts.analyze_pendulum_frontier_atlas"
   },
   "full_launch": {
-    "status": "blocked_on_smoke",
-    "array_job_id": null,
-    "reducer_job_id": null,
+    "status": "dependency_never_satisfied_after_failed_smoke",
+    "array_job_id": 4553,
+    "reducer_job_id": 4554,
     "valid_shards": 0
   },
   "online_traversal": {
@@ -38,4 +42,3 @@
     "submitted_jobs": []
   }
 }
-
