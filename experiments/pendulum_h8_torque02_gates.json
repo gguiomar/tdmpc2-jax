@@ -6,10 +6,12 @@
     "artifact": "runs/results/mjx_gates/pendulum-swingup/gate_report.json"
   },
   "cpu_tests": {
-    "status": "pending",
-    "command": "pytest -q tests/test_recent_replay_sampling.py tests/test_pendulum_actuator_strength.py tests/test_horizon_search_scoring.py"
+    "status": "passed",
+    "command": "JAX_PLATFORMS=cpu pytest -q tests/test_recent_replay_sampling.py tests/test_pendulum_actuator_strength.py tests/test_horizon_search_scoring.py",
+    "result": "28 passed",
+    "tested_commit": "d7fc3da288d20122e116108ce2b24a7d9f227f03"
   },
-  "local_git_clean": false,
-  "remote_git_clean": false,
-  "remote_commit_match": false
+  "local_git_clean": true,
+  "remote_git_clean": true,
+  "remote_commit_match": true
 }
