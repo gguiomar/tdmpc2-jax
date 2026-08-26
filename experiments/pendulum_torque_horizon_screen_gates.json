@@ -1,6 +1,10 @@
 {
   "schema_version": 1,
-  "cpu_tests": {"status": "pending"},
+  "cpu_tests": {
+    "status": "local_contract_passed_remote_pending",
+    "local_command": "conda run -n mess3 python -m pytest -q tests/test_pendulum_torque_horizon_screen.py",
+    "local_result": "2 passed"
+  },
   "parent_validation": {"status": "pending"},
   "restore_smoke": {"status": "pending"},
   "full_launch": {"status": "blocked_on_restore_smoke"}
