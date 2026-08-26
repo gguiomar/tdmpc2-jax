@@ -21,3 +21,9 @@ A torque endpoint is useful for the next adaptive experiment only if control rem
 Revision `515f35c18eded4e6c0e7c8175e5913a781263730` passed the parent and CPU gates. Restore-smoke job 4540 is running at torque 0.6 and fixed h=8. Full jobs 4541--4546 encode the frozen torque-by-horizon matrix and were submitted with dependency `afterok:4540`; none can start if the smoke fails.
 
 Job 4540 then completed in 2m41s. It restored the composite 30k parent, trained and evaluated through 30.8k, wrote the terminal checkpoint, preserved fixed h=8 in both horizon audit scalars, and passed manifest/artifact validation. Its single evaluation return was 90.9. Slurm released jobs 4541--4546; jobs 4541--4544 started immediately on all four GPUs and jobs 4545--4546 remained queued under the four-GPU per-user limit.
+
+## Terminal screen result
+
+All six full jobs completed with exit code 0 and passed checkpoint, manifest, finite-metric, terminal-evaluation, and fixed-horizon validation. The h=3 jobs took 10m19--10m23 and the h=8 jobs took 11m36--11m40; four-GPU scheduling completed the full matrix in 22m03.
+
+Torque 0.4 was a failure regime: h=3 had mean/best/final evaluation returns 12.55/100.0/100.0, while h=8 had 0.45/3.2/3.2. Torque 0.6 remained weak and intermittent: h=3 had 80.41/196.1/100.0 and h=8 had 18.55/100.0/100.0. Torque 0.8 was controllable, but did not show a robust long-horizon advantage: h=3 had 651.19/836.7/662.9 and h=8 had 559.60/766.8/704.8. Thus torque alone has not exposed a horizon-rescuable band in this coarse screen; h=8 has a higher final point at 0.8 but a lower curve mean and best point.

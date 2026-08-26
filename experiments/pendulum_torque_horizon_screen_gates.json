@@ -30,10 +30,12 @@
     "evaluation_return": 90.9
   },
   "full_launch": {
-    "status": "running_four_of_six",
+    "status": "complete_six_of_six_valid",
     "dependency": "afterok:4540",
     "job_ids": [4541, 4542, 4543, 4544, 4545, 4546],
-    "running_job_ids": [4541, 4542, 4543, 4544],
-    "queued_job_ids": [4545, 4546]
+    "valid_job_ids": [4541, 4542, 4543, 4544, 4545, 4546],
+    "wall_clock_makespan": "00:22:03",
+    "h3_elapsed_range": ["00:10:19", "00:10:23"],
+    "h8_elapsed_range": ["00:11:36", "00:11:40"]
   }
 }
