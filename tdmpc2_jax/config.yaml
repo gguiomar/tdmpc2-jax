@@ -153,6 +153,7 @@ dense_rhs:
   candidate_budget: {A: 29, B1: 18, B2: 12, B3: 9, B4: 9}
   query_interval_steps: 20000
   query_recent_transition_steps: 0
+  reset_query_schedule_on_restore: false
 
 evaluation:
   enabled: false

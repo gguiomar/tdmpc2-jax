@@ -1,0 +1,52 @@
+{
+  "name": "pendulum_delay_adaptation",
+  "description": "Checkpoint-forked Pendulum 0->4->0 hidden-delay traversal comparing fixed h3, atlas-optimal fixed h7, and the full adaptive controller.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-h8",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-h8-torque02",
+    "branch": "ggmar/pendulum-h8-torque02"
+  },
+  "constraints": {
+    "scientific_runs": 3,
+    "max_active_gpus": 3,
+    "slurm_only": true,
+    "require_clean_matching_commit": true,
+    "require_valid_source": "pendh8__base_t1p0_h3__s7@30000",
+    "require_cpu_tests": true,
+    "require_adaptive_gpu_smoke": true,
+    "require_egl_render_smoke": true
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "source_checkpoint_step": 30000,
+    "final_step": 46000,
+    "delay_schedule": {"base": 0, "active": 4, "start": 34000, "end": 42000, "observed": false},
+    "readout_interval_steps": 400,
+    "evaluation_episodes": 10,
+    "artifact_anchors": [30000, 34000, 36000, 40000, 42000, 44000, 46000],
+    "adaptive_query_steps": [32000, 36000, 40000, 44000],
+    "adaptive_horizons": [2, 3, 4, 5, 6, 7, 8],
+    "reference_probe_replicas": 128
+  },
+  "profiles": [
+    {"run_id": "penddelay__fixed_h3__s7", "controller": "fixed", "horizon": 3},
+    {"run_id": "penddelay__fixed_h7__s7", "controller": "fixed", "horizon": 7},
+    {"run_id": "penddelay__adaptive_h2to8__s7", "controller": "adaptive", "initial_horizon": 3}
+  ],
+  "success": {
+    "primary": "adaptive selects h>=6 during delay 4 after beginning at h<=3",
+    "recovery": "adaptive returns to h<=3 after delay returns to zero",
+    "performance": "adaptive phase returns track the better fixed controller without collapse",
+    "diagnostic_if_failed": "retain the full query-term and high-replica shadow-oracle traces to separate evidence, decision-rule, and learning failures"
+  },
+  "tracking": {
+    "ledger": "experiments/pendulum_delay_adaptation_ledger.csv",
+    "decisions": "experiments/pendulum_delay_adaptation_decisions.md",
+    "gate": "experiments/pendulum_delay_adaptation_gates.json",
+    "results_dir": "runs/results/pendulum_delay_adaptation",
+    "remote_source_dir": "outputs/pendulum_h8_torque02/pendh8__base_t1p0_h3__s7/attempt_1",
+    "remote_output_root": "outputs/pendulum_delay_adaptation"
+  }
+}

@@ -41,15 +41,31 @@ CARTPOLE_ACTION_DELAY_END_STEP = 350_000
 
 def cartpole_action_delay(global_transition_step: jax.Array) -> jax.Array:
   """Returns the pilot's 0 -> 4 -> 0 delay at a collected-transition step."""
+  return scheduled_action_delay(
+      global_transition_step,
+      base_delay=0,
+      active_delay=CARTPOLE_ACTION_DELAY_MAX,
+      start_step=CARTPOLE_ACTION_DELAY_START_STEP,
+      end_step=CARTPOLE_ACTION_DELAY_END_STEP,
+  )
+
+
+def scheduled_action_delay(global_transition_step: jax.Array,
+                           *,
+                           base_delay: int,
+                           active_delay: int,
+                           start_step: int,
+                           end_step: int) -> jax.Array:
+  """Returns a fixed-shape base -> active -> base action-delay schedule."""
   step = jnp.asarray(global_transition_step, dtype=jnp.int32)
-  delayed_phase = jnp.logical_and(
-      step >= CARTPOLE_ACTION_DELAY_START_STEP,
-      step < CARTPOLE_ACTION_DELAY_END_STEP,
+  active_phase = jnp.logical_and(
+      step >= int(start_step),
+      step < int(end_step),
   )
   return jnp.where(
-      delayed_phase,
-      jnp.asarray(CARTPOLE_ACTION_DELAY_MAX, dtype=jnp.int32),
-      jnp.asarray(0, dtype=jnp.int32),
+      active_phase,
+      jnp.asarray(active_delay, dtype=jnp.int32),
+      jnp.asarray(base_delay, dtype=jnp.int32),
   )
 
 
@@ -753,6 +769,10 @@ class MJXDMCBatchEnv:
                base_action_delay: int = 1,
                action_delay_schedule_enabled: bool = False,
                action_delay_observation_enabled: bool = False,
+               action_delay_schedule_start_step: int = CARTPOLE_ACTION_DELAY_START_STEP,
+               action_delay_schedule_end_step: int = CARTPOLE_ACTION_DELAY_END_STEP,
+               action_delay_schedule_value: int = CARTPOLE_ACTION_DELAY_MAX,
+               allow_hidden_action_delay_schedule: bool = False,
                action_repeat_dt: Optional[float] = None,
                wind_scale: float = 5.0,
                push_scale: float = 25.0,
@@ -807,6 +827,12 @@ class MJXDMCBatchEnv:
     self.base_action_delay = int(base_action_delay)
     self.action_delay_schedule_enabled = bool(action_delay_schedule_enabled)
     self.action_delay_observation_enabled = bool(action_delay_observation_enabled)
+    self.action_delay_schedule_start_step = int(action_delay_schedule_start_step)
+    self.action_delay_schedule_end_step = int(action_delay_schedule_end_step)
+    self.action_delay_schedule_value = int(action_delay_schedule_value)
+    self.allow_hidden_action_delay_schedule = bool(
+        allow_hidden_action_delay_schedule
+    )
     self.wind_scale = float(wind_scale)
     self.push_scale = float(push_scale)
     self.slip_scale = float(slip_scale)
@@ -817,18 +843,32 @@ class MJXDMCBatchEnv:
           'base_action_delay must be in '
           f'[0, {CARTPOLE_ACTION_DELAY_MAX}], got {self.base_action_delay}.'
       )
-    if self.action_delay_schedule_enabled and task != 'cartpole-swingup':
+    if not 0 <= self.action_delay_schedule_value <= CARTPOLE_ACTION_DELAY_MAX:
       raise ValueError(
-          'The 0 -> 4 -> 0 action-delay schedule is defined only for '
-          "task='cartpole-swingup'."
+          'action_delay_schedule_value must be in '
+          f'[0, {CARTPOLE_ACTION_DELAY_MAX}], got '
+          f'{self.action_delay_schedule_value}.'
       )
     if (
         self.action_delay_schedule_enabled and
-        not self.action_delay_observation_enabled
+        not 0 <= self.action_delay_schedule_start_step <
+        self.action_delay_schedule_end_step
+    ):
+      raise ValueError(
+          'Dynamic action-delay schedule requires '
+          '0 <= start_step < end_step, got '
+          f'{self.action_delay_schedule_start_step} and '
+          f'{self.action_delay_schedule_end_step}.'
+      )
+    if (
+        self.action_delay_schedule_enabled and
+        not self.action_delay_observation_enabled and
+        not self.allow_hidden_action_delay_schedule
     ):
       raise ValueError(
           'action_delay_observation_enabled must be true when the dynamic '
-          'action-delay schedule is enabled, so the process remains Markov.'
+          'action-delay schedule is enabled, unless '
+          'allow_hidden_action_delay_schedule is explicitly true.'
       )
 
     domain, _ = _parse_task(task)
@@ -961,7 +1001,13 @@ class MJXDMCBatchEnv:
   def _effective_action_delay(self,
                               global_transition_step: jax.Array) -> jax.Array:
     if self.action_delay_schedule_enabled:
-      return cartpole_action_delay(global_transition_step)
+      return scheduled_action_delay(
+          global_transition_step,
+          base_delay=self.base_action_delay,
+          active_delay=self.action_delay_schedule_value,
+          start_step=self.action_delay_schedule_start_step,
+          end_step=self.action_delay_schedule_end_step,
+      )
     return jnp.full_like(
         jnp.asarray(global_transition_step, dtype=jnp.int32),
         self.base_action_delay,
@@ -1564,6 +1610,26 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
       action_delay_observation_enabled=bool(
           getattr(cfg, 'action_delay_observation_enabled', False)
       ),
+      action_delay_schedule_start_step=int(getattr(
+          cfg,
+          'action_delay_schedule_start_step',
+          CARTPOLE_ACTION_DELAY_START_STEP,
+      )),
+      action_delay_schedule_end_step=int(getattr(
+          cfg,
+          'action_delay_schedule_end_step',
+          CARTPOLE_ACTION_DELAY_END_STEP,
+      )),
+      action_delay_schedule_value=int(getattr(
+          cfg,
+          'action_delay_schedule_value',
+          CARTPOLE_ACTION_DELAY_MAX,
+      )),
+      allow_hidden_action_delay_schedule=bool(getattr(
+          cfg,
+          'allow_hidden_action_delay_schedule',
+          False,
+      )),
       action_repeat_dt=getattr(cfg, 'action_repeat_dt', None),
       wind_scale=float(cfg.wind_scale),
       push_scale=float(cfg.push_scale),

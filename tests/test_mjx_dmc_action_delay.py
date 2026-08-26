@@ -15,6 +15,7 @@ from tdmpc2_jax.envs.mjx_dmc import (
     make_global_transition_steps,
     mask_paired_candidate_returns,
     paired_candidate_keys,
+    scheduled_action_delay,
 )
 
 
@@ -27,6 +28,20 @@ class CartpoleActionDelayTest(unittest.TestCase):
     )
     actual = np.asarray(jax.jit(cartpole_action_delay)(steps))
     np.testing.assert_array_equal(actual, [0, 0, 4, 4, 0, 0])
+
+  def test_configurable_schedule_boundaries(self):
+    steps = jnp.asarray(
+        [29_999, 30_000, 33_999, 34_000, 41_999, 42_000, 46_000],
+        dtype=jnp.int32,
+    )
+    actual = np.asarray(jax.jit(lambda value: scheduled_action_delay(
+        value,
+        base_delay=0,
+        active_delay=4,
+        start_step=34_000,
+        end_step=42_000,
+    ))(steps))
+    np.testing.assert_array_equal(actual, [0, 0, 0, 4, 4, 0, 0])
 
   def test_vector_batch_receives_exact_global_transition_indices(self):
     actual = np.asarray(make_global_transition_steps(149_998, (4,), 4))

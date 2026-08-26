@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render deterministic Cartpole delay-pilot trajectories as paired GIFs.
+"""Render deterministic MJX delay trajectories as paired GIFs and PNGs.
 
 The training process writes physical MJX states and actions, so this exporter
 does not restore the policy or execute it again. Rendering is therefore safe to
@@ -131,13 +131,23 @@ def _frame_overlay(image: np.ndarray,
       separator=',',
       suppress_small=True,
   )
+  environment = metadata.get('environment', {})
+  schedule_start = int(environment.get('action_delay_schedule_start_step', 150_000))
+  schedule_end = int(environment.get('action_delay_schedule_end_step', 350_000))
+  schedule_value = int(environment.get('action_delay_schedule_value', 4))
+  schedule_enabled = bool(environment.get('action_delay_schedule_enabled', True))
+  phase_delay = (
+      schedule_value
+      if schedule_enabled and schedule_start <= int(metadata['global_step']) < schedule_end
+      else int(environment.get('base_action_delay', 0))
+  )
   lines = (
       f"{metadata.get('run_id', 'run')} | step {metadata['global_step']:,}",
       f"{metadata.get('controller', 'unknown')} | seed {metadata.get('training_seed', '?')}",
       f"{condition} challenge | init {initial_state} | delay {delay} | h={metadata['selected_horizon']}",
       (
-          "train schedule: 0 --[150k]--> 4 --[350k]--> 0 | "
-          f"phase d={0 if metadata['global_step'] < 150000 or metadata['global_step'] >= 350000 else 4}"
+          f"train schedule: 0 --[{schedule_start:,}]--> {schedule_value} "
+          f"--[{schedule_end:,}]--> 0 | phase d={phase_delay}"
       ),
       f"frame {frame_index} | return {cumulative_return:.2f}",
       f"queue {queue_text}",
@@ -270,7 +280,8 @@ def render_rollout_dir(rollout_dir: Path,
   )
   output_fps = float(fps) if fps is not None else 1.0 / (frame_dt * frame_stride)
   duration_ms = max(1, int(round(1000.0 / output_fps)))
-  output_path = rollout_dir / 'cartpole_delay0_vs_delay4.gif'
+  task_prefix = str(metadata['environment']['task']).split('-', maxsplit=1)[0]
+  output_path = rollout_dir / f'{task_prefix}_delay0_vs_delay4.gif'
   frames[0].save(
       output_path,
       save_all=True,
@@ -278,6 +289,9 @@ def render_rollout_dir(rollout_dir: Path,
       duration=duration_ms,
       loop=0,
       optimize=False,
+  )
+  frames[0].save(
+      rollout_dir / f'{task_prefix}_delay0_vs_delay4_frame.png'
   )
   return output_path
 

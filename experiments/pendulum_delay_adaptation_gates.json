@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "pending",
+  "expected_commit": null,
+  "cpu_tests": null,
+  "source_validation": null,
+  "gpu_smoke_job": null,
+  "egl_render_smoke": null,
+  "scientific_jobs": [],
+  "reducer_job": null
+}

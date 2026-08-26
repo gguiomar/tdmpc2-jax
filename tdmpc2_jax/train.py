@@ -353,6 +353,18 @@ def _next_artifact_anchor(global_step: int,
   )
 
 
+def _restored_dense_query_step(global_step: int,
+                               dense_rhs_config,
+                               current_next_query_step: int) -> int:
+  """Optionally restarts a forked run's query cadence from its new protocol."""
+  if not bool(dense_rhs_config.get('reset_query_schedule_on_restore', False)):
+    return int(current_next_query_step)
+  return max(
+      int(global_step),
+      int(dense_rhs_config.get('start_query_step', global_step)),
+  )
+
+
 def _json_safe_config(cfg):
   return OmegaConf.to_container(cfg, resolve=True)
 
@@ -384,6 +396,18 @@ def _anchor_metadata(cfg,
               mjx_config.get('actuator_strength_scale', 1.0)
           ),
           'base_action_delay': int(mjx_config.get('base_action_delay', 0)),
+          'action_delay_schedule_enabled': bool(
+              mjx_config.get('action_delay_schedule_enabled', False)
+          ),
+          'action_delay_schedule_start_step': int(
+              mjx_config.get('action_delay_schedule_start_step', 150_000)
+          ),
+          'action_delay_schedule_end_step': int(
+              mjx_config.get('action_delay_schedule_end_step', 350_000)
+          ),
+          'action_delay_schedule_value': int(
+              mjx_config.get('action_delay_schedule_value', 4)
+          ),
           'action_repeat': int(mjx_config.get('action_repeat', 1)),
           'action_repeat_dt': float(mjx_config.get('action_repeat_dt', 0.02)),
           'episode_length': int(mjx_config.get('episode_length', 500)),
@@ -633,7 +657,10 @@ def _save_anchor_artifacts(*,
           'contains_replay_buffer': False,
       },
       'trajectories': trajectory_records,
-      'expected_gif': 'cartpole_delay0_vs_delay4.gif',
+      'expected_gif': (
+          f"{metadata['environment']['task'].split('-', maxsplit=1)[0]}"
+          '_delay0_vs_delay4.gif'
+      ),
   })
   _atomic_write_json(metadata_path, metadata)
 
@@ -1187,6 +1214,7 @@ def build_mjx_seed_chunk_fn(env, *, chunk_steps: int):
           rng,
       )
       step_logs = {
+          'reward': reward,
           'done': done,
           'episode_return': episode_return,
           'episode_length': episode_length,
@@ -1248,6 +1276,7 @@ def build_mjx_collect_step_fn(env):
         mask=jnp.ones_like(done, dtype=bool),
     )
     step_logs = {
+        'reward': reward,
         'done': done,
         'episode_return': episode_return,
         'episode_length': episode_length,
@@ -1311,6 +1340,7 @@ def build_mjx_collect_chunk_fn(env, *, chunk_steps: int):
           mask=jnp.ones_like(done, dtype=bool),
       )
       step_logs = {
+          'reward': reward,
           'done': done,
           'episode_return': episode_return,
           'episode_length': episode_length,
@@ -1737,6 +1767,10 @@ def _run_mjx_training_loop(cfg,
           chunk_logs=chunk_logs,
           selected_horizon=int(selected_horizon),
       )
+      _accumulate_train_info_host(
+          train_info_accumulator,
+          {'online_reward': chunk_logs['reward']},
+      )
       global_step += chunk_global_steps
       pbar.update(chunk_global_steps)
     elif can_run_chunk:
@@ -1768,6 +1802,10 @@ def _run_mjx_training_loop(cfg,
           ep_count=ep_count,
           chunk_logs=chunk_logs,
           selected_horizon=int(selected_horizon),
+      )
+      _accumulate_train_info_host(
+          train_info_accumulator,
+          {'online_reward': chunk_logs['reward']},
       )
       run_update_batches(
           collect_chunk_steps * num_updates_per_step,
@@ -1816,6 +1854,10 @@ def _run_mjx_training_loop(cfg,
           mask=jnp.ones_like(done, dtype=bool),
       )
       observation = next_observation
+      _accumulate_train_info_host(
+          train_info_accumulator,
+          {'online_reward': reward},
+      )
       collect_time_since_log += time.perf_counter() - collect_start
       if plan is not None:
         plan = _reset_plan_for_done(plan, done, agent.max_plan_std)
@@ -2498,7 +2540,12 @@ def train(cfg: dict):
       ):
         challenge_config.mjx_dmc.base_action_delay = delay
         challenge_config.mjx_dmc.action_delay_schedule_enabled = False
-        challenge_config.mjx_dmc.action_delay_observation_enabled = True
+        challenge_config.mjx_dmc.action_delay_observation_enabled = bool(
+            env_config.mjx_dmc.get(
+                'action_delay_observation_enabled',
+                False,
+            )
+        )
         challenge_config.mjx_dmc.reset_pool_size = 2
       inspection_delay0_env = make_mjx_dmc_env(
           inspection_delay0_env_config,
@@ -2828,6 +2875,16 @@ def train(cfg: dict):
         buffer_state = restored.buffer_state
       if horizon_state is not None:
         horizon_state = restored.horizon_state
+        horizon_state = horizon_state.replace(
+            next_query_step=jnp.asarray(
+                _restored_dense_query_step(
+                    int(global_step),
+                    dense_rhs_config,
+                    int(np.asarray(horizon_state.next_query_step)),
+                ),
+                dtype=jnp.int32,
+            )
+        )
         selected_horizon = int(np.asarray(horizon_state.best_h))
         agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
     else:

@@ -27,6 +27,7 @@ def _load_train_artifact_helpers():
           '_scripted_horizon_schedule',
           '_scripted_horizon_at_step',
           '_next_scripted_horizon_step',
+          '_restored_dense_query_step',
           '_make_full_horizon_deployed_planner_agent',
       }
   ]
@@ -174,6 +175,31 @@ class ScriptedHorizonTest(unittest.TestCase):
     self.assertEqual(expanded.values['horizon'], 3)
     self.assertEqual(expanded.values['population_size'], 512)
     self.assertEqual(expanded.values['mppi_iterations'], 6)
+
+  def test_checkpoint_fork_can_reset_query_schedule(self):
+    helper = self.helpers['_restored_dense_query_step']
+    self.assertEqual(
+        helper(
+            30_000,
+            {
+                'reset_query_schedule_on_restore': True,
+                'start_query_step': 32_000,
+            },
+            34_000,
+        ),
+        32_000,
+    )
+    self.assertEqual(
+        helper(
+            30_000,
+            {
+                'reset_query_schedule_on_restore': False,
+                'start_query_step': 32_000,
+            },
+            34_000,
+        ),
+        34_000,
+    )
 
 
 class RolloutValidationTest(unittest.TestCase):
