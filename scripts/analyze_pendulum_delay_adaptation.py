@@ -233,10 +233,11 @@ def validate(run_dir: Path, *, require_valid_marker: bool = False) -> dict:
       queries.append(query)
     if tuple(query['step'] for query in queries) != tuple(contract['query_steps']):
       raise ValueError('Adaptive query cadence mismatch.')
-    for step in contract['query_steps']:
-      completed = scalars.get('reference_probe/completed', {}).get(int(step))
-      if completed != 1.0:
-        raise ValueError(f'Reference probe incomplete at step {step}.')
+    if manifest['mode'] == 'full':
+      for step in contract['query_steps']:
+        completed = scalars.get('reference_probe/completed', {}).get(int(step))
+        if completed != 1.0:
+          raise ValueError(f'Reference probe incomplete at step {step}.')
   media = _validate_media(run_dir, manifest)
   if require_valid_marker and not (run_dir / 'RUN_VALID').is_file():
     raise ValueError('RUN_VALID marker missing.')

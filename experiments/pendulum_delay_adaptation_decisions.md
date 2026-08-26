@@ -17,3 +17,9 @@ The primary success pattern is short before the intervention, h>=6 during delay 
 ## Visual evidence
 
 Every run saves immutable model anchors and deterministic paired delay-0/delay-4 trajectories at 30k, 34k, 36k, 40k, 42k, 44k, and 46k. EGL rendering produces a GIF and first-frame PNG per anchor. These trajectories do not mutate training state and use fixed reset states and planner randomness across controllers and anchors.
+
+## First smoke failure and minimal repair
+
+Smoke job 4561 completed the 30k restore, the 30k--32k hidden-delay traversal, one adaptive query, five dense evaluation points, the 128-replica observational reference, five anchor checkpoints, ten raw trajectories, and all five EGL GIF/PNG pairs. It then failed strict validation because the smoke reused the full profile's 23k Orbax save cadence. Step 32k is not a 23k cadence boundary, so the terminal composite checkpoint manager declined that save even though the dedicated 32k model anchor was valid.
+
+Attempt 2 changes only gate mechanics. The smoke uses a 32k composite-save cadence so its terminal step is accepted. It also omits the high-replica shadow reference, which is not needed to gate restore, online adaptation, metric, artifact, or EGL correctness and had dominated the gate runtime. The full fixed-h3, fixed-h7, and adaptive scientific configurations are unchanged; the adaptive full run still retains all four 128-replica reference probes.

@@ -23,6 +23,7 @@ case "${MODE}" in
   smoke)
     [[ "${PROFILE}" == "adaptive" ]] || { echo "Smoke must exercise adaptive" >&2; exit 2; }
     MAX_STEPS=32000
+    SAVE_INTERVAL_STEPS=32000
     DELAY_START=30800
     DELAY_END=31600
     QUERY_START=31200
@@ -32,6 +33,7 @@ case "${MODE}" in
     ;;
   full)
     MAX_STEPS=46000
+    SAVE_INTERVAL_STEPS=23000
     DELAY_START=34000
     DELAY_END=42000
     QUERY_START=32000
@@ -48,6 +50,14 @@ case "${PROFILE}" in
   adaptive) CONTROLLER=adaptive; FIXED_HORIZON=3; DENSE_ENABLED=true; REFERENCE_ENABLED=true ;;
   *) echo "Unsupported PROFILE=${PROFILE}" >&2; exit 2 ;;
 esac
+
+if [[ "${MODE}" == "smoke" ]]; then
+  # The gate exercises restore, one adaptive query, dense readouts, all anchor
+  # trajectories, and EGL rendering. The costly high-replica shadow reference
+  # is scientific instrumentation and remains enabled only in the full run.
+  REFERENCE_ENABLED=false
+  QUERY_ANCHORS='[]'
+fi
 
 source "${VENV_PATH}/bin/activate"
 export PYTHONUNBUFFERED=1
@@ -109,7 +119,7 @@ PY_ARGS=(
   +score_mode=additive
   seed=7
   max_steps="${MAX_STEPS}"
-  save_interval_steps=23000
+  save_interval_steps="${SAVE_INTERVAL_STEPS}"
   log_interval_steps=400
   update_chunk_size=128
   collect_chunk_steps=100
