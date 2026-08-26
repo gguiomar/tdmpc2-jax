@@ -30,7 +30,9 @@ case "${PHASE}" in
     ;;
   branch)
     MAX_STEPS=46000
-    SAVE_INTERVAL_STEPS=16000
+    # Orbax applies this interval to the absolute global step. Since the
+    # branch resumes at 30k, 23k accepts the required terminal save at 46k.
+    SAVE_INTERVAL_STEPS=23000
     TORQUE_SCALE=0.2
     REFERENCE_PROBE=true
     REFERENCE_ANCHORS='[42000]'
