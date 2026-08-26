@@ -1,0 +1,51 @@
+{
+  "name": "pendulum_torque_horizon_screen",
+  "description": "Checkpoint-forked fixed-horizon screen that locates a controllable weak-torque Pendulum regime where h=8 outperforms h=3 before any adaptive-controller test.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-h8",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-h8-torque02",
+    "branch": "ggmar/pendulum-h8-torque02"
+  },
+  "constraints": {
+    "expected_profiles": 6,
+    "max_active_gpus": 4,
+    "slurm_only": true,
+    "require_clean_local_git": true,
+    "require_clean_remote_git": true,
+    "require_remote_commit_match": true,
+    "require_valid_parent": "pendh8__base_t1p0_h3__s7@30000",
+    "require_restore_smoke": true
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "parent_checkpoint_step": 30000,
+    "final_step": 46000,
+    "continuation_steps": 16000,
+    "num_envs": 8,
+    "checkpoint_buffer": true,
+    "evaluation_interval_steps": 2000,
+    "evaluation_episodes": 10,
+    "controller": "fixed",
+    "dense_rhs_enabled": false,
+    "torque_scales": [0.4, 0.6, 0.8],
+    "fixed_horizons": [3, 8]
+  },
+  "profiles": [
+    {"priority": 1, "run_id": "pendgrid__t0p4_h3__s7", "actuator_strength_scale": 0.4, "horizon": 3},
+    {"priority": 2, "run_id": "pendgrid__t0p4_h8__s7", "actuator_strength_scale": 0.4, "horizon": 8},
+    {"priority": 3, "run_id": "pendgrid__t0p6_h3__s7", "actuator_strength_scale": 0.6, "horizon": 3},
+    {"priority": 4, "run_id": "pendgrid__t0p6_h8__s7", "actuator_strength_scale": 0.6, "horizon": 8},
+    {"priority": 5, "run_id": "pendgrid__t0p8_h3__s7", "actuator_strength_scale": 0.8, "horizon": 3},
+    {"priority": 6, "run_id": "pendgrid__t0p8_h8__s7", "actuator_strength_scale": 0.8, "horizon": 8}
+  ],
+  "tracking": {
+    "ledger": "experiments/pendulum_torque_horizon_screen_ledger.csv",
+    "decisions": "experiments/pendulum_torque_horizon_screen_decisions.md",
+    "gate": "experiments/pendulum_torque_horizon_screen_gates.json",
+    "results_dir": "runs/results/pendulum_torque_horizon_screen",
+    "remote_parent_dir": "outputs/pendulum_h8_torque02/pendh8__base_t1p0_h3__s7/attempt_1",
+    "remote_output_root": "outputs/pendulum_torque_horizon_screen"
+  }
+}

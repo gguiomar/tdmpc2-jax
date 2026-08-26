@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "cpu_tests": {"status": "pending"},
+  "parent_validation": {"status": "pending"},
+  "restore_smoke": {"status": "pending"},
+  "full_launch": {"status": "blocked_on_restore_smoke"}
+}
