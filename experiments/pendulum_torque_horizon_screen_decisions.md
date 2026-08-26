@@ -15,3 +15,7 @@ The first launcher invocation at revision `5c2da9116e0c5ba3ba6c5bad987ce3e080489
 ## Interpretation rule
 
 A torque endpoint is useful for the next adaptive experiment only if control remains non-degenerate and h=8 improves over h=3. A joint collapse of both horizons is an infeasible endpoint, not evidence for either horizon. Similar strong returns at both horizons indicate that torque level does not identify horizon necessity. The best next adaptive condition is the weakest controllable torque with the clearest positive `h=8 - h=3` gap.
+
+## Slurm launch
+
+Revision `515f35c18eded4e6c0e7c8175e5913a781263730` passed the parent and CPU gates. Restore-smoke job 4540 is running at torque 0.6 and fixed h=8. Full jobs 4541--4546 encode the frozen torque-by-horizon matrix and were submitted with dependency `afterok:4540`; none can start if the smoke fails.
