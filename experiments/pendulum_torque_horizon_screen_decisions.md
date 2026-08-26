@@ -19,3 +19,5 @@ A torque endpoint is useful for the next adaptive experiment only if control rem
 ## Slurm launch
 
 Revision `515f35c18eded4e6c0e7c8175e5913a781263730` passed the parent and CPU gates. Restore-smoke job 4540 is running at torque 0.6 and fixed h=8. Full jobs 4541--4546 encode the frozen torque-by-horizon matrix and were submitted with dependency `afterok:4540`; none can start if the smoke fails.
+
+Job 4540 then completed in 2m41s. It restored the composite 30k parent, trained and evaluated through 30.8k, wrote the terminal checkpoint, preserved fixed h=8 in both horizon audit scalars, and passed manifest/artifact validation. Its single evaluation return was 90.9. Slurm released jobs 4541--4546; jobs 4541--4544 started immediately on all four GPUs and jobs 4545--4546 remained queued under the four-GPU per-user limit.
