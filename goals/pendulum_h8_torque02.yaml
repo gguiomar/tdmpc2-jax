@@ -1,0 +1,65 @@
+{
+  "name": "pendulum_h8_torque02",
+  "description": "Checkpoint-forked Pendulum endpoint diagnostic: train one stable nominal-torque parent to 30k, then reduce actuator strength to 0.2 and test whether the additive paired-LCB controller selects horizon 8.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-h8",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-h8-torque02",
+    "branch": "ggmar/pendulum-h8-torque02"
+  },
+  "constraints": {
+    "expected_profiles": 2,
+    "max_active_gpus": 1,
+    "slurm_only": true,
+    "require_clean_local_git": true,
+    "require_clean_remote_git": true,
+    "require_remote_commit_match": true,
+    "base_stability_gate": "last-three eval mean >= 700 and CV <= 0.15"
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "num_envs": 8,
+    "checkpoint_buffer": true,
+    "evaluation_interval_steps": 2000,
+    "evaluation_episodes": 10,
+    "horizons": [2, 3, 4, 5, 6, 7, 8],
+    "initial_horizon": 3,
+    "start_query_step": 34000,
+    "query_interval_steps": 4000,
+    "query_recent_transition_steps": 4000,
+    "score_mode": "additive",
+    "decision_rule": "paired_lcb",
+    "num_roughness_probes": 8,
+    "local_window_radius": 0,
+    "max_transition_delta": 0
+  },
+  "profiles": [
+    {
+      "priority": 1,
+      "run_id": "pendh8__base_t1p0_h3__s7",
+      "phase": "base",
+      "max_steps": 30000,
+      "actuator_strength_scale": 1.0,
+      "parent": null
+    },
+    {
+      "priority": 2,
+      "run_id": "pendh8__fork_t0p2_adaptive__s7",
+      "phase": "branch",
+      "max_steps": 46000,
+      "actuator_strength_scale": 0.2,
+      "parent": "pendh8__base_t1p0_h3__s7@30000",
+      "query_steps": [34000, 38000, 42000],
+      "reference_probe_step": 42000
+    }
+  ],
+  "tracking": {
+    "ledger": "experiments/pendulum_h8_torque02_ledger.csv",
+    "decisions": "experiments/pendulum_h8_torque02_decisions.md",
+    "gate": "experiments/pendulum_h8_torque02_gates.json",
+    "results_dir": "runs/results/pendulum_h8_torque02",
+    "remote_base_dir": "outputs/pendulum_h8_torque02/pendh8__base_t1p0_h3__s7/attempt_1",
+    "remote_branch_dir": "outputs/pendulum_h8_torque02/pendh8__fork_t0p2_adaptive__s7/attempt_1"
+  }
+}

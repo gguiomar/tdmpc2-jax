@@ -14,6 +14,7 @@ from jaxtyping import PyTree
         'num_updates',
         'batch_size',
         'sequence_length',
+        'recent_transition_steps',
         'strict_episode_boundaries',
         'max_sample_attempts',
     ),
@@ -24,10 +25,16 @@ def sample_many_from_state(
     num_updates: int,
     batch_size: int,
     sequence_length: int,
+    recent_transition_steps: int = 0,
     strict_episode_boundaries: bool = True,
     max_sample_attempts: int = 8,
 ) -> Tuple[Dict[str, PyTree], PyTree]:
-  """Pure JAX sampler for vectorized replay buffer state."""
+  """Pure JAX sampler for vectorized replay buffer state.
+
+  ``recent_transition_steps`` limits sequence starts to the newest requested
+  number of transitions across all vectorized environments. A value of zero
+  preserves uniform sampling over the complete replay history.
+  """
   data = state['data']
   size = state['size']
   current_ind = state['current_ind']
@@ -45,9 +52,22 @@ def sample_many_from_state(
       maxval=num_envs,
   )
   available = jnp.maximum(size[env_candidates] - sequence_length + 1, 1)
+  if int(recent_transition_steps) > 0:
+    recent_rows_per_env = max(
+        int(recent_transition_steps) // int(num_envs),
+        int(sequence_length),
+    )
+    recent_available = min(
+        max(recent_rows_per_env - int(sequence_length) + 1, 1),
+        capacity,
+    )
+    logical_start_floor = jnp.maximum(available - recent_available, 0)
+  else:
+    logical_start_floor = jnp.zeros_like(available)
+  logical_start_span = jnp.maximum(available - logical_start_floor, 1)
   logical_start_candidates = jnp.floor(
-      jax.random.uniform(key_start, shape=attempt_shape) * available
-  ).astype(jnp.int32)
+      jax.random.uniform(key_start, shape=attempt_shape) * logical_start_span
+  ).astype(jnp.int32) + logical_start_floor
   start_candidates = (
       logical_start_candidates -
       (size[env_candidates] - current_ind[env_candidates])
@@ -103,6 +123,7 @@ def sample_many_from_state(
     static_argnames=(
         'batch_size',
         'sequence_length',
+        'recent_transition_steps',
         'strict_episode_boundaries',
         'max_sample_attempts',
     ),
@@ -112,6 +133,7 @@ def sample_from_state(
     *,
     batch_size: int,
     sequence_length: int,
+    recent_transition_steps: int = 0,
     strict_episode_boundaries: bool = True,
     max_sample_attempts: int = 8,
 ) -> Tuple[Dict[str, PyTree], PyTree]:
@@ -120,6 +142,7 @@ def sample_from_state(
       num_updates=1,
       batch_size=batch_size,
       sequence_length=sequence_length,
+      recent_transition_steps=recent_transition_steps,
       strict_episode_boundaries=strict_episode_boundaries,
       max_sample_attempts=max_sample_attempts,
   )

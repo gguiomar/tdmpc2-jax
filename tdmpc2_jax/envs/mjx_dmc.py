@@ -746,6 +746,7 @@ class MJXDMCBatchEnv:
                observation_noise_scale: float = 0.01,
                enable_domain_randomization: bool = True,
                enable_observation_noise: bool = True,
+               actuator_strength_scale: float = 1.0,
                base_action_delay: int = 1,
                action_delay_schedule_enabled: bool = False,
                action_delay_observation_enabled: bool = False,
@@ -767,6 +768,12 @@ class MJXDMCBatchEnv:
     self.enable_domain_randomization = bool(enable_domain_randomization)
     self.enable_observation_noise = bool(enable_observation_noise)
     self.observation_noise_scale = float(observation_noise_scale)
+    self.actuator_strength_scale = float(actuator_strength_scale)
+    if not 0.0 < self.actuator_strength_scale <= 1.0:
+      raise ValueError(
+          'actuator_strength_scale must be in (0, 1], got '
+          f'{self.actuator_strength_scale}.'
+      )
     self.base_action_delay = int(base_action_delay)
     self.action_delay_schedule_enabled = bool(action_delay_schedule_enabled)
     self.action_delay_observation_enabled = bool(action_delay_observation_enabled)
@@ -1095,7 +1102,7 @@ class MJXDMCBatchEnv:
       )
       raw_action_to_apply = jnp.where(env_state['jitter_mask'], env_state['last_action'], action_to_apply)
       ctrl_to_apply = _scale_action_to_ctrl(
-          raw_action_to_apply * env_state['actuator_strength'],
+          raw_action_to_apply * env_state['actuator_strength'] * self.actuator_strength_scale,
           self._metadata,
       )
       repeat_data = data.replace(ctrl=ctrl_to_apply)
@@ -1493,6 +1500,9 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
       observation_noise_scale=float(cfg.observation_noise_scale),
       enable_domain_randomization=bool(cfg.enable_domain_randomization),
       enable_observation_noise=bool(cfg.enable_observation_noise),
+      actuator_strength_scale=float(
+          getattr(cfg, 'actuator_strength_scale', 1.0)
+      ),
       base_action_delay=int(cfg.base_action_delay),
       action_delay_schedule_enabled=bool(
           getattr(cfg, 'action_delay_schedule_enabled', False)

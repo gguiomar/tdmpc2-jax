@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "scientific_configuration_frozen": true,
+  "existing_pendulum_mjx_gate": {
+    "status": "passed",
+    "artifact": "runs/results/mjx_gates/pendulum-swingup/gate_report.json"
+  },
+  "cpu_tests": {
+    "status": "pending",
+    "command": "pytest -q tests/test_recent_replay_sampling.py tests/test_pendulum_actuator_strength.py tests/test_horizon_search_scoring.py"
+  },
+  "local_git_clean": false,
+  "remote_git_clean": false,
+  "remote_commit_match": false
+}

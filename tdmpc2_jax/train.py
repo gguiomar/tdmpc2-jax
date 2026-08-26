@@ -375,6 +375,9 @@ def _anchor_metadata(cfg,
           'env_id': str(env_config.env_id),
           'task': str(mjx_config.get('task', env_config.env_id)),
           'num_envs': int(env_config.num_envs),
+          'actuator_strength_scale': float(
+              mjx_config.get('actuator_strength_scale', 1.0)
+          ),
           'base_action_delay': int(mjx_config.get('base_action_delay', 0)),
           'action_repeat': int(mjx_config.get('action_repeat', 1)),
           'action_repeat_dt': float(mjx_config.get('action_repeat_dt', 0.02)),
@@ -1484,6 +1487,9 @@ def _run_mjx_training_loop(cfg,
         buffer_state,
         batch_size=int(agent.batch_size),
         sequence_length=int(horizon_state.hmax),
+        recent_transition_steps=int(
+            dense_rhs_config.get('query_recent_transition_steps', 0)
+        ),
     )
     query_start = time.perf_counter()
     dense_query_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
@@ -1866,6 +1872,9 @@ def _run_mjx_training_loop(cfg,
           timing_state,
           batch_size=int(agent.batch_size),
           sequence_length=int(horizon_state.hmax),
+          recent_transition_steps=int(
+              dense_rhs_config.get('query_recent_transition_steps', 0)
+          ),
       )
       calibration_batch = timing_batch
       _save_calibration_replay_batch(
@@ -1925,6 +1934,9 @@ def _run_mjx_training_loop(cfg,
             reference_state,
             batch_size=int(agent.batch_size),
             sequence_length=int(horizon_state.hmax),
+            recent_transition_steps=int(
+                dense_rhs_config.get('query_recent_transition_steps', 0)
+            ),
         )
         _save_calibration_replay_batch(
             output_dir,
@@ -2764,6 +2776,9 @@ def train(cfg: dict):
             buffer_state,
             batch_size=int(agent.batch_size),
             sequence_length=int(horizon_state.hmax),
+            recent_transition_steps=int(
+                dense_rhs_config.get('query_recent_transition_steps', 0)
+            ),
         )
         query_start = time.perf_counter()
         dense_query_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
