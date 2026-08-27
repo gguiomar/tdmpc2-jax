@@ -76,7 +76,12 @@ def validate_rollout_dir(rollout_dir: Path) -> dict:
     metadata = json.load(metadata_file)
   conditions = tuple(sorted(metadata.get('trajectories', {})))
   if not conditions:
-    raise ValueError(f'{metadata_path}: no trajectory conditions declared')
+    conditions = tuple(
+        condition for condition in ('delay0', 'delay4', 'delay6')
+        if (rollout_dir / f'trajectory_{condition}.npz').is_file()
+    )
+  if not conditions:
+    raise ValueError(f'{metadata_path}: no delay trajectories found')
   for condition in conditions:
     trajectory_path = rollout_dir / f'trajectory_{condition}.npz'
     if not trajectory_path.is_file():
@@ -281,7 +286,13 @@ def render_rollout_dir(rollout_dir: Path,
                        fps: float | None) -> Path:
   metadata = validate_rollout_dir(rollout_dir)
   conditions = {}
-  for condition in sorted(metadata.get('trajectories', {})):
+  condition_names = tuple(sorted(metadata.get('trajectories', {})))
+  if not condition_names:
+    condition_names = tuple(
+        condition for condition in ('delay0', 'delay4', 'delay6')
+        if (rollout_dir / f'trajectory_{condition}.npz').is_file()
+    )
+  for condition in condition_names:
     conditions[condition] = _render_condition(
         rollout_dir / f'trajectory_{condition}.npz',
         metadata=metadata,

@@ -35,6 +35,7 @@ DEFAULT_VALUE_AT_MARGIN = 0.1
 # shape. Queue rows are ordered from oldest to newest. Six rows support the
 # score-formulation screen while preserving the original delay-four semantics.
 CARTPOLE_ACTION_DELAY_MAX = 6
+CARTPOLE_ACTION_DELAY_VALUE = 4
 CARTPOLE_ACTION_DELAY_START_STEP = 150_000
 CARTPOLE_ACTION_DELAY_END_STEP = 350_000
 
@@ -44,7 +45,7 @@ def cartpole_action_delay(global_transition_step: jax.Array) -> jax.Array:
   return scheduled_action_delay(
       global_transition_step,
       base_delay=0,
-      active_delay=CARTPOLE_ACTION_DELAY_MAX,
+      active_delay=CARTPOLE_ACTION_DELAY_VALUE,
       start_step=CARTPOLE_ACTION_DELAY_START_STEP,
       end_step=CARTPOLE_ACTION_DELAY_END_STEP,
   )
@@ -789,7 +790,7 @@ class MJXDMCBatchEnv:
                action_delay_observation_enabled: bool = False,
                action_delay_schedule_start_step: int = CARTPOLE_ACTION_DELAY_START_STEP,
                action_delay_schedule_end_step: int = CARTPOLE_ACTION_DELAY_END_STEP,
-               action_delay_schedule_value: int = CARTPOLE_ACTION_DELAY_MAX,
+               action_delay_schedule_value: int = CARTPOLE_ACTION_DELAY_VALUE,
                action_delay_schedule_boundaries: Optional[Sequence[int]] = None,
                action_delay_schedule_values: Optional[Sequence[int]] = None,
                allow_hidden_action_delay_schedule: bool = False,
@@ -1679,7 +1680,7 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
       action_delay_schedule_value=int(getattr(
           cfg,
           'action_delay_schedule_value',
-          CARTPOLE_ACTION_DELAY_MAX,
+          CARTPOLE_ACTION_DELAY_VALUE,
       )),
       action_delay_schedule_boundaries=getattr(
           cfg,
