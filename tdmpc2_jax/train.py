@@ -408,6 +408,14 @@ def _anchor_metadata(cfg,
           'action_delay_schedule_value': int(
               mjx_config.get('action_delay_schedule_value', 4)
           ),
+          'action_delay_schedule_boundaries': [
+              int(value) for value in
+              mjx_config.get('action_delay_schedule_boundaries', [])
+          ],
+          'action_delay_schedule_values': [
+              int(value) for value in
+              mjx_config.get('action_delay_schedule_values', [])
+          ],
           'action_repeat': int(mjx_config.get('action_repeat', 1)),
           'action_repeat_dt': float(mjx_config.get('action_repeat_dt', 0.02)),
           'episode_length': int(mjx_config.get('episode_length', 500)),
@@ -658,8 +666,8 @@ def _save_anchor_artifacts(*,
       },
       'trajectories': trajectory_records,
       'expected_gif': (
-          f"{metadata['environment']['task'].split('-', maxsplit=1)[0]}"
-          '_delay0_vs_delay4.gif'
+          f"{metadata['environment']['task'].split('-', maxsplit=1)[0]}_"
+          f"{'_vs_'.join(sorted(trajectory_records))}.gif"
       ),
   })
   _atomic_write_json(metadata_path, metadata)
@@ -2460,6 +2468,7 @@ def train(cfg: dict):
   periodic_eval_env = None
   inspection_delay0_env = None
   inspection_delay4_env = None
+  inspection_delay6_env = None
   dense_reference_eval_env = None
 
   def make_env(env_config, seed):
@@ -2534,9 +2543,16 @@ def train(cfg: dict):
               resolve=True,
           )
       )
+      inspection_delay6_env_config = OmegaConf.create(
+          OmegaConf.to_container(
+              inspection_delay0_env_config,
+              resolve=True,
+          )
+      )
       for challenge_config, delay in (
           (inspection_delay0_env_config, 0),
           (inspection_delay4_env_config, 4),
+          (inspection_delay6_env_config, 6),
       ):
         challenge_config.mjx_dmc.base_action_delay = delay
         challenge_config.mjx_dmc.action_delay_schedule_enabled = False
@@ -2554,6 +2570,11 @@ def train(cfg: dict):
       )
       inspection_delay4_env = make_mjx_dmc_env(
           inspection_delay4_env_config,
+          314_159,
+          num_envs=2,
+      )
+      inspection_delay6_env = make_mjx_dmc_env(
+          inspection_delay6_env_config,
           314_159,
           num_envs=2,
       )
@@ -2704,6 +2725,9 @@ def train(cfg: dict):
         score_mode=str(
             dense_rhs_config.get('score_mode', 'legacy_multiplicative')
         ),
+        score_variant=str(
+            dense_rhs_config.get('score_variant', 'current_additive')
+        ),
         additive_return_scale=float(
             dense_rhs_config.get('additive_return_scale', 1.0)
         ),
@@ -2764,6 +2788,30 @@ def train(cfg: dict):
         transition_uncertainty_floor=float(
             dense_rhs_config.get('transition_uncertainty_floor', 0.05)
         ),
+        calibrated_return_weight=float(
+            dense_rhs_config.get('calibrated_return_weight', 10.0)
+        ),
+        calibrated_roughness_weight=float(
+            dense_rhs_config.get('calibrated_roughness_weight', 1.0)
+        ),
+        horizon_switch_cost=float(
+            dense_rhs_config.get('horizon_switch_cost', 0.05)
+        ),
+        return_first_tolerance=float(
+            dense_rhs_config.get('return_first_tolerance', 5.0)
+        ),
+        roughness_discount=float(
+            dense_rhs_config.get('roughness_discount', 0.99)
+        ),
+        curvature_risk_weight=float(
+            dense_rhs_config.get('curvature_risk_weight', 1.0)
+        ),
+        bellman_risk_weight=float(
+            dense_rhs_config.get('bellman_risk_weight', 0.1)
+        ),
+        curvature_risk_scale=float(
+            dense_rhs_config.get('curvature_risk_scale', 0.01)
+        ),
     )
     selected_horizon = int(np.asarray(horizon_state.best_h))
     agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
@@ -2791,6 +2839,7 @@ def train(cfg: dict):
   for condition, inspection_env in (
       ('delay0', inspection_delay0_env),
       ('delay4', inspection_delay4_env),
+      ('delay6', inspection_delay6_env),
   ):
     if inspection_env is not None:
       inspection_rollout_fns[condition] = build_mjx_inspection_rollout_fn(

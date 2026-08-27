@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "pending",
+  "expected_commit": null,
+  "cpu_tests": {"status": "pending"},
+  "source_checkpoint": {"status": "pending", "job_id": null},
+  "gpu_smoke": {"status": "pending", "job_id": null},
+  "egl_render_smoke": {"status": "pending", "job_id": null},
+  "scientific_jobs": [],
+  "confirmation_jobs": [],
+  "reducer": {"status": "pending"},
+  "report": {"status": "pending"}
+}

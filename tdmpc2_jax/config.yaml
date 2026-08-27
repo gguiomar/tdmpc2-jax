@@ -68,6 +68,14 @@ env:
     fixed_observation_noise_scale: null
     observation_noise_scale: 0.01
     base_action_delay: 1
+    action_delay_schedule_enabled: false
+    action_delay_observation_enabled: false
+    action_delay_schedule_start_step: 150000
+    action_delay_schedule_end_step: 350000
+    action_delay_schedule_value: 4
+    action_delay_schedule_boundaries: []
+    action_delay_schedule_values: []
+    allow_hidden_action_delay_schedule: false
     desired_speed: 5.0
     action_repeat_dt: 0.02
     wind_scale: 5.0
@@ -101,6 +109,7 @@ dense_rhs:
   # The Cartpole Delay pilot overrides the probe count and score/decision modes.
   num_roughness_probes: 2
   score_mode: legacy_multiplicative
+  score_variant: current_additive
   additive_return_scale: 1.0
   additive_return_std_scale: 1.0
   additive_log_roughness_scale: 1.0
@@ -137,6 +146,16 @@ dense_rhs:
   transition_roughness_weight: 1.0
   transition_return_std_weight: 1.0
   transition_uncertainty_floor: 0.05
+  # Predeclared score-formulation-screen parameters. These are inactive for
+  # score_variant=current_additive.
+  calibrated_return_weight: 10.0
+  calibrated_roughness_weight: 1.0
+  horizon_switch_cost: 0.05
+  return_first_tolerance: 5.0
+  roughness_discount: 0.99
+  curvature_risk_weight: 1.0
+  bellman_risk_weight: 0.1
+  curvature_risk_scale: 0.01
   horizon_buckets: []
   phase_pruning_enabled: true
   phase_min_samples_to_drop: 3

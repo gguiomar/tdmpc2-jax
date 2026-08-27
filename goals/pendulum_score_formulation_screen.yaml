@@ -1,0 +1,71 @@
+{
+  "name": "pendulum_score_formulation_screen",
+  "description": "Checkpoint-forked S0-S3 score screen under the common hidden-delay sequence 0->2->6->4->0.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-h8",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-score-screen",
+    "branch": "ggmar/pendulum-score-formulation-screen"
+  },
+  "constraints": {
+    "scientific_runs": 4,
+    "confirmation_runs_max": 4,
+    "max_active_gpus": 3,
+    "slurm_only": true,
+    "require_clean_matching_commit": true,
+    "require_source_checkpoint": "pendscore__source34k__s7@34000",
+    "require_cpu_tests": true,
+    "require_gpu_smoke": true,
+    "require_egl_render_smoke": true,
+    "retry_infrastructure_failures": 2
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "source_checkpoint_step": 34000,
+    "final_step": 54000,
+    "delay_schedule": {
+      "boundaries": [38000, 42000, 46000, 50000],
+      "values": [0, 2, 6, 4, 0],
+      "observed": false
+    },
+    "readout_interval_steps": 400,
+    "evaluation_episodes": 10,
+    "query_interval_steps": 2000,
+    "artifact_anchors": [34000, 38000, 42000, 46000, 50000, 54000],
+    "reference_anchors": [36000, 40000, 44000, 48000, 52000, 54000],
+    "adaptive_horizons": [2, 3, 4, 5, 6, 7, 8],
+    "deployment_replicas": 32,
+    "reference_replicas": 128,
+    "calibrated_return_weight": 10,
+    "calibrated_return_weight_grid": [10, 20, 40]
+  },
+  "profiles": [
+    {"run_id": "pendscore__s0_current_additive__s7", "profile": "s0", "score_variant": "current_additive"},
+    {"run_id": "pendscore__s1_local_roughness__s7", "profile": "s1", "score_variant": "calibrated_local_roughness"},
+    {"run_id": "pendscore__s2_return_first__s7", "profile": "s2", "score_variant": "return_first"},
+    {"run_id": "pendscore__s3_curvature_bellman__s7", "profile": "s3", "score_variant": "curvature_bellman"}
+  ],
+  "promotion": {
+    "auc_fraction_of_best": 0.95,
+    "clean_return_fraction_of_best": 0.95,
+    "max_switches_per_phase": 2,
+    "forbid_aba_chatter": true,
+    "clean_recovery_horizon_tolerance": 1,
+    "primary_tiebreak": "lowest_mean_oracle_regret",
+    "secondary_tiebreak": "lowest_compute_overhead",
+    "confirm_top_profiles": 2,
+    "confirmation_seeds_per_profile": 2
+  },
+  "tracking": {
+    "ledger": "experiments/pendulum_score_screen_ledger.csv",
+    "decisions": "experiments/pendulum_score_screen_decisions.md",
+    "gate": "experiments/pendulum_score_screen_gates.json",
+    "results_dir": "runs/results/pendulum_score_screen",
+    "remote_parent_dir": "outputs/pendulum_h8_torque02/pendh8__base_t1p0_h3__s7/attempt_1",
+    "remote_archived_anchor_dir": "outputs/pendulum_delay_adaptation/penddelay__adaptive_h2to8__s7/attempt_2/artifacts/anchor_checkpoints/34000",
+    "remote_output_root": "outputs/pendulum_score_screen",
+    "report_tex": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.tex",
+    "report_pdf": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.pdf"
+  }
+}

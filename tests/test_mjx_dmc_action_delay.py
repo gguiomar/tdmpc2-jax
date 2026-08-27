@@ -15,6 +15,7 @@ from tdmpc2_jax.envs.mjx_dmc import (
     make_global_transition_steps,
     mask_paired_candidate_returns,
     paired_candidate_keys,
+    piecewise_action_delay,
     scheduled_action_delay,
 )
 
@@ -42,6 +43,19 @@ class CartpoleActionDelayTest(unittest.TestCase):
         end_step=42_000,
     ))(steps))
     np.testing.assert_array_equal(actual, [0, 0, 0, 4, 4, 0, 0])
+
+  def test_piecewise_delay_screen_schedule(self):
+    steps = jnp.asarray(
+        [34_000, 37_999, 38_000, 41_999, 42_000, 45_999,
+         46_000, 49_999, 50_000, 54_000],
+        dtype=jnp.int32,
+    )
+    actual = np.asarray(jax.jit(lambda value: piecewise_action_delay(
+        value,
+        boundaries=(38_000, 42_000, 46_000, 50_000),
+        values=(0, 2, 6, 4, 0),
+    ))(steps))
+    np.testing.assert_array_equal(actual, [0, 0, 2, 2, 6, 6, 4, 4, 0, 0])
 
   def test_vector_batch_receives_exact_global_transition_indices(self):
     actual = np.asarray(make_global_transition_steps(149_998, (4,), 4))
@@ -89,12 +103,18 @@ class CartpoleActionDelayTest(unittest.TestCase):
           jnp.asarray(0, dtype=jnp.int32),
       )
       self.assertEqual(float(np.asarray(action_to_apply)[0]), float(issued))
-    np.testing.assert_array_equal(np.asarray(queue[:, 0]), [2, 3, 4, 5])
+    expected = np.arange(
+        1 - CARTPOLE_ACTION_DELAY_MAX + 5,
+        6,
+        dtype=np.float32,
+    )
+    expected = np.maximum(expected, 0.0)
+    np.testing.assert_array_equal(np.asarray(queue[:, 0]), expected)
 
   def test_switch_to_four_uses_preintervention_history(self):
     step = jax.jit(action_delay_queue_step)
     queue = make_action_delay_queue((), action_dim=1)
-    for issued in range(1, 5):
+    for issued in range(1, CARTPOLE_ACTION_DELAY_MAX + 1):
       _, queue = step(
           queue,
           jnp.asarray([issued], dtype=jnp.float32),
@@ -102,33 +122,46 @@ class CartpoleActionDelayTest(unittest.TestCase):
       )
     applied, next_queue = step(
         queue,
-        jnp.asarray([5], dtype=jnp.float32),
-        jnp.asarray(4, dtype=jnp.int32),
+        jnp.asarray([CARTPOLE_ACTION_DELAY_MAX + 1], dtype=jnp.float32),
+        jnp.asarray(CARTPOLE_ACTION_DELAY_MAX, dtype=jnp.int32),
     )
     np.testing.assert_array_equal(np.asarray(applied), [1.0])
-    np.testing.assert_array_equal(np.asarray(next_queue[:, 0]), [2, 3, 4, 5])
+    np.testing.assert_array_equal(
+        np.asarray(next_queue[:, 0]),
+        np.arange(2, CARTPOLE_ACTION_DELAY_MAX + 2, dtype=np.float32),
+    )
 
   def test_observation_contains_queue_then_normalized_delay(self):
     physical_obs = jnp.asarray([[10.0, 20.0]], dtype=jnp.float32)
-    queue = jnp.asarray([[[1.0], [2.0], [3.0], [4.0]]], dtype=jnp.float32)
+    queue = jnp.arange(
+        1,
+        CARTPOLE_ACTION_DELAY_MAX + 1,
+        dtype=jnp.float32,
+    ).reshape((1, CARTPOLE_ACTION_DELAY_MAX, 1))
     observation = augment_observation_with_action_delay(
         physical_obs,
         queue,
-        jnp.asarray([4], dtype=jnp.int32),
+        jnp.asarray([CARTPOLE_ACTION_DELAY_MAX], dtype=jnp.int32),
     )
     np.testing.assert_array_equal(
         np.asarray(observation),
-        [[10.0, 20.0, 1.0, 2.0, 3.0, 4.0, 1.0]],
+        [[10.0, 20.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 1.0]],
     )
 
   def test_canonical_observation_can_remain_unaugmented(self):
     self.assertEqual(action_delay_observation_dim(5, 1, enabled=False), 5)
-    self.assertEqual(action_delay_observation_dim(5, 1, enabled=True), 10)
+    self.assertEqual(
+        action_delay_observation_dim(5, 1, enabled=True),
+        5 + CARTPOLE_ACTION_DELAY_MAX + 1,
+    )
 
   def test_empty_queue_is_fixed_shape_and_zero_filled(self):
     queue = make_action_delay_queue((3,), action_dim=2)
-    self.assertEqual(queue.shape, (3, 4, 2))
-    np.testing.assert_array_equal(np.asarray(queue), np.zeros((3, 4, 2)))
+    self.assertEqual(queue.shape, (3, CARTPOLE_ACTION_DELAY_MAX, 2))
+    np.testing.assert_array_equal(
+        np.asarray(queue),
+        np.zeros((3, CARTPOLE_ACTION_DELAY_MAX, 2)),
+    )
 
   def test_candidate_broadcast_preserves_replica_pairing(self):
     replicas = jnp.asarray([[1.0, 2.0], [3.0, 4.0]], dtype=jnp.float32)

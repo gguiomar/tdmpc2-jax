@@ -74,7 +74,10 @@ def validate_rollout_dir(rollout_dir: Path) -> dict:
     raise FileNotFoundError(f'Missing rollout metadata: {metadata_path}')
   with metadata_path.open() as metadata_file:
     metadata = json.load(metadata_file)
-  for condition in ('delay0', 'delay4'):
+  conditions = tuple(sorted(metadata.get('trajectories', {})))
+  if not conditions:
+    raise ValueError(f'{metadata_path}: no trajectory conditions declared')
+  for condition in conditions:
     trajectory_path = rollout_dir / f'trajectory_{condition}.npz'
     if not trajectory_path.is_file():
       raise FileNotFoundError(f'Missing trajectory: {trajectory_path}')
@@ -136,18 +139,33 @@ def _frame_overlay(image: np.ndarray,
   schedule_end = int(environment.get('action_delay_schedule_end_step', 350_000))
   schedule_value = int(environment.get('action_delay_schedule_value', 4))
   schedule_enabled = bool(environment.get('action_delay_schedule_enabled', True))
-  phase_delay = (
-      schedule_value
-      if schedule_enabled and schedule_start <= int(metadata['global_step']) < schedule_end
-      else int(environment.get('base_action_delay', 0))
-  )
+  boundaries = [
+      int(value) for value in
+      environment.get('action_delay_schedule_boundaries', [])
+  ]
+  values = [
+      int(value) for value in
+      environment.get('action_delay_schedule_values', [])
+  ]
+  if schedule_enabled and values:
+    phase_delay = values[0]
+    for boundary, value in zip(boundaries, values[1:]):
+      if int(metadata['global_step']) >= boundary:
+        phase_delay = value
+    schedule_text = ' -> '.join(str(value) for value in values)
+  else:
+    phase_delay = (
+        schedule_value
+        if schedule_enabled and schedule_start <= int(metadata['global_step']) < schedule_end
+        else int(environment.get('base_action_delay', 0))
+    )
+    schedule_text = f'0 --[{schedule_start:,}]--> {schedule_value} --[{schedule_end:,}]--> 0'
   lines = (
       f"{metadata.get('run_id', 'run')} | step {metadata['global_step']:,}",
       f"{metadata.get('controller', 'unknown')} | seed {metadata.get('training_seed', '?')}",
       f"{condition} challenge | init {initial_state} | delay {delay} | h={metadata['selected_horizon']}",
       (
-          f"train schedule: 0 --[{schedule_start:,}]--> {schedule_value} "
-          f"--[{schedule_end:,}]--> 0 | phase d={phase_delay}"
+          f"train schedule: {schedule_text} | phase d={phase_delay}"
       ),
       f"frame {frame_index} | return {cumulative_return:.2f}",
       f"queue {queue_text}",
@@ -230,25 +248,26 @@ def _render_condition(trajectory_path: Path,
     renderer.close()
 
 
-def _compose_grid(delay0_frames: list[list[Image.Image]],
-                  delay4_frames: list[list[Image.Image]]) -> list[Image.Image]:
-  if len(delay0_frames) != len(delay4_frames):
-    raise ValueError('Delay-0 and delay-4 trajectories use different initial-state counts.')
+def _compose_grid(condition_frames: dict[str, list[list[Image.Image]]]) -> list[Image.Image]:
+  conditions = tuple(sorted(condition_frames))
+  if not conditions:
+    return []
+  row_count = len(condition_frames[conditions[0]])
+  if any(len(condition_frames[name]) != row_count for name in conditions):
+    raise ValueError('Delay trajectories use different initial-state counts.')
   grid_frames = []
   frame_count = min(
       len(frames)
-      for condition_frames in (delay0_frames, delay4_frames)
-      for frames in condition_frames
+      for name in conditions
+      for frames in condition_frames[name]
   )
   for frame_index in range(frame_count):
-    width = delay0_frames[0][frame_index].width
-    height = delay0_frames[0][frame_index].height
-    grid = Image.new('RGB', (width * 2, height * len(delay0_frames)))
-    for row, (delay0_row, delay4_row) in enumerate(
-        zip(delay0_frames, delay4_frames)
-    ):
-      grid.paste(delay0_row[frame_index], (0, row * height))
-      grid.paste(delay4_row[frame_index], (width, row * height))
+    width = condition_frames[conditions[0]][0][frame_index].width
+    height = condition_frames[conditions[0]][0][frame_index].height
+    grid = Image.new('RGB', (width * len(conditions), height * row_count))
+    for column, name in enumerate(conditions):
+      for row, frames in enumerate(condition_frames[name]):
+        grid.paste(frames[frame_index], (column * width, row * height))
     grid_frames.append(grid)
   return grid_frames
 
@@ -262,7 +281,7 @@ def render_rollout_dir(rollout_dir: Path,
                        fps: float | None) -> Path:
   metadata = validate_rollout_dir(rollout_dir)
   conditions = {}
-  for condition in ('delay0', 'delay4'):
+  for condition in sorted(metadata.get('trajectories', {})):
     conditions[condition] = _render_condition(
         rollout_dir / f'trajectory_{condition}.npz',
         metadata=metadata,
@@ -272,7 +291,7 @@ def render_rollout_dir(rollout_dir: Path,
         camera=camera,
         frame_stride=frame_stride,
     )
-  frames = _compose_grid(conditions['delay0'], conditions['delay4'])
+  frames = _compose_grid(conditions)
   if not frames:
     raise ValueError(f'No frames were rendered for {rollout_dir}.')
   frame_dt = float(
@@ -281,7 +300,8 @@ def render_rollout_dir(rollout_dir: Path,
   output_fps = float(fps) if fps is not None else 1.0 / (frame_dt * frame_stride)
   duration_ms = max(1, int(round(1000.0 / output_fps)))
   task_prefix = str(metadata['environment']['task']).split('-', maxsplit=1)[0]
-  output_path = rollout_dir / f'{task_prefix}_delay0_vs_delay4.gif'
+  condition_label = '_vs_'.join(sorted(conditions))
+  output_path = rollout_dir / f'{task_prefix}_{condition_label}.gif'
   frames[0].save(
       output_path,
       save_all=True,
@@ -291,7 +311,7 @@ def render_rollout_dir(rollout_dir: Path,
       optimize=False,
   )
   frames[0].save(
-      rollout_dir / f'{task_prefix}_delay0_vs_delay4_frame.png'
+      rollout_dir / f'{task_prefix}_{condition_label}_frame.png'
   )
   return output_path
 

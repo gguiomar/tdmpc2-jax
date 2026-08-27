@@ -21,6 +21,12 @@ PHASE_TARGET_SIZES = (29, 18, 12, 9, 9)
 ROUGHNESS_PROBE_COUNTS = (2, 4, 8, 16, 32, 64)
 VALID_ROUGHNESS_PROBE_COUNTS = (0,) + ROUGHNESS_PROBE_COUNTS
 VALID_SCORE_MODES = ('additive', 'multiplicative', 'legacy_multiplicative')
+VALID_SCORE_VARIANTS = (
+    'current_additive',
+    'calibrated_local_roughness',
+    'return_first',
+    'curvature_bellman',
+)
 VALID_DECISION_RULES = ('legacy', 'paired_lcb')
 EPS = 1e-6
 
@@ -93,6 +99,7 @@ class HorizonSearchState:
   roughness_probe: str = struct.field(pytree_node=False)
   num_roughness_probes: int = struct.field(pytree_node=False)
   score_mode: str = struct.field(pytree_node=False)
+  score_variant: str = struct.field(pytree_node=False)
   additive_return_scale: float = struct.field(pytree_node=False)
   additive_return_std_scale: float = struct.field(pytree_node=False)
   additive_log_roughness_scale: float = struct.field(pytree_node=False)
@@ -125,6 +132,14 @@ class HorizonSearchState:
   transition_roughness_weight: float = struct.field(pytree_node=False)
   transition_return_std_weight: float = struct.field(pytree_node=False)
   transition_uncertainty_floor: float = struct.field(pytree_node=False)
+  calibrated_return_weight: float = struct.field(pytree_node=False)
+  calibrated_roughness_weight: float = struct.field(pytree_node=False)
+  horizon_switch_cost: float = struct.field(pytree_node=False)
+  return_first_tolerance: float = struct.field(pytree_node=False)
+  roughness_discount: float = struct.field(pytree_node=False)
+  curvature_risk_weight: float = struct.field(pytree_node=False)
+  bellman_risk_weight: float = struct.field(pytree_node=False)
+  curvature_risk_scale: float = struct.field(pytree_node=False)
 
   @classmethod
   def create(cls,
@@ -136,6 +151,7 @@ class HorizonSearchState:
              roughness_probe: str = 'projected_jvp',
              num_roughness_probes: int = 2,
              score_mode: str = 'legacy_multiplicative',
+             score_variant: str = 'current_additive',
              additive_return_scale: float = 1.0,
              additive_return_std_scale: float = 1.0,
              additive_log_roughness_scale: float = 1.0,
@@ -167,7 +183,15 @@ class HorizonSearchState:
              transition_planner_weight: float = 1.0,
              transition_roughness_weight: float = 1.0,
              transition_return_std_weight: float = 1.0,
-             transition_uncertainty_floor: float = 0.05) -> 'HorizonSearchState':
+             transition_uncertainty_floor: float = 0.05,
+             calibrated_return_weight: float = 10.0,
+             calibrated_roughness_weight: float = 1.0,
+             horizon_switch_cost: float = 0.05,
+             return_first_tolerance: float = 5.0,
+             roughness_discount: float = 0.99,
+             curvature_risk_weight: float = 1.0,
+             bellman_risk_weight: float = 0.1,
+             curvature_risk_scale: float = 0.01) -> 'HorizonSearchState':
     horizons_arr = np.asarray(tuple(horizons), dtype=np.int32)
     if horizons_arr.size == 0:
       raise ValueError('horizons must contain at least one value')
@@ -181,6 +205,17 @@ class HorizonSearchState:
     if score_mode not in VALID_SCORE_MODES:
       raise ValueError(
           f'score_mode must be one of {VALID_SCORE_MODES}; got {score_mode!r}'
+      )
+    score_variant = str(score_variant)
+    if score_variant not in VALID_SCORE_VARIANTS:
+      raise ValueError(
+          f'score_variant must be one of {VALID_SCORE_VARIANTS}; '
+          f'got {score_variant!r}'
+      )
+    if score_variant != 'current_additive' and score_mode != 'additive':
+      raise ValueError(
+          'non-legacy score variants require score_mode=additive so their '
+          'return evidence remains in physical return units'
       )
     additive_scales = (
         float(additive_return_scale),
@@ -208,6 +243,22 @@ class HorizonSearchState:
       raise ValueError(
           'decision_rule=paired_lcb requires score_mode=additive or multiplicative'
       )
+    variant_parameters = (
+        float(calibrated_return_weight),
+        float(calibrated_roughness_weight),
+        float(horizon_switch_cost),
+        float(return_first_tolerance),
+        float(roughness_discount),
+        float(curvature_risk_weight),
+        float(bellman_risk_weight),
+        float(curvature_risk_scale),
+    )
+    if any(not np.isfinite(value) or value < 0.0 for value in variant_parameters):
+      raise ValueError('score-variant parameters must be finite and non-negative')
+    if not 0.0 < float(roughness_discount) <= 1.0:
+      raise ValueError('roughness_discount must lie in (0, 1]')
+    if float(curvature_risk_scale) <= 0.0:
+      raise ValueError('curvature_risk_scale must be positive')
     if initial_horizon is None or int(initial_horizon) not in set(horizons_arr.tolist()):
       initial_horizon = int(horizons_arr[0])
     if candidate_budget is None:
@@ -252,6 +303,7 @@ class HorizonSearchState:
         roughness_probe=roughness_probe,
         num_roughness_probes=num_roughness_probes,
         score_mode=score_mode,
+        score_variant=score_variant,
         additive_return_scale=additive_scales[0],
         additive_return_std_scale=additive_scales[1],
         additive_log_roughness_scale=additive_scales[2],
@@ -284,6 +336,14 @@ class HorizonSearchState:
         transition_roughness_weight=float(transition_roughness_weight),
         transition_return_std_weight=float(transition_return_std_weight),
         transition_uncertainty_floor=float(transition_uncertainty_floor),
+        calibrated_return_weight=float(calibrated_return_weight),
+        calibrated_roughness_weight=float(calibrated_roughness_weight),
+        horizon_switch_cost=float(horizon_switch_cost),
+        return_first_tolerance=float(return_first_tolerance),
+        roughness_discount=float(roughness_discount),
+        curvature_risk_weight=float(curvature_risk_weight),
+        bellman_risk_weight=float(bellman_risk_weight),
+        curvature_risk_scale=float(curvature_risk_scale),
     )
 
   def active_horizons(self) -> np.ndarray:
@@ -334,6 +394,11 @@ class DenseQueryResult:
   roughness_projections: jax.Array
   env_mean: jax.Array
   env_std: jax.Array
+  local_roughness: jax.Array
+  local_model_error: jax.Array
+  bellman_residual: jax.Array
+  curvature_bellman_risk: jax.Array
+  horizon_switch_cost: jax.Array
 
 
 @struct.dataclass
@@ -573,6 +638,83 @@ def _paired_score_standard_error(
   score_se = jnp.sqrt(jnp.square(return_se) + jnp.square(roughness_se))
   score_se = score_se.at[incumbent_idx].set(0.0)
   return jnp.where(candidate_mask, score_se, 0.0)
+
+
+def _paired_return_standard_error(
+    paired_returns: jax.Array,
+    incumbent_idx: jax.Array,
+    candidate_mask: jax.Array,
+) -> jax.Array:
+  """SE of paired candidate-minus-incumbent return differences."""
+  paired_returns = jnp.asarray(paired_returns, dtype=jnp.float32)
+  paired_difference = paired_returns - paired_returns[incumbent_idx]
+  standard_error = _influence_standard_error(paired_difference)
+  standard_error = standard_error.at[incumbent_idx].set(0.0)
+  return jnp.where(candidate_mask, standard_error, 0.0)
+
+
+def _discounted_prefix_normalizer(horizons: jax.Array,
+                                  discount: float) -> jax.Array:
+  """Discounted effective length used to remove mechanical horizon growth."""
+  horizons = jnp.maximum(jnp.asarray(horizons, dtype=jnp.float32), 1.0)
+  discount_array = jnp.asarray(discount, dtype=jnp.float32)
+  geometric = (
+      1.0 - jnp.power(discount_array, horizons)
+  ) / jnp.maximum(1.0 - discount_array, EPS)
+  return jnp.where(
+      jnp.abs(discount_array - 1.0) <= EPS,
+      horizons,
+      geometric,
+  )
+
+
+def _score_formulation_evidence(
+    state: HorizonSearchState,
+    model_stage: DenseQueryModelStage,
+    env_mean: jax.Array,
+    paired_returns: jax.Array,
+    incumbent_idx: jax.Array,
+    candidate_mask: jax.Array,
+) -> Tuple[
+    jax.Array, jax.Array, jax.Array, jax.Array,
+    jax.Array, jax.Array, jax.Array,
+]:
+  """Common return, local roughness, and model-risk evidence for S1--S3."""
+  normalizer = _discounted_prefix_normalizer(
+      state.horizons,
+      state.roughness_discount,
+  )
+  local_roughness = model_stage.roughness / normalizer
+  local_model_error = model_stage.probe_prefixes / normalizer
+  bellman_residual = jnp.maximum(
+      model_stage.prefix_objectives - model_stage.probe_prefixes,
+      0.0,
+  ) / normalizer
+  curvature_bellman_risk = (
+      0.5 * local_roughness * local_model_error +
+      state.bellman_risk_weight * bellman_residual
+  )
+  return_difference = env_mean - env_mean[incumbent_idx]
+  return_standard_error = _paired_return_standard_error(
+      paired_returns,
+      incumbent_idx,
+      candidate_mask,
+  )
+  switch_cost = state.horizon_switch_cost * jnp.abs(
+      state.horizons.astype(jnp.float32) -
+      state.horizons[incumbent_idx].astype(jnp.float32)
+  )
+  return tuple(
+      jnp.where(candidate_mask, value, 0.0)
+      for value in (
+          return_difference,
+          return_standard_error,
+          local_roughness,
+          local_model_error,
+          bellman_residual,
+          curvature_bellman_risk,
+      )
+  ) + (jnp.where(candidate_mask, switch_cost, 0.0),)
 
 
 def _standard_normal_cdf(x: jax.Array) -> jax.Array:
@@ -1324,6 +1466,22 @@ def _build_dense_query_kernel(eval_state: Any,
         ],
         dtype=jnp.float32,
     )
+    (
+        paired_return_difference,
+        paired_return_se,
+        local_roughness,
+        local_model_error,
+        bellman_residual,
+        curvature_bellman_risk,
+        direct_switch_cost,
+    ) = _score_formulation_evidence(
+        horizon_state,
+        model_stage,
+        env_mean,
+        paired_returns,
+        incumbent_idx,
+        candidate_eval_mask,
+    )
     if horizon_state.score_mode == 'legacy_multiplicative':
       return_term = _normalise_masked_jax(robust_return, candidate_eval_mask)
       roughness_term = _normalise_masked_jax(
@@ -1342,7 +1500,7 @@ def _build_dense_query_kernel(eval_state: Any,
       )
       score_se = jnp.zeros_like(decision_score)
       paired_confidence_available = jnp.asarray(False)
-    else:
+    elif horizon_state.score_variant == 'current_additive':
       learner_proxy_term = jnp.zeros_like(env_mean)
       (
           decision_score,
@@ -1381,6 +1539,49 @@ def _build_dense_query_kernel(eval_state: Any,
           estimated_score_se,
           jnp.zeros_like(estimated_score_se),
       )
+    else:
+      learner_proxy_term = jnp.zeros_like(env_mean)
+      sigma_r_term = jnp.zeros_like(env_mean)
+      return_term = (
+          horizon_state.calibrated_return_weight *
+          paired_return_difference / horizon_state.additive_return_scale
+      )
+      paired_confidence_available = jnp.asarray(
+          paired_returns_valid, dtype=bool
+      )
+      estimated_score_se = (
+          horizon_state.calibrated_return_weight *
+          paired_return_se / horizon_state.additive_return_scale
+      )
+      score_se = jnp.where(
+          paired_confidence_available,
+          estimated_score_se,
+          jnp.zeros_like(estimated_score_se),
+      )
+      if horizon_state.score_variant == 'calibrated_local_roughness':
+        log_local_roughness = jnp.log(jnp.maximum(
+            local_roughness,
+            horizon_state.score_evidence_floor,
+        ))
+        roughness_term = -horizon_state.calibrated_roughness_weight * (
+            log_local_roughness - log_local_roughness[incumbent_idx]
+        ) / horizon_state.additive_log_roughness_scale
+        decision_score = return_term + roughness_term - direct_switch_cost
+      elif horizon_state.score_variant == 'return_first':
+        # Roughness is deliberately excluded from the primary objective. It
+        # is used only to break ties inside the credible return set below.
+        roughness_term = jnp.zeros_like(env_mean)
+        decision_score = return_term
+      elif horizon_state.score_variant == 'curvature_bellman':
+        roughness_term = -horizon_state.curvature_risk_weight * (
+            curvature_bellman_risk -
+            curvature_bellman_risk[incumbent_idx]
+        ) / horizon_state.curvature_risk_scale
+        decision_score = return_term + roughness_term - direct_switch_cost
+      else:  # Guarded by HorizonSearchState.create.
+        raise ValueError(
+            f'Unsupported score variant {horizon_state.score_variant!r}'
+        )
     decision_score = jnp.where(candidate_eval_mask, decision_score, 0.0)
     score_lcb = jnp.where(
         candidate_eval_mask,
@@ -1427,18 +1628,71 @@ def _build_dense_query_kernel(eval_state: Any,
     expected_net_benefit = (
         expected_improvement - horizon_state.transition_risk_weight * expected_loss
     )
-    if horizon_state.decision_rule == 'paired_lcb':
+    if horizon_state.score_variant == 'return_first':
+      credible_return = jnp.logical_and(
+          candidate_eval_mask,
+          jnp.logical_and(
+              jnp.arange(horizon_state.horizons.shape[0]) != incumbent_idx,
+              score_lcb > horizon_state.switch_threshold,
+          ),
+      )
+      best_credible_lcb = jnp.max(jnp.where(
+          credible_return,
+          score_lcb,
+          -jnp.inf,
+      ))
+      scaled_tolerance = (
+          horizon_state.calibrated_return_weight *
+          horizon_state.return_first_tolerance /
+          horizon_state.additive_return_scale
+      )
+      return_competitive = jnp.logical_and(
+          credible_return,
+          score_lcb >= best_credible_lcb - scaled_tolerance,
+      )
+      tie_roughness = _normalise_masked_jax(
+          local_roughness,
+          return_competitive,
+          constant_value=0.0,
+      )
+      tie_cost = (
+          horizon_state.calibrated_roughness_weight * tie_roughness +
+          direct_switch_cost
+      )
+      return_first_idx = jnp.argmin(jnp.where(
+          return_competitive,
+          tie_cost,
+          jnp.inf,
+      ))
+      has_credible_return = jnp.logical_and(
+          paired_confidence_available,
+          jnp.any(credible_return),
+      )
+      proposed_idx = jnp.where(
+          has_credible_return,
+          return_first_idx,
+          incumbent_idx,
+      )
+    elif horizon_state.decision_rule == 'paired_lcb':
       proposal_score = score_lcb
-    elif not horizon_state.credible_transition_enabled:
-      proposal_score = decision_score
-    elif horizon_state.credible_transition_rule == 'expected_improvement':
-      proposal_score = expected_net_benefit
+      proposed_idx = jnp.argmax(jnp.where(
+          deploy_mask, proposal_score, -jnp.inf
+      ))
     else:
-      proposal_score = transition_adjusted_score
-    proposed_idx = jnp.argmax(jnp.where(deploy_mask, proposal_score, -jnp.inf))
+      if not horizon_state.credible_transition_enabled:
+        proposal_score = decision_score
+      elif horizon_state.credible_transition_rule == 'expected_improvement':
+        proposal_score = expected_net_benefit
+      else:
+        proposal_score = transition_adjusted_score
+      proposed_idx = jnp.argmax(jnp.where(
+          deploy_mask, proposal_score, -jnp.inf
+      ))
     proposed_horizon = horizon_state.horizons[proposed_idx]
     proposed_score = decision_score[proposed_idx]
-    if horizon_state.decision_rule == 'paired_lcb':
+    if horizon_state.score_variant == 'return_first':
+      switch = proposed_idx != incumbent_idx
+    elif horizon_state.decision_rule == 'paired_lcb':
       switch = jnp.logical_and(
           paired_confidence_available,
           jnp.logical_and(
@@ -1523,6 +1777,11 @@ def _build_dense_query_kernel(eval_state: Any,
         roughness_projections=model_stage.roughness_projections,
         env_mean=env_mean,
         env_std=env_std,
+        local_roughness=local_roughness,
+        local_model_error=local_model_error,
+        bellman_residual=bellman_residual,
+        curvature_bellman_risk=curvature_bellman_risk,
+        horizon_switch_cost=direct_switch_cost,
     )
 
   return DenseQueryKernelBundle(
@@ -1612,6 +1871,151 @@ def prewarm_dense_rhs_kernels(agent,
     )
     print(f'Finished Dense-RHS kernel prewarm for {slots} candidate slots.', flush=True)
   return kernels
+
+
+def _shadow_score_formulations(
+    state: HorizonSearchState,
+    *,
+    env_mean: np.ndarray,
+    env_std: np.ndarray,
+    roughness: np.ndarray,
+    roughness_projections: np.ndarray,
+    paired_returns: np.ndarray,
+    paired_returns_available: bool,
+    candidate_mask: np.ndarray,
+    local_roughness: np.ndarray,
+    curvature_bellman_risk: np.ndarray,
+    switch_cost: np.ndarray,
+) -> Dict[str, float]:
+  """Replays S0--S3 from one evidence tensor without affecting deployment."""
+  horizons = np.asarray(state.horizons, dtype=np.int32)
+  incumbent_idx = int(np.argmin(np.abs(horizons - int(np.asarray(state.best_h)))))
+  mask = np.asarray(candidate_mask, dtype=bool)
+  if not np.any(mask):
+    return {}
+
+  current_weights = jnp.asarray([
+      state.selection_return_power,
+      state.roughness_weight,
+      state.return_std_weight,
+      0.0,
+  ], dtype=jnp.float32)
+  additive_scales = jnp.asarray([
+      state.additive_return_scale,
+      state.additive_return_std_scale,
+      state.additive_log_roughness_scale,
+  ], dtype=jnp.float32)
+  s0_score = np.asarray(_incumbent_relative_decision_score(
+      env_mean=jnp.asarray(env_mean),
+      env_std=jnp.asarray(env_std),
+      roughness=jnp.asarray(roughness),
+      incumbent_idx=jnp.asarray(incumbent_idx),
+      candidate_mask=jnp.asarray(mask),
+      score_mode='additive',
+      weights=current_weights,
+      additive_scales=additive_scales,
+      evidence_floor=state.score_evidence_floor,
+  )[0])
+  if paired_returns_available:
+    s0_se = np.asarray(_paired_score_standard_error(
+        paired_returns=jnp.asarray(paired_returns),
+        env_mean=jnp.asarray(env_mean),
+        env_std=jnp.asarray(env_std),
+        roughness_projections=jnp.asarray(roughness_projections),
+        roughness=jnp.asarray(roughness),
+        incumbent_idx=jnp.asarray(incumbent_idx),
+        candidate_mask=jnp.asarray(mask),
+        score_mode='additive',
+        weights=current_weights,
+        additive_scales=additive_scales,
+        evidence_floor=state.score_evidence_floor,
+    ))
+    paired_difference = paired_returns - paired_returns[incumbent_idx]
+    if paired_difference.shape[1] >= 2:
+      return_se = np.std(paired_difference, axis=1, ddof=1) / np.sqrt(
+          paired_difference.shape[1]
+      )
+    else:
+      return_se = np.zeros_like(env_mean)
+  else:
+    s0_se = np.zeros_like(env_mean)
+    return_se = np.zeros_like(env_mean)
+
+  return_delta = env_mean - env_mean[incumbent_idx]
+  calibrated_return = (
+      state.calibrated_return_weight * return_delta /
+      state.additive_return_scale
+  )
+  calibrated_return_se = (
+      state.calibrated_return_weight * return_se /
+      state.additive_return_scale
+  )
+  log_local = np.log(np.maximum(local_roughness, state.score_evidence_floor))
+  s1_score = (
+      calibrated_return -
+      state.calibrated_roughness_weight *
+      (log_local - log_local[incumbent_idx]) /
+      state.additive_log_roughness_scale -
+      switch_cost
+  )
+  s2_score = calibrated_return
+  s3_score = (
+      calibrated_return -
+      state.curvature_risk_weight *
+      (curvature_bellman_risk - curvature_bellman_risk[incumbent_idx]) /
+      state.curvature_risk_scale -
+      switch_cost
+  )
+  lcbs = {
+      's0': s0_score - state.confidence_z * s0_se,
+      's1': s1_score - state.confidence_z * calibrated_return_se,
+      's2': s2_score - state.confidence_z * calibrated_return_se,
+      's3': s3_score - state.confidence_z * calibrated_return_se,
+  }
+
+  metrics: Dict[str, float] = {}
+  for name in ('s0', 's1', 's3'):
+    lcb = lcbs[name]
+    proposal_idx = int(np.argmax(np.where(mask, lcb, -np.inf)))
+    selected_idx = (
+        proposal_idx
+        if paired_returns_available and proposal_idx != incumbent_idx and
+        lcb[proposal_idx] > state.switch_threshold
+        else incumbent_idx
+    )
+    metrics[f'dense_rhs/shadow_{name}_proposed_horizon'] = float(
+        horizons[proposal_idx]
+    )
+    metrics[f'dense_rhs/shadow_{name}_selected_horizon'] = float(
+        horizons[selected_idx]
+    )
+    metrics[f'dense_rhs/shadow_{name}_best_lcb'] = float(lcb[proposal_idx])
+
+  s2_lcb = lcbs['s2']
+  credible = mask.copy()
+  credible[incumbent_idx] = False
+  credible &= s2_lcb > state.switch_threshold
+  if paired_returns_available and np.any(credible):
+    best_lcb = float(np.max(s2_lcb[credible]))
+    tolerance = (
+        state.calibrated_return_weight * state.return_first_tolerance /
+        state.additive_return_scale
+    )
+    competitive = credible & (s2_lcb >= best_lcb - tolerance)
+    roughness_tie = np.zeros_like(local_roughness)
+    selected_values = local_roughness[competitive]
+    if selected_values.size and np.ptp(selected_values) > EPS:
+      roughness_tie[competitive] = (
+          selected_values - np.min(selected_values)
+      ) / np.ptp(selected_values)
+    tie_cost = state.calibrated_roughness_weight * roughness_tie + switch_cost
+    s2_idx = int(np.argmin(np.where(competitive, tie_cost, np.inf)))
+  else:
+    s2_idx = incumbent_idx
+  metrics['dense_rhs/shadow_s2_proposed_horizon'] = float(horizons[s2_idx])
+  metrics['dense_rhs/shadow_s2_selected_horizon'] = float(horizons[s2_idx])
+  metrics['dense_rhs/shadow_s2_best_lcb'] = float(s2_lcb[s2_idx])
+  return metrics
 
 
 def dense_checkpoint_eval(agent,
@@ -1708,6 +2112,15 @@ def dense_checkpoint_eval(agent,
   )
   env_mean_array = np.asarray(result.env_mean, dtype=np.float32)
   env_std_array = np.asarray(result.env_std, dtype=np.float32)
+  local_roughness = np.asarray(result.local_roughness, dtype=np.float32)
+  local_model_error = np.asarray(result.local_model_error, dtype=np.float32)
+  bellman_residual = np.asarray(result.bellman_residual, dtype=np.float32)
+  curvature_bellman_risk = np.asarray(
+      result.curvature_bellman_risk, dtype=np.float32
+  )
+  horizon_switch_cost = np.asarray(
+      result.horizon_switch_cost, dtype=np.float32
+  )
   paired_returns_array = np.asarray(paired_returns, dtype=np.float32)
   candidate_horizons = np.asarray(result.candidate_horizons, dtype=np.int32)
   candidate_mask = np.asarray(result.candidate_mask, dtype=bool)
@@ -1767,6 +2180,15 @@ def dense_checkpoint_eval(agent,
       'dense_rhs/planner_return_best': float(planner_prefix_returns[selected_idx]),
       'dense_rhs/roughness_best': float(roughness[selected_idx]),
       'dense_rhs/robust_return_best': float(robust_return[selected_idx]),
+      'dense_rhs/local_roughness_best': float(local_roughness[selected_idx]),
+      'dense_rhs/local_model_error_best': float(local_model_error[selected_idx]),
+      'dense_rhs/bellman_residual_best': float(bellman_residual[selected_idx]),
+      'dense_rhs/curvature_bellman_risk_best': float(
+          curvature_bellman_risk[selected_idx]
+      ),
+      'dense_rhs/horizon_switch_cost_best': float(
+          horizon_switch_cost[selected_idx]
+      ),
       'timing/query_model_diag_s': float(model_stage_s),
       'timing/query_model_diag_probe_count': float(
           horizon_state.num_roughness_probes
@@ -1779,6 +2201,21 @@ def dense_checkpoint_eval(agent,
       int(np.where(horizons == horizon)[0][0])
       for horizon in candidate_horizons[candidate_mask].tolist()
   ]
+  evaluated_mask = np.zeros_like(horizons, dtype=bool)
+  evaluated_mask[evaluated_indices] = True
+  metrics.update(_shadow_score_formulations(
+      horizon_state,
+      env_mean=env_mean_array,
+      env_std=env_std_array,
+      roughness=roughness,
+      roughness_projections=roughness_projections,
+      paired_returns=paired_returns_array,
+      paired_returns_available=paired_returns_available,
+      candidate_mask=evaluated_mask,
+      local_roughness=local_roughness,
+      curvature_bellman_risk=curvature_bellman_risk,
+      switch_cost=horizon_switch_cost,
+  ))
   if evaluated_indices:
     floor = float(horizon_state.score_evidence_floor)
     evaluated_mean = env_mean_array[evaluated_indices]
@@ -1856,6 +2293,21 @@ def dense_checkpoint_eval(agent,
     metrics[f'dense_rhs/candidate_{horizon}_env_mean'] = float(env_mean_array[idx])
     metrics[f'dense_rhs/candidate_{horizon}_env_std'] = float(env_std_array[idx])
     metrics[f'dense_rhs/candidate_{horizon}_roughness'] = float(roughness[idx])
+    metrics[f'dense_rhs/candidate_{horizon}_local_roughness'] = float(
+        local_roughness[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_local_model_error'] = float(
+        local_model_error[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_bellman_residual'] = float(
+        bellman_residual[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_curvature_bellman_risk'] = float(
+        curvature_bellman_risk[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_horizon_switch_cost'] = float(
+        horizon_switch_cost[idx]
+    )
     metrics[f'dense_rhs/candidate_{horizon}_return_term'] = float(return_term[idx])
     metrics[f'dense_rhs/candidate_{horizon}_roughness_term'] = float(roughness_term[idx])
     metrics[f'dense_rhs/candidate_{horizon}_return_std_term'] = float(sigma_r_term[idx])

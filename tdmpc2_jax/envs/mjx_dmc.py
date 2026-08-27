@@ -32,9 +32,9 @@ DEFAULT_VALUE_AT_MARGIN = 0.1
 
 # Cartpole delay-pilot constants. The queue shape is intentionally fixed so a
 # phase change does not trigger a JAX recompilation or change the observation
-# shape. Queue rows are ordered from oldest to newest:
-# (a_{t-4}, a_{t-3}, a_{t-2}, a_{t-1}).
-CARTPOLE_ACTION_DELAY_MAX = 4
+# shape. Queue rows are ordered from oldest to newest. Six rows support the
+# score-formulation screen while preserving the original delay-four semantics.
+CARTPOLE_ACTION_DELAY_MAX = 6
 CARTPOLE_ACTION_DELAY_START_STEP = 150_000
 CARTPOLE_ACTION_DELAY_END_STEP = 350_000
 
@@ -69,9 +69,28 @@ def scheduled_action_delay(global_transition_step: jax.Array,
   )
 
 
+def piecewise_action_delay(global_transition_step: jax.Array,
+                           *,
+                           boundaries: Sequence[int],
+                           values: Sequence[int]) -> jax.Array:
+  """Returns a static piecewise-constant delay schedule.
+
+  ``values`` contains one value before the first boundary and one value after
+  each boundary. For example, boundaries ``[38k,42k,46k,50k]`` and values
+  ``[0,2,6,4,0]`` implement the sequential-delay screen.
+  """
+  if len(values) != len(boundaries) + 1:
+    raise ValueError('piecewise delay values must have len(boundaries) + 1')
+  step = jnp.asarray(global_transition_step, dtype=jnp.int32)
+  delay = jnp.full_like(step, int(values[0]), dtype=jnp.int32)
+  for boundary, value in zip(boundaries, values[1:]):
+    delay = jnp.where(step >= int(boundary), int(value), delay)
+  return delay
+
+
 def make_action_delay_queue(leading_shape: Tuple[int, ...],
                             action_dim: int) -> jax.Array:
-  """Creates an empty, statically shaped d_max=4 action history."""
+  """Creates an empty, statically shaped delay-history queue."""
   return jnp.zeros(
       tuple(leading_shape) + (CARTPOLE_ACTION_DELAY_MAX, int(action_dim)),
       dtype=jnp.float32,
@@ -103,11 +122,10 @@ def action_delay_queue_step(delayed_actions: jax.Array,
                             effective_delay: jax.Array) -> Tuple[jax.Array, jax.Array]:
   """Selects a delayed action and appends the issued action to the FIFO.
 
-  ``delayed_actions`` has shape ``(4, action_dim)`` and contains the four
-  commands preceding ``issued_action``. Delay zero therefore applies the
-  current command, while delay ``d`` in ``1..4`` applies row ``-d``. The queue
-  advances for every delay, including zero, so switching to delay four exposes
-  the actual action history instead of four artificial zero-action steps.
+  ``delayed_actions`` has shape ``(d_max, action_dim)`` and contains the
+  commands preceding ``issued_action``. Delay zero applies the current command,
+  while delay ``d`` applies row ``-d``. The queue advances at delay zero, so a
+  later intervention exposes real action history instead of artificial zeros.
   """
   delay = jnp.clip(
       jnp.asarray(effective_delay, dtype=jnp.int32),
@@ -772,6 +790,8 @@ class MJXDMCBatchEnv:
                action_delay_schedule_start_step: int = CARTPOLE_ACTION_DELAY_START_STEP,
                action_delay_schedule_end_step: int = CARTPOLE_ACTION_DELAY_END_STEP,
                action_delay_schedule_value: int = CARTPOLE_ACTION_DELAY_MAX,
+               action_delay_schedule_boundaries: Optional[Sequence[int]] = None,
+               action_delay_schedule_values: Optional[Sequence[int]] = None,
                allow_hidden_action_delay_schedule: bool = False,
                action_repeat_dt: Optional[float] = None,
                wind_scale: float = 5.0,
@@ -830,6 +850,12 @@ class MJXDMCBatchEnv:
     self.action_delay_schedule_start_step = int(action_delay_schedule_start_step)
     self.action_delay_schedule_end_step = int(action_delay_schedule_end_step)
     self.action_delay_schedule_value = int(action_delay_schedule_value)
+    self.action_delay_schedule_boundaries = tuple(
+        int(value) for value in (action_delay_schedule_boundaries or ())
+    )
+    self.action_delay_schedule_values = tuple(
+        int(value) for value in (action_delay_schedule_values or ())
+    )
     self.allow_hidden_action_delay_schedule = bool(
         allow_hidden_action_delay_schedule
     )
@@ -849,6 +875,30 @@ class MJXDMCBatchEnv:
           f'[0, {CARTPOLE_ACTION_DELAY_MAX}], got '
           f'{self.action_delay_schedule_value}.'
       )
+    if self.action_delay_schedule_boundaries or self.action_delay_schedule_values:
+      if (
+          len(self.action_delay_schedule_values) !=
+          len(self.action_delay_schedule_boundaries) + 1
+      ):
+        raise ValueError(
+            'action_delay_schedule_values must contain one more entry than '
+            'action_delay_schedule_boundaries'
+        )
+      if any(
+          later <= earlier for earlier, later in zip(
+              self.action_delay_schedule_boundaries,
+              self.action_delay_schedule_boundaries[1:],
+          )
+      ):
+        raise ValueError('action-delay schedule boundaries must be increasing')
+      if any(
+          value < 0 or value > CARTPOLE_ACTION_DELAY_MAX
+          for value in self.action_delay_schedule_values
+      ):
+        raise ValueError(
+            'piecewise action-delay values must lie in '
+            f'[0, {CARTPOLE_ACTION_DELAY_MAX}]'
+        )
     if (
         self.action_delay_schedule_enabled and
         not 0 <= self.action_delay_schedule_start_step <
@@ -1001,6 +1051,12 @@ class MJXDMCBatchEnv:
   def _effective_action_delay(self,
                               global_transition_step: jax.Array) -> jax.Array:
     if self.action_delay_schedule_enabled:
+      if self.action_delay_schedule_values:
+        return piecewise_action_delay(
+            global_transition_step,
+            boundaries=self.action_delay_schedule_boundaries,
+            values=self.action_delay_schedule_values,
+        )
       return scheduled_action_delay(
           global_transition_step,
           base_delay=self.base_action_delay,
@@ -1625,6 +1681,16 @@ def make_mjx_dmc_env(env_config, seed: int, num_envs: Optional[int] = None):
           'action_delay_schedule_value',
           CARTPOLE_ACTION_DELAY_MAX,
       )),
+      action_delay_schedule_boundaries=getattr(
+          cfg,
+          'action_delay_schedule_boundaries',
+          None,
+      ),
+      action_delay_schedule_values=getattr(
+          cfg,
+          'action_delay_schedule_values',
+          None,
+      ),
       allow_hidden_action_delay_schedule=bool(getattr(
           cfg,
           'allow_hidden_action_delay_schedule',

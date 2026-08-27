@@ -140,12 +140,17 @@ def test_state_defaults_preserve_existing_campaign_settings():
 
   assert state.num_roughness_probes == 2
   assert state.score_mode == 'legacy_multiplicative'
+  assert state.score_variant == 'current_additive'
   assert state.decision_rule == 'legacy'
 
 
 @pytest.mark.parametrize(
     ('field', 'value'),
-    [('num_roughness_probes', 3), ('score_mode', 'ratio')],
+    [
+        ('num_roughness_probes', 3),
+        ('score_mode', 'ratio'),
+        ('score_variant', 'opaque_combo'),
+    ],
 )
 def test_state_rejects_unsupported_static_scoring_settings(field, value):
   kwargs = dict(
@@ -287,6 +292,91 @@ def test_paired_lcb_gate_uses_one_sided_threshold(
   assert int(result.selected_horizon) == expected_horizon
   np.testing.assert_allclose(result.score_se[2], 0.0, atol=1e-6)
   np.testing.assert_allclose(result.score_lcb[2], 2.0, atol=1e-6)
+
+
+def _variant_finalize(score_variant):
+  state = HorizonSearchState.create(
+      horizons=[2, 3, 4],
+      hmax=4,
+      query_interval_steps=20,
+      initial_horizon=2,
+      candidate_budget=_candidate_budget(3),
+      num_roughness_probes=0,
+      score_mode='additive',
+      score_variant=score_variant,
+      decision_rule='paired_lcb',
+      confidence_z=1.6448536,
+      switch_threshold=0.0,
+      additive_return_scale=50.0,
+      additive_return_std_scale=50.0,
+      additive_log_roughness_scale=1.0,
+      calibrated_return_weight=10.0,
+      calibrated_roughness_weight=1.0,
+      horizon_switch_cost=0.05,
+      return_first_tolerance=5.0,
+      roughness_discount=1.0,
+      roughness_weight=1.0,
+      return_std_weight=0.0,
+  )
+  model_stage = DenseQueryModelStage(
+      prefix_objectives=jnp.asarray([0.2, 0.3, 0.4]),
+      probe_prefixes=jnp.asarray([0.1, 0.15, 0.2]),
+      planner_prefix_returns=jnp.asarray([10.0, 11.0, 12.0]),
+      roughness=jnp.asarray([1.0, 1.5, 2.0]),
+      roughness_nested=jnp.zeros((6, 3)),
+      roughness_nested_valid=jnp.zeros((6,), dtype=bool),
+      roughness_projections=jnp.zeros((0, 3)),
+      candidate_horizons=jnp.asarray([2, 3, 4]),
+      candidate_mask=jnp.asarray([True, True, True]),
+      candidate_indices=jnp.asarray([0, 1, 2]),
+  )
+  paired_returns = jnp.asarray([
+      [9.0, 10.0, 11.0, 10.0],
+      [10.0, 11.0, 12.0, 11.0],
+      [11.0, 12.0, 13.0, 12.0],
+  ])
+  kernel = _build_dense_query_kernel(None, candidate_slots=3, env_eval_steps=None)
+  return kernel.finalize_stage(
+      state,
+      model_stage,
+      jnp.mean(paired_returns, axis=1),
+      jnp.std(paired_returns, axis=1),
+      paired_returns,
+      jnp.asarray(True),
+      jnp.asarray(20, dtype=jnp.int32),
+      jax.random.PRNGKey(0),
+  )
+
+
+def test_calibrated_local_roughness_removes_mechanical_horizon_growth():
+  current = _variant_finalize('current_additive')
+  calibrated = _variant_finalize('calibrated_local_roughness')
+
+  assert int(current.selected_horizon) == 2
+  assert int(calibrated.selected_horizon) == 4
+  np.testing.assert_allclose(
+      calibrated.local_roughness,
+      np.asarray([0.5, 0.5, 0.5]),
+      atol=1e-6,
+  )
+
+
+def test_return_first_uses_roughness_only_inside_return_competitive_set():
+  result = _variant_finalize('return_first')
+
+  # Both longer horizons are credible and within five raw return units. Their
+  # local roughness is tied, so the explicit switching cost selects h=3.
+  assert int(result.proposed_horizon) == 3
+  assert int(result.selected_horizon) == 3
+  np.testing.assert_allclose(result.roughness_term, np.zeros((3,)))
+
+
+def test_curvature_bellman_variant_exposes_risk_components():
+  result = _variant_finalize('curvature_bellman')
+
+  assert np.all(np.asarray(result.local_model_error) >= 0.0)
+  assert np.all(np.asarray(result.bellman_residual) >= 0.0)
+  assert np.all(np.asarray(result.curvature_bellman_risk) >= 0.0)
 
 
 @pytest.mark.parametrize('score_mode', ['additive', 'multiplicative'])
