@@ -365,6 +365,16 @@ def _restored_dense_query_step(global_step: int,
   )
 
 
+def _restored_dense_query_interval(dense_rhs_config,
+                                   current_query_interval: int) -> int:
+  """Optionally adopts a forked run's new query interval."""
+  if not bool(dense_rhs_config.get('reset_query_schedule_on_restore', False)):
+    return int(current_query_interval)
+  return int(
+      dense_rhs_config.get('query_interval_steps', current_query_interval)
+  )
+
+
 def _json_safe_config(cfg):
   return OmegaConf.to_container(cfg, resolve=True)
 
@@ -2925,6 +2935,13 @@ def train(cfg: dict):
       if horizon_state is not None:
         horizon_state = restored.horizon_state
         horizon_state = horizon_state.replace(
+            query_interval_steps=jnp.asarray(
+                _restored_dense_query_interval(
+                    dense_rhs_config,
+                    int(np.asarray(horizon_state.query_interval_steps)),
+                ),
+                dtype=jnp.int32,
+            ),
             next_query_step=jnp.asarray(
                 _restored_dense_query_step(
                     int(global_step),

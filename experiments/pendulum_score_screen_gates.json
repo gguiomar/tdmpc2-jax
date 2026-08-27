@@ -1,11 +1,47 @@
 {
   "schema_version": 1,
-  "status": "pending",
-  "expected_commit": null,
-  "cpu_tests": {"status": "pending"},
-  "source_checkpoint": {"status": "pending", "job_id": null},
-  "gpu_smoke": {"status": "pending", "job_id": null},
-  "egl_render_smoke": {"status": "pending", "job_id": null},
+  "status": "gating",
+  "expected_commit": "856f87896db78e9977c441c35e6d1829c3bb0f4d",
+  "cpu_tests": {
+    "status": "passed",
+    "tests_passed": 51,
+    "command": "JAX_PLATFORMS=cpu python -m pytest -q tests/test_horizon_search_scoring.py tests/test_mjx_dmc_action_delay.py tests/test_experiment_artifacts.py tests/test_pendulum_delay_adaptation.py"
+  },
+  "source_checkpoint": {
+    "status": "passed",
+    "job_id": 4632,
+    "run_id": "pendscore__source34k__s7",
+    "attempt": 1,
+    "config_hash": "0bdd02caf67c1fc95ee0efac5b07ee92f315ee81612f8965eba8abdf1cfe5bb8",
+    "terminal_step": 34000,
+    "checkpoint_items": ["agent", "buffer_state", "global_step", "horizon_state"],
+    "provenance": {
+      "status": "consistent",
+      "archived_query_step": 32000,
+      "reconstructed_selected_horizon": 2,
+      "archived_selected_horizon": 2,
+      "reconstructed_proposed_horizon": 2,
+      "archived_proposed_horizon": 2,
+      "pre_34k_eval_return_mae": 5.322224934895833,
+      "pre_34k_eval_return_max_abs": 16.5,
+      "note": "The archived 34k evaluation is under the incoming d=4 phase, whereas the reconstruction deliberately evaluates clean d=0. The checkpoint is saved before boundary evaluation, so that return discontinuity is not a model-provenance mismatch."
+    }
+  },
+  "gpu_smoke": {
+    "status": "repairing",
+    "job_id": 4633,
+    "run_id": "pendscore__smoke_s3__s7",
+    "attempt": 1,
+    "profile": "s3",
+    "config_hash": "5d46e087fbec8d6116bc28d15dfe00556107c30966415f40e6ab1806e10a6bf4"
+  },
+  "egl_render_smoke": {
+    "status": "passed_attempt_1",
+    "job_id": 4633,
+    "run_id": "pendscore__smoke_s3__s7",
+    "attempt": 1,
+    "artifacts": "six d=0/4/6 trajectory trios with GIF and PNG rendered successfully"
+  },
   "scientific_jobs": [],
   "confirmation_jobs": [],
   "reducer": {"status": "pending"},

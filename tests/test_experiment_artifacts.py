@@ -27,6 +27,7 @@ def _load_train_artifact_helpers():
           '_scripted_horizon_schedule',
           '_scripted_horizon_at_step',
           '_next_scripted_horizon_step',
+          '_restored_dense_query_interval',
           '_restored_dense_query_step',
           '_make_full_horizon_deployed_planner_agent',
       }
@@ -199,6 +200,28 @@ class ScriptedHorizonTest(unittest.TestCase):
             34_000,
         ),
         34_000,
+    )
+
+    interval = self.helpers['_restored_dense_query_interval']
+    self.assertEqual(
+        interval(
+            {
+                'reset_query_schedule_on_restore': True,
+                'query_interval_steps': 400,
+            },
+            4_000,
+        ),
+        400,
+    )
+    self.assertEqual(
+        interval(
+            {
+                'reset_query_schedule_on_restore': False,
+                'query_interval_steps': 400,
+            },
+            4_000,
+        ),
+        4_000,
     )
 
 
