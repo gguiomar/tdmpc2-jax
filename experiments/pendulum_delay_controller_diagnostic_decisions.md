@@ -35,3 +35,7 @@ Three H200 GPUs were physically idle after the smoke completed. The two static b
 Jobs 4835 (B1 fixed h=2) and 4836 (B2 fixed h=3) completed with exit code 0. Both have `TRAINING_COMPLETE`, `MEDIA_COMPLETE`, `validation_summary.json`, and `RUN_VALID`; the validator accepted the exact ten-query cadence through 54k, frozen run/config identities, reference evidence, terminal checkpoint, anchors, trajectories, GIFs, and PNGs.
 
 Their released GPUs were physically idle, the remote checkout remained clean at `e25f20437fd79f773de3c73d27a8f3d591a523f8`, and both target attempt paths were absent. The remaining forced-control arms were therefore submitted from the same 34k source: B3 delay-match as job 4838 and B4 causal-coverage as job 4839. B5 job 4837 remains active. This leaves three campaign GPUs active and preserves one GPU for the other user's allocation.
+
+## 2026-09-02 — return-only arm valid
+
+Job 4837 (B5 active 128-replica return argmax) completed with exit code 0 and `RUN_VALID`. The validator accepted all ten queries through 54k, the exact return-only selection invariant, both 128-replica reference namespaces, terminal checkpoint, anchors, trajectories, and six GIF/PNG pairs. Its deployed horizon sequence was 2, 2, 3, 3, 3, 2, 2, 4, 4, 5 at queries 36k through 54k. Interpretation is deferred until B3/B4 complete and the predeclared aggregate reducer can compare all five arms.
