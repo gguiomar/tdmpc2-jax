@@ -6,7 +6,7 @@
     "remote_host": "ncc-gpu1",
     "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-delay-diagnostic",
     "branch": "ggmar/pendulum-delay-controller-diagnostic",
-    "scientific_revision": "PENDING_COMMIT"
+    "scientific_revision": "e25f20437fd79f773de3c73d27a8f3d591a523f8"
   },
   "constraints": {
     "scientific_runs": 5,
