@@ -33,6 +33,11 @@ PROFILE_VARIANTS = {
 }
 
 
+def _full_run_candidates(root: Path, profile: str) -> list[Path]:
+  """Return full-run attempts for one profile's frozen run-id prefix."""
+  return sorted(root.glob(f'pendscore__{profile}_*/attempt_*'))
+
+
 def _read_csv(path: Path) -> list[dict[str, str]]:
   with path.open(newline='') as handle:
     return list(csv.DictReader(handle))
@@ -341,7 +346,7 @@ def reduce_runs(root: Path, output_dir: Path) -> dict:
 
   runs = {}
   for profile in PROFILE_VARIANTS:
-    candidates = sorted(root.glob(f'pendscore__{profile}__*/attempt_*'))
+    candidates = _full_run_candidates(root, profile)
     valid = [path for path in candidates if (path / 'RUN_VALID').is_file()]
     if not valid:
       raise ValueError(f'No valid full run found for {profile}')

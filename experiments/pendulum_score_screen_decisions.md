@@ -29,3 +29,23 @@ The isolated NCC checkout was safely fast-forwarded to repair revision `76392f1`
 ## Smoke attempt 2 diagnosis
 
 Slurm job 4822 verified the interval repair by emitting queries at 34.4k, 34.8k, 35.2k, and 35.6k. It then completed training, the 36k composite checkpoint, and all six EGL GIF/PNG renders, but strict validation rejected the missing 36k terminal query. The MJX loop explicitly required `global_step < max_steps` when applying a query after a collection boundary. Consequently, a query due exactly at the frozen endpoint was skipped even though checkpoint, evaluation, reference-probe, and artifact logic all include that endpoint. This would also omit the scientifically required 54k deployment query in every full arm. The next repair will allow a due query at `global_step == max_steps`, test that boundary contract directly, and preserve the frozen schedule and score definitions.
+
+Repair revision `7c1ad18` implements that terminal-boundary contract and adds a focused regression test. The complete NCC CPU gate passed 52 tests. With all four H200 GPUs physically idle, fresh smoke attempt 3 was submitted as Slurm job 4823 using the unchanged scientific config hash and validated 34k source.
+
+Smoke attempt 3 passed the complete gate. Slurm job 4823 emitted the exact five-query cadence through 36k, produced finite metrics and the full terminal composite checkpoint, rendered all six d=0/4/6 anchor trios as GIF and PNG, and wrote `RUN_VALID`. The four frozen scientific arms are therefore eligible to launch at revision `7c1ad18` from the common validated 34k source. Full-profile config hashes are the SHA-256 of the canonical sorted goal projection `{campaign, mode=full, shared, profile}`.
+
+At launch time all four H200 GPUs were physically idle and no unrelated job was running. The campaign limit remains three concurrent GPUs. S0, S1, and S2 were submitted as Slurm jobs 4824, 4825, and 4826. S3 remains the sole pending frozen arm and will be submitted when one campaign slot is released.
+
+## S0 full-arm result and S3 slot release
+
+Slurm job 4824 completed successfully in 01:05:35. Independent validation confirmed the expected revision and config hash, 50 finite evaluation points, all ten deployment queries through the exact 54k terminal boundary, all six 128-replica reference anchors through 54k, a complete 54k composite checkpoint, and six d=0/4/6 trajectory anchors with GIF/PNG pairs. The current additive controller selected `h=2` at every query. This terminal result releases one of the three frozen campaign slots, so S3 is now eligible for immediate submission from the same validated 34k source.
+
+The node-wide GPU snapshot showed an idle physical H200 after S0 completed. The isolated checkout remained clean at `7c1ad18`, the S3 attempt-1 output path was absent, and the validated 34k parent checkpoint was present. The frozen S3 curvature--Bellman arm was therefore submitted through the sole Slurm launcher as job 4827, preserving the predeclared config hash and three-job campaign limit.
+
+S1 job 4825 then completed successfully in 01:07:21. Validation confirmed the exact revision and config identity, 50 finite evaluations, the complete deployment and reference cadence through 54k, the full composite checkpoint, all six artifact anchors, trajectory trios, and GIF/PNG media. Its selected-horizon sequence was `2,2,3,2,2,2,2,2,2,2`: one temporary switch at the 40k query followed by immediate recovery to `h=2`.
+
+S2 job 4826 completed successfully in 01:13:04 and passed the same full validation contract. Its selected-horizon sequence was `4,3,3,3,3,3,3,3,5,2`: the return-first rule spent most of the schedule at `h=3`, briefly moved to `h=5` at 52k, and recovered to `h=2` at the terminal clean query. S3 job 4827 remains the sole active full arm.
+
+## S3 full-arm result and screen completion
+
+Slurm job 4827 completed successfully in 01:07:39. Independent validation confirmed revision `7c1ad18`, the frozen config hash, 50 finite evaluations, exact deployment queries at 36k:2k:54k, reference probes at 36k, 40k, 44k, 48k, 52k, and 54k, the complete 54k agent/buffer/global-step/horizon-state checkpoint, all six anchor media sets, and `RUN_VALID`. The curvature--Bellman controller selected `h=4` at all ten deployment queries. All four frozen screen arms are now complete and valid; reduction and the external promotion rule are the next actions.

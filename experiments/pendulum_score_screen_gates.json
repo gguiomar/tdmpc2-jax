@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "status": "gating",
-  "expected_commit": "76392f183edf296a4265ea35e506778de46fcc8c",
+  "status": "screen_reduction_pending",
+  "expected_commit": "7c1ad1868dac28a4d60c248f5d6dbd00cdc82ed4",
   "cpu_tests": {
-    "status": "passed_repair",
-    "commit": "76392f183edf296a4265ea35e506778de46fcc8c",
-    "tests_passed": 51,
+    "status": "passed_terminal_query_repair",
+    "commit": "7c1ad1868dac28a4d60c248f5d6dbd00cdc82ed4",
+    "tests_passed": 52,
     "command": "JAX_PLATFORMS=cpu python -m pytest -q tests/test_horizon_search_scoring.py tests/test_mjx_dmc_action_delay.py tests/test_experiment_artifacts.py tests/test_pendulum_delay_adaptation.py"
   },
   "source_checkpoint": {
@@ -29,21 +29,54 @@
     }
   },
   "gpu_smoke": {
-    "status": "repairing_terminal_query",
-    "job_id": 4822,
+    "status": "passed_attempt_3",
+    "job_id": 4823,
     "run_id": "pendscore__smoke_s3__s7",
-    "attempt": 2,
+    "attempt": 3,
     "profile": "s3",
     "config_hash": "5d46e087fbec8d6116bc28d15dfe00556107c30966415f40e6ab1806e10a6bf4"
   },
   "egl_render_smoke": {
-    "status": "passed_attempt_2",
-    "job_id": 4822,
+    "status": "passed_attempt_3",
+    "job_id": 4823,
     "run_id": "pendscore__smoke_s3__s7",
-    "attempt": 2,
-    "artifacts": "Attempt 2 rendered all six d=0/4/6 trajectory trios with GIF and PNG successfully"
+    "attempt": 3,
+    "artifacts": "Attempt 3 validated five finite queries, a complete 36k checkpoint, 18 trajectory files, and six GIF/PNG pairs"
   },
-  "scientific_jobs": [],
+  "scientific_jobs": [
+    {
+      "profile": "s0",
+      "job_id": 4824,
+      "run_id": "pendscore__s0_current_additive__s7",
+      "attempt": 1,
+      "status": "completed_valid",
+      "config_hash": "f48bee8faf71db05a025cfbf591ca195be7cccfb88237e4cfd2948d6400c3979"
+    },
+    {
+      "profile": "s1",
+      "job_id": 4825,
+      "run_id": "pendscore__s1_local_roughness__s7",
+      "attempt": 1,
+      "status": "completed_valid",
+      "config_hash": "2a2dc1e98b4aa01220c5cf71614ff341229f78d0beb5da08f93b381b2985259f"
+    },
+    {
+      "profile": "s2",
+      "job_id": 4826,
+      "run_id": "pendscore__s2_return_first__s7",
+      "attempt": 1,
+      "status": "completed_valid",
+      "config_hash": "f55c21059525ae2cb28085aeb0a96c456d6c1cb708f62aae142c6a6234e811ac"
+    },
+    {
+      "profile": "s3",
+      "job_id": 4827,
+      "run_id": "pendscore__s3_curvature_bellman__s7",
+      "attempt": 1,
+      "status": "completed_valid",
+      "config_hash": "2fd027d2dd3874dc53a006d793169b2eea00728584c7151db8d349c468d359bd"
+    }
+  ],
   "confirmation_jobs": [],
   "reducer": {"status": "pending"},
   "report": {"status": "pending"}
