@@ -23,3 +23,9 @@ The only active adaptive arm, B5, implements the exact lowest-index `float32` ar
 The clean isolated NCC checkout was created at frozen scientific revision `e25f20437fd79f773de3c73d27a8f3d591a523f8`. Source job 4632 matches run `pendscore__source34k__s7`, config hash `0bdd02caf67c1fc95ee0efac5b07ee92f315ee81612f8965eba8abdf1cfe5bb8`, and a valid 34k checkpoint containing agent, buffer state, horizon state, and global step. The full CPU gate passed 106 tests with one non-fatal headless GLFW warning.
 
 With three H200 GPUs physically idle and no active campaign jobs, the single required B4 compressed GPU/EGL smoke was submitted as Slurm job 4834. Its frozen config hash is `94a71c723d2cc524a989864a75b65e82cfade0757fa062c714a3f9c2a7eda590` and its fresh output is `penddiag__smoke_b4__s7/attempt_1`.
+
+## 2026-09-02 — GPU/EGL smoke gate passed
+
+Slurm job 4834 completed in 22m46s with exit code 0. The validator accepted all five exact queries at 34400, 34800, 35200, 35600, and 36000; scripted deployed horizons were 3, 7, 5, 2, and 2. The run produced its terminal composite checkpoint, all six anchor trajectory sets, six GIFs, six PNGs, `TRAINING_COMPLETE`, `MEDIA_COMPLETE`, `validation_summary.json`, and `RUN_VALID`. CPU, GPU, and EGL gates are therefore closed and the frozen full B1--B5 launch stage is allowed.
+
+Three H200 GPUs were physically idle after the smoke completed. The two static baselines and active return-only controller were therefore launched first: B1 as job 4835, B2 as job 4836, and B5 as job 4837. B3 and B4 remain pending and will be submitted into fresh attempt paths as physical slots release.

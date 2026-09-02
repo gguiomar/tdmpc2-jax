@@ -10,7 +10,22 @@
     "revision": "e25f20437fd79f773de3c73d27a8f3d591a523f8",
     "validated_at": "2026-09-02T16:29:00Z"
   },
-  "gpu_smoke": {"passed": false},
-  "egl_render_smoke": {"passed": false},
-  "full_launch_allowed": false
+  "gpu_smoke": {
+    "passed": true,
+    "job_id": "4834",
+    "run_id": "penddiag__smoke_b4__s7",
+    "config_hash": "94a71c723d2cc524a989864a75b65e82cfade0757fa062c714a3f9c2a7eda590",
+    "query_steps": [34400, 34800, 35200, 35600, 36000],
+    "deployed_horizons": [3, 7, 5, 2, 2],
+    "passed_at": "2026-09-02T16:56:47Z"
+  },
+  "egl_render_smoke": {
+    "passed": true,
+    "job_id": "4834",
+    "gif_count": 6,
+    "png_count": 6,
+    "media_complete": true,
+    "passed_at": "2026-09-02T16:56:47Z"
+  },
+  "full_launch_allowed": true
 }
