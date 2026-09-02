@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "screen_reduction_pending",
+  "status": "complete",
   "expected_commit": "7c1ad1868dac28a4d60c248f5d6dbd00cdc82ed4",
   "cpu_tests": {
     "status": "passed_terminal_query_repair",
@@ -78,6 +78,48 @@
     }
   ],
   "confirmation_jobs": [],
-  "reducer": {"status": "pending"},
-  "report": {"status": "pending"}
+  "confirmation": {
+    "status": "not_launched",
+    "eligible_profiles": ["s0"],
+    "reason": "The two-by-two confirmation design requires two eligible profiles and validated 34k source checkpoints for the confirmation seeds; only S0 is eligible and only the seed-7 source exists."
+  },
+  "long_horizon_frontier": {
+    "status": "not_triggered",
+    "reason": "No delay-six 128-replica oracle selected h=8 in any full arm."
+  },
+  "reducer": {
+    "status": "passed",
+    "analysis_commit": "867fdbefbf2819c7cd2b5cf93c5263b3c583d575",
+    "tests_passed": 55,
+    "winner": "s0",
+    "promotion_eligible": ["s0"],
+    "normalized_return_auc": {
+      "s0": 510.10306148139796,
+      "s1": 512.0622458944515,
+      "s2": 460.86224302953605,
+      "s3": 443.7326526252591
+    },
+    "final_clean_return": {
+      "s0": 836.4363625266335,
+      "s1": 831.890907981179,
+      "s2": 739.3545393510299,
+      "s3": 738.663632479581
+    },
+    "mean_oracle_regret": {
+      "s0": 1.6223958333333333,
+      "s1": 3.3294270833333335,
+      "s2": 1.3177083333333333,
+      "s3": 4.891927083333333
+    },
+    "local_cache": "runs/results/pendulum_score_screen",
+    "archive_sha256": "587857f1c84e99138379a6da9be93fb4ce58b14ffb63fcc0988e3416000b851a"
+  },
+  "report": {
+    "status": "passed",
+    "tex": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.tex",
+    "pdf": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.pdf",
+    "pages": 29,
+    "visual_inspection": "passed",
+    "note": "Version 1.5 includes methods, revisions, jobs 4824--4827, aggregate results, horizon trajectories, oracle boundary evidence, compute, environment media, limitations, and the final promotion decision. All result pages were rendered and inspected; the final table was tightened and rechecked without an overfull box."
+  }
 }
