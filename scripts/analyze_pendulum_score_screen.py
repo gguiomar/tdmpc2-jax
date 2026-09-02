@@ -250,6 +250,11 @@ def _rank_correlation(x: Iterable[float], y: Iterable[float]) -> float:
   return float(np.corrcoef(x_rank, y_rank)[0, 1])
 
 
+def _trapezoidal_mean(values: np.ndarray, steps: np.ndarray) -> float:
+  """Return the step-weighted mean using NumPy's current trapezoid API."""
+  return float(np.trapezoid(values, steps) / (steps[-1] - steps[0]))
+
+
 def _run_metrics(run_dir: Path) -> dict:
   manifest = json.loads((run_dir / 'run_manifest.json').read_text())
   scalars = _scalars_by_tag(run_dir)
@@ -257,7 +262,7 @@ def _run_metrics(run_dir: Path) -> dict:
   eval_curve = scalars['eval/return_mean']
   eval_steps = np.asarray([step for step, _ in eval_curve], dtype=np.float64)
   eval_values = np.asarray([value for _, value in eval_curve], dtype=np.float64)
-  auc = float(np.trapz(eval_values, eval_steps) / (eval_steps[-1] - eval_steps[0]))
+  auc = _trapezoidal_mean(eval_values, eval_steps)
   phase_returns = {}
   phase_horizons = {}
   switches_per_phase = {}
