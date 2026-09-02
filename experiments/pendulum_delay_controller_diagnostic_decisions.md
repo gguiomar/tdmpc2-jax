@@ -29,3 +29,9 @@ With three H200 GPUs physically idle and no active campaign jobs, the single req
 Slurm job 4834 completed in 22m46s with exit code 0. The validator accepted all five exact queries at 34400, 34800, 35200, 35600, and 36000; scripted deployed horizons were 3, 7, 5, 2, and 2. The run produced its terminal composite checkpoint, all six anchor trajectory sets, six GIFs, six PNGs, `TRAINING_COMPLETE`, `MEDIA_COMPLETE`, `validation_summary.json`, and `RUN_VALID`. CPU, GPU, and EGL gates are therefore closed and the frozen full B1--B5 launch stage is allowed.
 
 Three H200 GPUs were physically idle after the smoke completed. The two static baselines and active return-only controller were therefore launched first: B1 as job 4835, B2 as job 4836, and B5 as job 4837. B3 and B4 remain pending and will be submitted into fresh attempt paths as physical slots release.
+
+## 2026-09-02 — static baselines valid; forced-control arms launched
+
+Jobs 4835 (B1 fixed h=2) and 4836 (B2 fixed h=3) completed with exit code 0. Both have `TRAINING_COMPLETE`, `MEDIA_COMPLETE`, `validation_summary.json`, and `RUN_VALID`; the validator accepted the exact ten-query cadence through 54k, frozen run/config identities, reference evidence, terminal checkpoint, anchors, trajectories, GIFs, and PNGs.
+
+Their released GPUs were physically idle, the remote checkout remained clean at `e25f20437fd79f773de3c73d27a8f3d591a523f8`, and both target attempt paths were absent. The remaining forced-control arms were therefore submitted from the same 34k source: B3 delay-match as job 4838 and B4 causal-coverage as job 4839. B5 job 4837 remains active. This leaves three campaign GPUs active and preserves one GPU for the other user's allocation.
