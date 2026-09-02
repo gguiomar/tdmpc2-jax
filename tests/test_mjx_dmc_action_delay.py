@@ -94,6 +94,28 @@ class CartpoleActionDelayTest(unittest.TestCase):
           expected.append(0.0 if issued <= delay else float(issued - delay))
         np.testing.assert_array_equal(applied, expected)
 
+  def test_delay_d_needs_d_plus_one_transitions_to_cover_a_new_command(self):
+    sentinel = jnp.asarray([7.0], dtype=jnp.float32)
+    zero = jnp.asarray([0.0], dtype=jnp.float32)
+
+    for delay in range(CARTPOLE_ACTION_DELAY_MAX + 1):
+      with self.subTest(delay=delay):
+        queue = make_action_delay_queue((), action_dim=1)
+        applied = []
+        for transition_index in range(delay + 1):
+          issued = sentinel if transition_index == 0 else zero
+          action_to_apply, queue = action_delay_queue_step(
+              queue,
+              issued,
+              jnp.asarray(delay, dtype=jnp.int32),
+          )
+          applied.append(float(np.asarray(action_to_apply)[0]))
+
+        # The command issued at t=0 affects transition/reward index d. A
+        # planning return must therefore include indices 0..d: d+1 terms.
+        np.testing.assert_array_equal(applied[:delay], np.zeros((delay,)))
+        self.assertEqual(applied[delay], 7.0)
+
   def test_queue_advances_while_delay_is_zero(self):
     queue = make_action_delay_queue((), action_dim=1)
     for issued in range(1, 6):

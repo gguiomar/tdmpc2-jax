@@ -26,6 +26,7 @@ VALID_SCORE_VARIANTS = (
     'calibrated_local_roughness',
     'return_first',
     'curvature_bellman',
+    'return_argmax',
 )
 VALID_DECISION_RULES = ('legacy', 'paired_lcb')
 EPS = 1e-6
@@ -1572,6 +1573,19 @@ def _build_dense_query_kernel(eval_state: Any,
         # is used only to break ties inside the credible return set below.
         roughness_term = jnp.zeros_like(env_mean)
         decision_score = return_term
+      elif horizon_state.score_variant == 'return_argmax':
+        # Deliberately unguarded diagnostic: maximize the paired rollout mean
+        # directly. The SE is retained for readout only and does not enter the
+        # decision, while uncertainty, roughness, Bellman risk, hysteresis, and
+        # switching costs are all absent from the objective.
+        return_term = paired_return_difference
+        roughness_term = jnp.zeros_like(env_mean)
+        score_se = jnp.where(
+            paired_confidence_available,
+            paired_return_se,
+            jnp.zeros_like(paired_return_se),
+        )
+        decision_score = return_term
       elif horizon_state.score_variant == 'curvature_bellman':
         roughness_term = -horizon_state.curvature_risk_weight * (
             curvature_bellman_risk -
@@ -1628,7 +1642,11 @@ def _build_dense_query_kernel(eval_state: Any,
     expected_net_benefit = (
         expected_improvement - horizon_state.transition_risk_weight * expected_loss
     )
-    if horizon_state.score_variant == 'return_first':
+    if horizon_state.score_variant == 'return_argmax':
+      proposed_idx = jnp.argmax(jnp.where(
+          candidate_eval_mask, env_mean, -jnp.inf
+      ))
+    elif horizon_state.score_variant == 'return_first':
       credible_return = jnp.logical_and(
           candidate_eval_mask,
           jnp.logical_and(
@@ -1690,7 +1708,9 @@ def _build_dense_query_kernel(eval_state: Any,
       ))
     proposed_horizon = horizon_state.horizons[proposed_idx]
     proposed_score = decision_score[proposed_idx]
-    if horizon_state.score_variant == 'return_first':
+    if horizon_state.score_variant == 'return_argmax':
+      switch = proposed_idx != incumbent_idx
+    elif horizon_state.score_variant == 'return_first':
       switch = proposed_idx != incumbent_idx
     elif horizon_state.decision_rule == 'paired_lcb':
       switch = jnp.logical_and(
@@ -2015,6 +2035,26 @@ def _shadow_score_formulations(
   metrics['dense_rhs/shadow_s2_proposed_horizon'] = float(horizons[s2_idx])
   metrics['dense_rhs/shadow_s2_selected_horizon'] = float(horizons[s2_idx])
   metrics['dense_rhs/shadow_s2_best_lcb'] = float(s2_lcb[s2_idx])
+
+  # Two return-only counterfactuals from the same paired rollouts. The first
+  # is the deliberately unguarded mean-return argmax used by the diagnostic
+  # deployment arm. The second exposes what a confidence-aware return-only
+  # decision would have done, without changing deployment or adding a run.
+  return_argmax_idx = int(np.argmax(np.where(mask, env_mean, -np.inf)))
+  return_lcb = return_delta - state.confidence_z * return_se
+  return_lcb_idx = int(np.argmax(np.where(mask, return_lcb, -np.inf)))
+  metrics['dense_rhs/shadow_return_argmax_horizon'] = float(
+      horizons[return_argmax_idx]
+  )
+  metrics['dense_rhs/shadow_return_argmax_mean'] = float(
+      env_mean[return_argmax_idx]
+  )
+  metrics['dense_rhs/shadow_return_lcb_horizon'] = float(
+      horizons[return_lcb_idx]
+  )
+  metrics['dense_rhs/shadow_return_lcb_best'] = float(
+      return_lcb[return_lcb_idx]
+  )
   return metrics
 
 
@@ -2286,10 +2326,25 @@ def dense_checkpoint_eval(agent,
     metrics[f'dense_rhs/candidate_{horizon}_switch_probability'] = float(
         switch_probability[idx]
     )
+    metrics[f'dense_rhs/candidate_{horizon}_expected_improvement'] = float(
+        expected_improvement[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_expected_loss'] = float(
+        expected_loss[idx]
+    )
     metrics[f'dense_rhs/candidate_{horizon}_expected_net_benefit'] = float(
         expected_net_benefit[idx]
     )
     metrics[f'dense_rhs/candidate_{horizon}_return'] = float(robust_return[idx])
+    metrics[f'dense_rhs/candidate_{horizon}_model_prefix_loss'] = float(
+        prefix_objectives[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_model_probe_prefix'] = float(
+        probe_prefixes[idx]
+    )
+    metrics[f'dense_rhs/candidate_{horizon}_planner_return'] = float(
+        planner_prefix_returns[idx]
+    )
     metrics[f'dense_rhs/candidate_{horizon}_env_mean'] = float(env_mean_array[idx])
     metrics[f'dense_rhs/candidate_{horizon}_env_std'] = float(env_std_array[idx])
     metrics[f'dense_rhs/candidate_{horizon}_roughness'] = float(roughness[idx])

@@ -1,0 +1,74 @@
+{
+  "name": "pendulum_delay_controller_diagnostic",
+  "description": "Five checkpoint-forked controls that separate static horizon quality, forced causal coverage, and a pure mean-return adaptive controller under hidden delay 0->2->6->4->0.",
+  "repo": {
+    "local_path": "/Users/ggmar/Documents/git/robusthorizonsearch/.worktrees/tdmpc2-jax-pendulum-delay-diagnostic",
+    "remote_host": "ncc-gpu1",
+    "remote_path": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-delay-diagnostic",
+    "branch": "ggmar/pendulum-delay-controller-diagnostic",
+    "scientific_revision": "PENDING_COMMIT"
+  },
+  "constraints": {
+    "scientific_runs": 5,
+    "max_active_gpus": 4,
+    "slurm_only": true,
+    "require_clean_matching_commit": true,
+    "require_source_checkpoint": "pendscore__source34k__s7@34000",
+    "reset_controller_evidence_on_restore": true,
+    "require_cpu_tests": true,
+    "require_gpu_smoke": true,
+    "require_egl_render_smoke": true,
+    "retry_infrastructure_failures": 2
+  },
+  "shared": {
+    "environment": "pendulum-swingup",
+    "seed": 7,
+    "source_checkpoint_step": 34000,
+    "source_config_hash": "0bdd02caf67c1fc95ee0efac5b07ee92f315ee81612f8965eba8abdf1cfe5bb8",
+    "final_step": 54000,
+    "delay_schedule": {
+      "boundaries": [38000, 42000, 46000, 50000],
+      "values": [0, 2, 6, 4, 0],
+      "observed": false
+    },
+    "readout_interval_steps": 400,
+    "evaluation_episodes": 10,
+    "query_steps": [36000, 38000, 40000, 42000, 44000, 46000, 48000, 50000, 52000, 54000],
+    "artifact_anchors": [34000, 38000, 42000, 46000, 50000, 54000],
+    "reference_anchors": [36000, 40000, 44000, 48000, 52000, 54000],
+    "candidate_horizons": [2, 3, 4, 5, 6, 7, 8],
+    "diagnostic_roughness_probes": 8,
+    "shadow_deployment_replicas": 32,
+    "return_argmax_deployment_replicas": 128,
+    "reference_replicas": 128,
+    "query_env_steps": 256,
+    "conditional_reference_env_steps": 500,
+    "planner_budget": "matches deployed TD-MPC2 planner",
+    "config_hash_rule": "launcher-computed SHA-256 of campaign-v1, exact commit, mode, profile, frozen run id, source step, final step, and seed"
+  },
+  "profiles": [
+    {"run_id": "penddiag__b1_fixed_h2__s7", "profile": "b1", "controller": "fixed_h2", "scripted_horizons": [2], "shadow_only": true},
+    {"run_id": "penddiag__b2_fixed_h3__s7", "profile": "b2", "controller": "fixed_h3", "scripted_horizons": [3], "shadow_only": true},
+    {"run_id": "penddiag__b3_delay_match__s7", "profile": "b3", "controller": "delay_match", "scripted_horizons": [2, 2, 6, 4, 2], "shadow_only": true},
+    {"run_id": "penddiag__b4_causal_coverage__s7", "profile": "b4", "controller": "causal_coverage", "scripted_horizons": [2, 3, 7, 5, 2], "shadow_only": true},
+    {"run_id": "penddiag__b5_return_argmax__s7", "profile": "b5", "controller": "return_argmax", "score_variant": "return_argmax", "shadow_only": false}
+  ],
+  "predeclared_readout": {
+    "primary": ["time_normalized_eval_return_auc", "delayed_phase_auc", "final_clean_recovery", "independent_oracle_regret"],
+    "mechanism": ["candidate_return_rank", "score_return_rank_correlation", "horizon_lag", "switches_per_phase", "aba_chatter", "query_compute_time"],
+    "static_rule": "If B1/B2 AUC differs by less than 2%, retain canonical h=3; otherwise name only a checkpoint-conditional schedule winner if final clean return is at least 95% of the other.",
+    "forced_rule": "B3/B4 require delayed AUC >=1.05 times best static and final clean >=0.95 times best static to count as useful causal controls.",
+    "return_argmax_rule": "B5 succeeds if delayed AUC >=1.05 times best static, final clean >=0.95 times best static, and independent-reference regret <=2% of oracle return. Chatter is diagnostic, not a failure gate."
+  },
+  "tracking": {
+    "ledger": "experiments/pendulum_delay_controller_diagnostic_ledger.csv",
+    "decisions": "experiments/pendulum_delay_controller_diagnostic_decisions.md",
+    "gate": "experiments/pendulum_delay_controller_diagnostic_gates.json",
+    "rfc": "experiments/pendulum_delay_controller_diagnostic_rfc.md",
+    "results_dir": "runs/results/pendulum_delay_controller_diagnostic",
+    "remote_source_dir": "/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-score-screen/outputs/pendulum_score_screen/pendscore__source34k__s7/attempt_1",
+    "remote_output_root": "outputs/pendulum_delay_controller_diagnostic",
+    "report_tex": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.tex",
+    "report_pdf": "/Users/ggmar/Documents/git/robusthorizonsearch/reports/experiment_plans/cartpole_delay_six_run_pilot_plan.pdf"
+  }
+}

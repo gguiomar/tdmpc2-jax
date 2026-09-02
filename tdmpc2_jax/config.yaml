@@ -100,6 +100,12 @@ frontier_atlas:
 
 dense_rhs:
   enabled: true
+  # When true, Dense-RHS still evaluates and logs every candidate but cannot
+  # change the horizon deployed by a fixed or scripted controller.
+  shadow_only: false
+  # Forked diagnostic campaigns can reset all accumulated controller evidence
+  # while retaining the restored agent and replay buffer.
+  reset_state_on_restore: false
   initial_horizon: 3
   start_query_step: null
   horizons: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]

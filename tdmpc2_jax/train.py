@@ -168,6 +168,8 @@ class _ArtifactWriter:
             'step',
             'previous_horizon',
             'selected_horizon',
+            'deployed_horizon',
+            'shadow_selected_horizon',
             'proposed_horizon',
             'best_h',
             'phase_id',
@@ -373,6 +375,13 @@ def _restored_dense_query_interval(dense_rhs_config,
   return int(
       dense_rhs_config.get('query_interval_steps', current_query_interval)
   )
+
+
+def _select_horizon_state_on_restore(fresh_state,
+                                     restored_state,
+                                     reset_state: bool):
+  """Selects a zero-evidence controller state for a scientific fork."""
+  return fresh_state if bool(reset_state) else restored_state
 
 
 def _dense_query_due_at_boundary(global_step: int,
@@ -1011,6 +1020,82 @@ def _next_scripted_horizon_step(schedule: tuple[tuple[int, int], ...],
   )
 
 
+def _validate_dense_rhs_deployment_mode(*,
+                                        scripted_schedule,
+                                        dense_rhs_enabled: bool,
+                                        shadow_only: bool,
+                                        env_backend: str) -> None:
+  """Reject ambiguous combinations of scripted and adaptive deployment."""
+  if not scripted_schedule or not dense_rhs_enabled:
+    return
+  if not shadow_only:
+    raise ValueError(
+        'scripted_horizon and dense_rhs require dense_rhs.shadow_only=true; '
+        'otherwise two controllers would both own the deployed horizon.'
+    )
+  if str(env_backend) != 'mjx_dmc':
+    raise ValueError(
+        'scripted_horizon with dense_rhs.shadow_only is currently supported '
+        'only by the MJX-DMC training loop.'
+    )
+
+
+def _resolve_dense_query_deployment(previous_horizon: int,
+                                    adaptive_horizon: int,
+                                    shadow_only: bool) -> tuple[int, int]:
+  """Returns (deployed, counterfactual) horizons after one dense query."""
+  adaptive_horizon = int(adaptive_horizon)
+  if bool(shadow_only):
+    return int(previous_horizon), adaptive_horizon
+  return adaptive_horizon, adaptive_horizon
+
+
+def _reindex_shadow_metrics_at_deployment(metrics: dict,
+                                          deployed_horizon: int) -> dict:
+  """Makes every ``*_best`` alias refer to the actual deployed horizon."""
+  metrics = dict(metrics)
+  candidate_prefix = f'dense_rhs/candidate_{int(deployed_horizon)}_'
+  aliases = {
+      'best_fitness': 'fitness',
+      'decision_score_best': 'decision_score',
+      'score_se_best': 'score_se',
+      'score_lcb_best': 'score_lcb',
+      'deployment_score_best': 'deployment_score',
+      'transition_cost_best': 'transition_cost',
+      'transition_adjusted_score_best': 'transition_adjusted_score',
+      'switch_probability_best': 'switch_probability',
+      'expected_improvement_best': 'expected_improvement',
+      'expected_loss_best': 'expected_loss',
+      'expected_net_benefit_best': 'expected_net_benefit',
+      'return_term_best': 'return_term',
+      'roughness_term_best': 'roughness_term',
+      'return_std_term_best': 'return_std_term',
+      'learner_proxy_term_best': 'learner_proxy_term',
+      'model_prefix_loss_best': 'model_prefix_loss',
+      'model_probe_prefix_best': 'model_probe_prefix',
+      'planner_return_best': 'planner_return',
+      'roughness_best': 'roughness',
+      'robust_return_best': 'return',
+      'local_roughness_best': 'local_roughness',
+      'local_model_error_best': 'local_model_error',
+      'bellman_residual_best': 'bellman_residual',
+      'curvature_bellman_risk_best': 'curvature_bellman_risk',
+      'horizon_switch_cost_best': 'horizon_switch_cost',
+  }
+  aliases.update({
+      f'roughness_m{count}_best': f'roughness_m{count}'
+      for count in (2, 4, 8, 16, 32, 64)
+  })
+  for alias, candidate_suffix in aliases.items():
+    alias_key = f'dense_rhs/{alias}'
+    candidate_key = candidate_prefix + candidate_suffix
+    if alias_key not in metrics or candidate_key not in metrics:
+      continue
+    metrics[f'dense_rhs/shadow_controller_{alias}'] = metrics[alias_key]
+    metrics[alias_key] = metrics[candidate_key]
+  return metrics
+
+
 def _probe_timing_steps(cfg) -> tuple[int, ...]:
   timing = cfg.get('probe_timing', None)
   if timing is None or not bool(timing.get('enabled', False)):
@@ -1450,6 +1535,7 @@ def _run_mjx_training_loop(cfg,
     observation, _ = env.reset(seed=cfg.seed)
   pbar = tqdm.tqdm(initial=global_step, total=cfg.max_steps)
   dense_rhs_enabled = horizon_state is not None
+  dense_shadow_only = bool(dense_rhs_config.get('shadow_only', False))
   probe_timing_steps = (
       _probe_timing_steps(cfg) if dense_rhs_enabled else ()
   )
@@ -1487,7 +1573,7 @@ def _run_mjx_training_loop(cfg,
   )
 
   def apply_scripted_horizon(step: int) -> None:
-    nonlocal agent, plan, selected_horizon
+    nonlocal agent, plan, selected_horizon, horizon_state
     if not scripted_schedule:
       return
     target_horizon = _scripted_horizon_at_step(
@@ -1500,6 +1586,10 @@ def _run_mjx_training_loop(cfg,
     previous_horizon = int(selected_horizon)
     selected_horizon = int(target_horizon)
     agent = _make_training_horizon_agent(agent, selected_horizon, ())
+    if horizon_state is not None and dense_shadow_only:
+      horizon_state = horizon_state.replace(
+          best_h=jnp.asarray(selected_horizon, dtype=jnp.int32)
+      )
     plan = None
     writer.scalar('scripted_horizon/previous_horizon', previous_horizon, step)
     writer.scalar('scripted_horizon/selected_horizon', selected_horizon, step)
@@ -1556,7 +1646,11 @@ def _run_mjx_training_loop(cfg,
     )
     query_start = time.perf_counter()
     dense_query_agent = _make_dense_rhs_query_agent(agent, dense_rhs_config)
-    horizon_state, selected_horizon, dense_metrics = dense_checkpoint_eval(
+    if dense_shadow_only:
+      horizon_state = horizon_state.replace(
+          best_h=jnp.asarray(previous_horizon, dtype=jnp.int32)
+      )
+    horizon_state, adaptive_selected_horizon, dense_metrics = dense_checkpoint_eval(
         agent=dense_query_agent,
         replay_batch=query_batch,
         eval_state=dense_query_eval_state,
@@ -1566,27 +1660,67 @@ def _run_mjx_training_loop(cfg,
         query_step=int(step_for_query),
         dense_query_kernels=dense_query_kernels,
     )
-    horizon_state, selected_horizon, utility_metrics = (
-        _maybe_apply_deployment_utility_override(
-            horizon_state,
-            int(selected_horizon),
-            dense_metrics,
-            deployment_utility_state,
-            dense_rhs_config,
+    selected_horizon, adaptive_selected_horizon = (
+        _resolve_dense_query_deployment(
+            previous_horizon,
+            adaptive_selected_horizon,
+            dense_shadow_only,
         )
     )
+    if dense_shadow_only:
+      horizon_state = horizon_state.replace(
+          best_h=jnp.asarray(selected_horizon, dtype=jnp.int32)
+      )
+      dense_metrics = _reindex_shadow_metrics_at_deployment(
+          dense_metrics,
+          selected_horizon,
+      )
+      dense_metrics.update({
+          'dense_rhs/shadow_only': 1.0,
+          'dense_rhs/shadow_controller_selected_horizon': float(
+              adaptive_selected_horizon
+          ),
+          'dense_rhs/deployed_horizon': float(selected_horizon),
+      })
+      dense_metrics['dense_rhs/selected_horizon'] = float(selected_horizon)
+      utility_metrics = {}
+    else:
+      selected_horizon = int(adaptive_selected_horizon)
+      horizon_state, selected_horizon, utility_metrics = (
+          _maybe_apply_deployment_utility_override(
+              horizon_state,
+              int(selected_horizon),
+              dense_metrics,
+              deployment_utility_state,
+              dense_rhs_config,
+          )
+        )
+      dense_metrics.update({
+          'dense_rhs/shadow_only': 0.0,
+          'dense_rhs/shadow_controller_selected_horizon': float(
+              adaptive_selected_horizon
+          ),
+          'dense_rhs/deployed_horizon': float(selected_horizon),
+      })
     dense_metrics.update(utility_metrics)
     deployment_utility_state['pending_horizon'] = int(selected_horizon)
-    agent = _make_training_horizon_agent(
-        agent,
-        selected_horizon,
-        horizon_buckets,
-    )
-    plan = None
+    if not dense_shadow_only:
+      agent = _make_training_horizon_agent(
+          agent,
+          selected_horizon,
+          horizon_buckets,
+      )
+      plan = None
     dense_metrics['timing/query_total_s'] = max(
         float(dense_metrics.get('timing/query_total_s', 0.0)),
         time.perf_counter() - query_start,
     )
+    if hasattr(env, '_effective_action_delay'):
+      dense_metrics['environment/effective_action_delay'] = float(np.asarray(
+          env._effective_action_delay(
+              jnp.asarray(step_for_query, dtype=jnp.int32)
+          )
+      ))
     for metric_name, metric_value in dense_metrics.items():
       if isinstance(metric_value, str):
         continue
@@ -1598,6 +1732,8 @@ def _run_mjx_training_loop(cfg,
         'step': int(step_for_query),
         'previous_horizon': int(previous_horizon),
         'selected_horizon': int(selected_horizon),
+        'deployed_horizon': int(selected_horizon),
+        'shadow_selected_horizon': int(adaptive_selected_horizon),
         'proposed_horizon': int(dense_metrics['dense_rhs/proposed_horizon']),
         'best_h': int(best_h),
         'phase_id': int(np.asarray(horizon_state.phase_id)),
@@ -2061,7 +2197,11 @@ def _run_mjx_training_loop(cfg,
       _, _, conditional_reference_metrics = dense_checkpoint_eval(
           agent=conditional_reference_agent,
           replay_batch=calibration_batch,
-          eval_state=dense_query_eval_state,
+          # The conditional reference differs from the ordinary reference in
+          # planner capacity and rollout length, not in statistical power.
+          # Reuse the dedicated K-reference environment so a low-K deployment
+          # arm cannot silently reduce the independent oracle sample size.
+          eval_state=dense_reference_eval_state,
           horizon_state=reference_horizon_state,
           rng=jax.random.PRNGKey(
               int(cfg.seed) + int(global_step) + 110_000
@@ -2706,9 +2846,14 @@ def train(cfg: dict):
   if dense_rhs_config.enabled:
     initial_horizon = int(dense_rhs_config.get('initial_horizon', initial_horizon))
   scripted_schedule = _scripted_horizon_schedule(cfg)
+  dense_shadow_only = bool(dense_rhs_config.get('shadow_only', False))
+  _validate_dense_rhs_deployment_mode(
+      scripted_schedule=scripted_schedule,
+      dense_rhs_enabled=bool(dense_rhs_config.enabled),
+      shadow_only=dense_shadow_only,
+      env_backend=str(env_config.backend),
+  )
   if scripted_schedule:
-    if dense_rhs_config.enabled:
-      raise ValueError('scripted_horizon and dense_rhs cannot both be enabled.')
     initial_horizon = _scripted_horizon_at_step(
         scripted_schedule,
         0,
@@ -2730,6 +2875,7 @@ def train(cfg: dict):
   if model.action_dim >= 20:
     agent = agent.replace(mppi_iterations=agent.mppi_iterations + 2)
   horizon_state = None
+  fresh_horizon_state = None
   selected_horizon = int(tdmpc_config.horizon)
   dense_query_kernels = None
   dense_reference_kernels = None
@@ -2836,6 +2982,7 @@ def train(cfg: dict):
             dense_rhs_config.get('curvature_risk_scale', 0.01)
         ),
     )
+    fresh_horizon_state = horizon_state
     selected_horizon = int(np.asarray(horizon_state.best_h))
     agent = _make_training_horizon_agent(agent, selected_horizon, horizon_buckets)
     dense_query_kernels = build_dense_query_kernels(
@@ -2851,7 +2998,7 @@ def train(cfg: dict):
           candidate_budgets=(reference_candidate_slots,),
       )
       dense_conditional_reference_kernels = build_dense_query_kernels(
-          eval_state=dense_query_eval_state,
+          eval_state=dense_reference_eval_env,
           env_eval_steps=int(
               cfg.reference_probe.conditional_reference_env_eval_steps
           ),
@@ -2946,7 +3093,11 @@ def train(cfg: dict):
       if checkpoint_buffer:
         buffer_state = restored.buffer_state
       if horizon_state is not None:
-        horizon_state = restored.horizon_state
+        horizon_state = _select_horizon_state_on_restore(
+            fresh_horizon_state,
+            restored.horizon_state,
+            bool(dense_rhs_config.get('reset_state_on_restore', False)),
+        )
         horizon_state = horizon_state.replace(
             query_interval_steps=jnp.asarray(
                 _restored_dense_query_interval(
@@ -2978,6 +3129,20 @@ def train(cfg: dict):
         save_args['horizon_state'] = ocp.args.StandardSave(horizon_state)
       mngr.save(global_step, args=ocp.args.Composite(**save_args))
       mngr.wait_until_finished()
+    # A forked fixed/scripted arm owns deployment from the instant the source
+    # checkpoint is restored. Synchronize the agent and shadow incumbent before
+    # any anchor, evaluation, rollout, or training update can observe it.
+    if scripted_schedule:
+      selected_horizon = _scripted_horizon_at_step(
+          scripted_schedule,
+          int(global_step),
+          selected_horizon,
+      )
+      agent = _make_training_horizon_agent(agent, selected_horizon, ())
+      if horizon_state is not None and dense_shadow_only:
+        horizon_state = horizon_state.replace(
+            best_h=jnp.asarray(selected_horizon, dtype=jnp.int32)
+        )
     frontier_atlas_config = cfg.get('frontier_atlas', None)
     if (
         frontier_atlas_config is not None and

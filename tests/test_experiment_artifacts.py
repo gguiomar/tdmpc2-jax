@@ -27,8 +27,12 @@ def _load_train_artifact_helpers():
           '_scripted_horizon_schedule',
           '_scripted_horizon_at_step',
           '_next_scripted_horizon_step',
+          '_validate_dense_rhs_deployment_mode',
+          '_resolve_dense_query_deployment',
+          '_reindex_shadow_metrics_at_deployment',
           '_restored_dense_query_interval',
           '_restored_dense_query_step',
+          '_select_horizon_state_on_restore',
           '_dense_query_due_at_boundary',
           '_make_full_horizon_deployed_planner_agent',
       }
@@ -151,6 +155,77 @@ class ScriptedHorizonTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       self.helpers['_scripted_horizon_schedule'](config)
 
+  def test_scripted_and_dense_require_explicit_shadow_only_mode(self):
+    validate = self.helpers['_validate_dense_rhs_deployment_mode']
+    schedule = ((0, 2), (42_000, 6))
+    with self.assertRaisesRegex(ValueError, 'shadow_only=true'):
+      validate(
+          scripted_schedule=schedule,
+          dense_rhs_enabled=True,
+          shadow_only=False,
+          env_backend='mjx_dmc',
+      )
+    validate(
+        scripted_schedule=schedule,
+        dense_rhs_enabled=True,
+        shadow_only=True,
+        env_backend='mjx_dmc',
+    )
+
+  def test_shadow_only_script_is_rejected_outside_mjx_loop(self):
+    with self.assertRaisesRegex(ValueError, 'only by the MJX-DMC'):
+      self.helpers['_validate_dense_rhs_deployment_mode'](
+          scripted_schedule=((0, 3),),
+          dense_rhs_enabled=True,
+          shadow_only=True,
+          env_backend='dmc',
+      )
+
+  def test_shadow_query_cannot_change_deployed_horizon(self):
+    resolve = self.helpers['_resolve_dense_query_deployment']
+    self.assertEqual(resolve(3, 8, True), (3, 8))
+    self.assertEqual(resolve(3, 8, False), (8, 8))
+
+  def test_shadow_query_tracks_scripted_boundaries_without_owning_deployment(self):
+    at_step = self.helpers['_scripted_horizon_at_step']
+    resolve = self.helpers['_resolve_dense_query_deployment']
+    schedule = (
+        (0, 2),
+        (38_000, 3),
+        (42_000, 7),
+        (46_000, 5),
+        (50_000, 2),
+    )
+
+    for step, adaptive, expected_deployed in (
+        (37_999, 8, 2),
+        (38_000, 8, 3),
+        (42_000, 2, 7),
+        (46_000, 8, 5),
+        (50_000, 8, 2),
+    ):
+      scripted = at_step(schedule, step, 99)
+      self.assertEqual(
+          resolve(scripted, adaptive, True),
+          (expected_deployed, adaptive),
+      )
+
+  def test_shadow_best_aliases_are_reindexed_to_deployment(self):
+    reindex = self.helpers['_reindex_shadow_metrics_at_deployment']
+    actual = reindex({
+        'dense_rhs/best_fitness': 8.0,
+        'dense_rhs/deployment_score_best': 80.0,
+        'dense_rhs/candidate_3_fitness': 3.0,
+        'dense_rhs/candidate_3_deployment_score': 30.0,
+    }, 3)
+    self.assertEqual(actual['dense_rhs/best_fitness'], 3.0)
+    self.assertEqual(actual['dense_rhs/deployment_score_best'], 30.0)
+    self.assertEqual(actual['dense_rhs/shadow_controller_best_fitness'], 8.0)
+    self.assertEqual(
+        actual['dense_rhs/shadow_controller_deployment_score_best'],
+        80.0,
+    )
+
   def test_conditional_reference_expands_plan_buffer_to_search_hmax(self):
     class FakeAgent:
       def __init__(self, **values):
@@ -191,6 +266,7 @@ class ScriptedHorizonTest(unittest.TestCase):
         ),
         32_000,
     )
+
     self.assertEqual(
         helper(
             30_000,
@@ -224,6 +300,13 @@ class ScriptedHorizonTest(unittest.TestCase):
         ),
         4_000,
     )
+
+  def test_checkpoint_fork_can_reset_all_controller_evidence(self):
+    select = self.helpers['_select_horizon_state_on_restore']
+    fresh = object()
+    inherited = object()
+    self.assertIs(select(fresh, inherited, True), fresh)
+    self.assertIs(select(fresh, inherited, False), inherited)
 
   def test_dense_query_includes_exact_terminal_boundary(self):
     class QueryState:

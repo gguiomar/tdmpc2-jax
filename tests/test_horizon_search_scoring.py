@@ -294,7 +294,7 @@ def test_paired_lcb_gate_uses_one_sided_threshold(
   np.testing.assert_allclose(result.score_lcb[2], 2.0, atol=1e-6)
 
 
-def _variant_finalize(score_variant):
+def _variant_finalize(score_variant, paired_returns=None):
   state = HorizonSearchState.create(
       horizons=[2, 3, 4],
       hmax=4,
@@ -330,11 +330,13 @@ def _variant_finalize(score_variant):
       candidate_mask=jnp.asarray([True, True, True]),
       candidate_indices=jnp.asarray([0, 1, 2]),
   )
-  paired_returns = jnp.asarray([
-      [9.0, 10.0, 11.0, 10.0],
-      [10.0, 11.0, 12.0, 11.0],
-      [11.0, 12.0, 13.0, 12.0],
-  ])
+  if paired_returns is None:
+    paired_returns = [
+        [9.0, 10.0, 11.0, 10.0],
+        [10.0, 11.0, 12.0, 11.0],
+        [11.0, 12.0, 13.0, 12.0],
+    ]
+  paired_returns = jnp.asarray(paired_returns, dtype=jnp.float32)
   kernel = _build_dense_query_kernel(None, candidate_slots=3, env_eval_steps=None)
   return kernel.finalize_stage(
       state,
@@ -377,6 +379,47 @@ def test_curvature_bellman_variant_exposes_risk_components():
   assert np.all(np.asarray(result.local_model_error) >= 0.0)
   assert np.all(np.asarray(result.bellman_residual) >= 0.0)
   assert np.all(np.asarray(result.curvature_bellman_risk) >= 0.0)
+
+
+def test_return_argmax_ignores_roughness_uncertainty_and_switch_cost():
+  result = _variant_finalize(
+      'return_argmax',
+      paired_returns=[
+          [10.0, 10.0, 10.0, 10.0],
+          [12.0, 12.0, 12.0, 12.0],
+          [0.0, 0.0, 0.0, 52.0],
+      ],
+  )
+
+  # h=4 has the largest paired rollout mean (13 versus 12 for h=3). It must
+  # win even though it has enough variance for its LCB to lose, is the
+  # roughest candidate, and has the largest direct switching cost.
+  assert int(result.proposed_horizon) == 4
+  assert int(result.selected_horizon) == 4
+  assert float(result.score_lcb[2]) < float(result.score_lcb[1])
+  np.testing.assert_allclose(result.roughness_term, np.zeros((3,)))
+  np.testing.assert_allclose(result.sigma_r_term, np.zeros((3,)))
+  np.testing.assert_allclose(
+      result.decision_score,
+      np.asarray([0.0, 2.0, 3.0]),
+      atol=1e-6,
+  )
+
+
+def test_return_argmax_breaks_exact_mean_ties_toward_lower_ordered_horizon():
+  result = _variant_finalize(
+      'return_argmax',
+      paired_returns=[
+          [10.0, 10.0, 10.0, 10.0],
+          [12.0, 12.0, 12.0, 12.0],
+          [9.0, 11.0, 13.0, 15.0],
+      ],
+  )
+
+  # Candidate horizons are ordered [2, 3, 4], so an exact mean tie between
+  # h=3 and h=4 must resolve to the lower horizon deterministically.
+  assert int(result.proposed_horizon) == 3
+  assert int(result.selected_horizon) == 3
 
 
 @pytest.mark.parametrize('score_mode', ['additive', 'multiplicative'])
