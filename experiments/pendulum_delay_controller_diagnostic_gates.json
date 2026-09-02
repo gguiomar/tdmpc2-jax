@@ -3,7 +3,13 @@
   "campaign": "pendulum_delay_controller_diagnostic",
   "scientific_revision": "e25f20437fd79f773de3c73d27a8f3d591a523f8",
   "source": {"job_id": "4632", "checkpoint_step": 34000, "config_hash": "0bdd02caf67c1fc95ee0efac5b07ee92f315ee81612f8965eba8abdf1cfe5bb8", "validated": true},
-  "cpu_tests": {"passed": false},
+  "cpu_tests": {
+    "passed": true,
+    "tests_passed": 106,
+    "warning_count": 1,
+    "revision": "e25f20437fd79f773de3c73d27a8f3d591a523f8",
+    "validated_at": "2026-09-02T16:29:00Z"
+  },
   "gpu_smoke": {"passed": false},
   "egl_render_smoke": {"passed": false},
   "full_launch_allowed": false

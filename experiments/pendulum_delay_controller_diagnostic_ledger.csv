@@ -1,1 +1,2 @@
 timestamp_utc,job_id,mode,profile,run_id,attempt,commit,config_hash,state,reason,run_dir
+2026-09-02T16:34:16Z,4834,smoke,b4,penddiag__smoke_b4__s7,1,e25f20437fd79f773de3c73d27a8f3d591a523f8,94a71c723d2cc524a989864a75b65e82cfade0757fa062c714a3f9c2a7eda590,SUBMITTED,cpu_source_and_capacity_gates_passed,/home/goncalo/git/horizonsearch/tdmpc2-jax-pendulum-delay-diagnostic/outputs/pendulum_delay_controller_diagnostic/penddiag__smoke_b4__s7/attempt_1

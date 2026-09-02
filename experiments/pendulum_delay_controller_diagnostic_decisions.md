@@ -17,3 +17,9 @@ The score query is an episodic fresh-reset objective. Boundary queries are analy
 The prelaunch audit found two provenance leaks that would have made the diagnostic ambiguous. First, checkpoint forks inherited the parent controller's accumulated score evidence and original query clock; the diagnostic now resets both while retaining the same agent, replay buffer, and global step. Second, the conditional 500-step oracle initially reused the deployment environment, which would have reduced B1--B4 from 128 to 32 replicas. It now uses the dedicated 128-replica reference environment for every arm.
 
 The only active adaptive arm, B5, implements the exact lowest-index `float32` argmax of paired mean return. Its decision bypasses uncertainty, roughness, Bellman/curvature terms, switching costs, confidence gates, hysteresis, and transition-size limits. Those quantities remain logged as diagnostics. The single Slurm launcher hard-codes the scientific arguments, enforces the frozen run ID for each profile, and computes its config identity from the exact committed launcher revision rather than accepting a caller-supplied hash.
+
+## 2026-09-02 — source and CPU gate
+
+The clean isolated NCC checkout was created at frozen scientific revision `e25f20437fd79f773de3c73d27a8f3d591a523f8`. Source job 4632 matches run `pendscore__source34k__s7`, config hash `0bdd02caf67c1fc95ee0efac5b07ee92f315ee81612f8965eba8abdf1cfe5bb8`, and a valid 34k checkpoint containing agent, buffer state, horizon state, and global step. The full CPU gate passed 106 tests with one non-fatal headless GLFW warning.
+
+With three H200 GPUs physically idle and no active campaign jobs, the single required B4 compressed GPU/EGL smoke was submitted as Slurm job 4834. Its frozen config hash is `94a71c723d2cc524a989864a75b65e82cfade0757fa062c714a3f9c2a7eda590` and its fresh output is `penddiag__smoke_b4__s7/attempt_1`.
