@@ -1,6 +1,7 @@
 import numpy as np
 
 from scripts.analyze_pendulum_score_screen import (
+    _confirmation_profiles,
     _full_run_candidates,
     _trapezoidal_mean,
 )
@@ -21,3 +22,13 @@ def test_trapezoidal_mean_uses_current_numpy_api():
   values = np.asarray([0.0, 1.0, 2.0])
 
   assert _trapezoidal_mean(values, steps) == 1.0
+
+
+def test_confirmation_profiles_exclude_ineligible_arms():
+  runs = {
+      's0': {'metrics': {'mean_oracle_regret': 1.6}},
+      's1': {'metrics': {'mean_oracle_regret': 3.3}},
+      's2': {'metrics': {'mean_oracle_regret': 1.3}},
+  }
+
+  assert _confirmation_profiles(runs, ['s0']) == ['s0']

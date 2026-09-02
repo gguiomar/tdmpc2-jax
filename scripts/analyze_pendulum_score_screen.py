@@ -255,6 +255,14 @@ def _trapezoidal_mean(values: np.ndarray, steps: np.ndarray) -> float:
   return float(np.trapezoid(values, steps) / (steps[-1] - steps[0]))
 
 
+def _confirmation_profiles(runs: dict, eligible: list[str], limit: int = 2) -> list[str]:
+  """Rank only promotion-eligible profiles for confirmation."""
+  return sorted(
+      eligible,
+      key=lambda profile: runs[profile]['metrics']['mean_oracle_regret'],
+  )[:limit]
+
+
 def _run_metrics(run_dir: Path) -> dict:
   manifest = json.loads((run_dir / 'run_manifest.json').read_text())
   scalars = _scalars_by_tag(run_dir)
@@ -461,13 +469,7 @@ def reduce_runs(root: Path, output_dir: Path) -> dict:
       'winner': winner,
       'promotion_eligible': eligible,
       'runs': {profile: runs[profile]['metrics'] for profile in profiles},
-      'confirmation_profiles': sorted(
-          profiles,
-          key=lambda profile: (
-              -runs[profile]['metrics']['promotion_eligible'],
-              runs[profile]['metrics']['mean_oracle_regret'],
-          ),
-      )[:2],
+      'confirmation_profiles': _confirmation_profiles(runs, eligible),
       'h8_boundary_hit': any(
           8 in record['metrics']['oracle_horizons'].values()
           for record in runs.values()
