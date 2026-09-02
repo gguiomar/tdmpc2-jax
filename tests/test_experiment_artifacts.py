@@ -29,6 +29,7 @@ def _load_train_artifact_helpers():
           '_next_scripted_horizon_step',
           '_restored_dense_query_interval',
           '_restored_dense_query_step',
+          '_dense_query_due_at_boundary',
           '_make_full_horizon_deployed_planner_agent',
       }
   ]
@@ -223,6 +224,20 @@ class ScriptedHorizonTest(unittest.TestCase):
         ),
         4_000,
     )
+
+  def test_dense_query_includes_exact_terminal_boundary(self):
+    class QueryState:
+      def __init__(self, next_query_step):
+        self.next_query_step = next_query_step
+
+      def should_query(self, step):
+        return int(step) >= int(self.next_query_step)
+
+    due = self.helpers['_dense_query_due_at_boundary']
+    state = QueryState(36_000)
+    self.assertFalse(due(35_600, 36_000, state))
+    self.assertTrue(due(36_000, 36_000, state))
+    self.assertFalse(due(36_008, 36_000, state))
 
 
 class RolloutValidationTest(unittest.TestCase):

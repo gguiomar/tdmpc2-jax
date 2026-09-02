@@ -1,9 +1,10 @@
 {
   "schema_version": 1,
   "status": "gating",
-  "expected_commit": "856f87896db78e9977c441c35e6d1829c3bb0f4d",
+  "expected_commit": "76392f183edf296a4265ea35e506778de46fcc8c",
   "cpu_tests": {
-    "status": "passed",
+    "status": "passed_repair",
+    "commit": "76392f183edf296a4265ea35e506778de46fcc8c",
     "tests_passed": 51,
     "command": "JAX_PLATFORMS=cpu python -m pytest -q tests/test_horizon_search_scoring.py tests/test_mjx_dmc_action_delay.py tests/test_experiment_artifacts.py tests/test_pendulum_delay_adaptation.py"
   },
@@ -28,19 +29,19 @@
     }
   },
   "gpu_smoke": {
-    "status": "repairing",
-    "job_id": 4633,
+    "status": "repairing_terminal_query",
+    "job_id": 4822,
     "run_id": "pendscore__smoke_s3__s7",
-    "attempt": 1,
+    "attempt": 2,
     "profile": "s3",
     "config_hash": "5d46e087fbec8d6116bc28d15dfe00556107c30966415f40e6ab1806e10a6bf4"
   },
   "egl_render_smoke": {
-    "status": "passed_attempt_1",
-    "job_id": 4633,
+    "status": "passed_attempt_2",
+    "job_id": 4822,
     "run_id": "pendscore__smoke_s3__s7",
-    "attempt": 1,
-    "artifacts": "six d=0/4/6 trajectory trios with GIF and PNG rendered successfully"
+    "attempt": 2,
+    "artifacts": "Attempt 2 rendered all six d=0/4/6 trajectory trios with GIF and PNG successfully"
   },
   "scientific_jobs": [],
   "confirmation_jobs": [],

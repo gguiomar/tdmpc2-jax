@@ -375,6 +375,16 @@ def _restored_dense_query_interval(dense_rhs_config,
   )
 
 
+def _dense_query_due_at_boundary(global_step: int,
+                                 max_steps: int,
+                                 horizon_state) -> bool:
+  """Includes a query due exactly at the terminal training boundary."""
+  return (
+      int(global_step) <= int(max_steps) and
+      bool(horizon_state.should_query(int(global_step)))
+  )
+
+
 def _json_safe_config(cfg):
   return OmegaConf.to_container(cfg, resolve=True)
 
@@ -1914,8 +1924,11 @@ def _run_mjx_training_loop(cfg,
     if (
         dense_rhs_enabled and
         horizon_state is not None and
-        int(global_step) < int(cfg.max_steps) and
-        horizon_state.should_query(int(global_step))
+        _dense_query_due_at_boundary(
+            int(global_step),
+            int(cfg.max_steps),
+            horizon_state,
+        )
     ):
       run_dense_query(int(global_step))
 

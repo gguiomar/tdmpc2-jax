@@ -21,3 +21,11 @@ The archived run's evaluation return drops at exactly 34k because its hidden del
 ## Smoke attempt 1 diagnosis
 
 Slurm job 4633 completed training, the terminal composite checkpoint, all six d=0/4/6 trajectory trios, and all EGL GIF/PNG renders, but strict validation correctly rejected its query cadence: it emitted only the first query at 34.4k. The fork logic reset `next_query_step` to the new protocol but left `query_interval_steps=4000` inside the restored horizon state, so the next query was scheduled beyond the 36k smoke endpoint. The smallest repair makes a requested schedule reset adopt both the new first query and the new interval. This is a protocol-enforcement fix; it does not change any frozen score, delay, model, or controller setting. Attempt 1 is retained as failed evidence and will not be used scientifically.
+
+## Repair gate and smoke attempt 2
+
+The isolated NCC checkout was safely fast-forwarded to repair revision `76392f1`. The full frozen CPU gate passed all 51 tests on NCC. With all four H200 GPUs physically idle at submission time, corrected S3 smoke attempt 2 was submitted as Slurm job 4822. It retains the original smoke config hash and common validated 34k source; only the restored query-interval contract differs from failed attempt 1.
+
+## Smoke attempt 2 diagnosis
+
+Slurm job 4822 verified the interval repair by emitting queries at 34.4k, 34.8k, 35.2k, and 35.6k. It then completed training, the 36k composite checkpoint, and all six EGL GIF/PNG renders, but strict validation rejected the missing 36k terminal query. The MJX loop explicitly required `global_step < max_steps` when applying a query after a collection boundary. Consequently, a query due exactly at the frozen endpoint was skipped even though checkpoint, evaluation, reference-probe, and artifact logic all include that endpoint. This would also omit the scientifically required 54k deployment query in every full arm. The next repair will allow a due query at `global_step == max_steps`, test that boundary contract directly, and preserve the frozen schedule and score definitions.
