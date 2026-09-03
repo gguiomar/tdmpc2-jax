@@ -39,3 +39,17 @@ Their released GPUs were physically idle, the remote checkout remained clean at 
 ## 2026-09-02 — return-only arm valid
 
 Job 4837 (B5 active 128-replica return argmax) completed with exit code 0 and `RUN_VALID`. The validator accepted all ten queries through 54k, the exact return-only selection invariant, both 128-replica reference namespaces, terminal checkpoint, anchors, trajectories, and six GIF/PNG pairs. Its deployed horizon sequence was 2, 2, 3, 3, 3, 2, 2, 4, 4, 5 at queries 36k through 54k. Interpretation is deferred until B3/B4 complete and the predeclared aggregate reducer can compare all five arms.
+
+## 2026-09-02 — forced-control arms valid
+
+Jobs 4838 (B3 delay-match) and 4839 (B4 causal-coverage) completed with exit code 0 and `RUN_VALID`. For each arm, the validator accepted the exact ten-query cadence from 36k through 54k, finite paired evidence for every candidate horizon, both 128-replica reference namespaces including the conditional 500-step reference, exact deployment/training/evaluation/episode/anchor horizon identity, the terminal composite checkpoint, every anchor and delay-0/delay-4/delay-6 trajectory, and nonempty GIF/PNG media.
+
+All five frozen full profiles B1--B5 are now valid. Scientific interpretation remains deferred to the predeclared aggregate reducer and its static, forced-control, and return-argmax gates.
+
+## 2026-09-03 — aggregate diagnostic decision
+
+The compact B1--B5 metrics, manifests, validation summaries, trajectories, and media were synchronized locally. The predeclared reducer completed with `AGGREGATE_VALID`. B1 fixed h=2 is the checkpoint-conditional static winner: its full-curve AUC exceeds B2 fixed h=3 by 5.497%, while its final clean-phase mean is 99.21% of B2 and therefore clears the 95% safeguard.
+
+Neither forced controller is promoted. Relative to B1, B3 delay-match reaches 82.85% of delayed-phase AUC and 92.89% of clean return, failing both gates. B4 causal-coverage reaches 73.72% and 99.41%, failing the delayed-phase gate. B5 exact return argmax reaches 118.49% of B1 delayed-phase AUC and 101.52% of its clean return, but its independent-reference regret fraction is 2.393%, above the predeclared 2% ceiling. B5 is retained only as a promising mechanism diagnostic, not promoted as a controller.
+
+The five full runs consumed 11:50:22 GPU time; including the validated smoke gives 12:13:08. The version 1.6 report records the exact methods, revisions, job IDs, results, trajectories, media, gates, compute cost, failure interpretation, and hidden-delay limitations and was compiled and visually checked on 2026-09-03.
